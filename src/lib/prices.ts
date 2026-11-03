@@ -1,15 +1,30 @@
-import { useQuery } from 'convex/react'
-import { api } from '@/convex/_generated/api'
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
 
-/**
- * Returns a lookup that prefers the price published by administration and falls
- * back to the price shipped with the site data.
- */
+type PropertyPrice = { slug: string; price_label: string }
+
+/** Reads published price overrides from the Supabase properties table. */
 export function useResidencePrice() {
-  const rows = useQuery(api.properties.prices)
+  const [rows, setRows] = useState<PropertyPrice[]>([])
 
-  return (slug: string, fallback: string) => {
-    const match = rows?.find((row) => row.slug === slug)
-    return match?.priceLabel ?? fallback
-  }
+  useEffect(() => {
+    if (!supabase) return
+    let active = true
+    supabase
+      .from('properties')
+      .select('slug, price_label')
+      .eq('status', 'published')
+      .then(({ data, error }) => {
+        if (!active) return
+        if (error) {
+          console.error('Could not load property prices:', error.message)
+          return
+        }
+        setRows(data ?? [])
+      })
+    return () => { active = false }
+  }, [])
+
+  return (slug: string, fallback: string) =>
+    rows.find((row) => row.slug === slug)?.price_label ?? fallback
 }
