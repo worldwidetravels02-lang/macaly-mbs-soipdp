@@ -1,34 +1,9 @@
-import { useAuthActions } from '@convex-dev/auth/react'
 import { Link, useNavigate } from '@tanstack/react-router'
-import { useConvex, useMutation } from 'convex/react'
 import { useState } from 'react'
-import { api } from '@/convex/_generated/api'
+import { supabase } from '@/lib/supabase'
 import { ArrowRight } from './site-chrome'
 
 type View = 'signin' | 'signup' | 'forgot' | 'reset'
-
-const DIAL_CODES = [
-  { code: '+971', label: 'UAE' },
-  { code: '+91', label: 'India' },
-  { code: '+92', label: 'Pakistan' },
-  { code: '+966', label: 'Saudi Arabia' },
-  { code: '+974', label: 'Qatar' },
-  { code: '+965', label: 'Kuwait' },
-  { code: '+973', label: 'Bahrain' },
-  { code: '+968', label: 'Oman' },
-  { code: '+20', label: 'Egypt' },
-  { code: '+44', label: 'United Kingdom' },
-  { code: '+1', label: 'United States' },
-  { code: '+33', label: 'France' },
-  { code: '+49', label: 'Germany' },
-  { code: '+90', label: 'Turkey' },
-  { code: '+7', label: 'Russia' },
-  { code: '+86', label: 'China' },
-  { code: '+62', label: 'Indonesia' },
-  { code: '+63', label: 'Philippines' },
-  { code: '+234', label: 'Nigeria' },
-  { code: '+27', label: 'South Africa' },
-]
 
 const inputClass =
   'mt-2 w-full border border-input bg-background px-4 py-3 text-[0.95rem] outline-none transition-colors placeholder:text-ink-soft/60 focus:border-brass disabled:opacity-60'
@@ -47,10 +22,7 @@ function mapError(err: unknown, view: View) {
 }
 
 export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
-  const { signIn } = useAuthActions()
-  const convex = useConvex()
   const navigate = useNavigate()
-  const saveProfile = useMutation(api.members.saveProfile)
 
   const [view, setView] = useState<View>(mode === 'register' ? 'signup' : 'signin')
   const [busy, setBusy] = useState(false)
@@ -59,12 +31,10 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [mobile, setMobile] = useState('')
-  const [dialCode, setDialCode] = useState('+971')
   const [referralCode, setReferralCode] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [code, setCode] = useState('')
-  const [loginMethod, setLoginMethod] = useState<'mobile' | 'email'>('mobile')
 
   const clearError = () => {
     if (error) setError(null)
@@ -73,68 +43,57 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
   const handleSignInOrUp = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError(null)
+    if (!supabase) return setError('Login is not configured yet. Please contact the website administrator.')
 
     if (view === 'signup') {
       if (fullName.trim().length < 2) return setError('Please enter your full name.')
-      if (mobile.replace(/\D/g, '').length < 7) return setError('Please enter a valid mobile number.')
+      if (mobile.replace(/\\D/g, '').length < 7) return setError('Please enter a valid mobile number.')
       if (password.length < 8) return setError('Your password needs at least 8 characters.')
       if (password !== confirmPassword) return setError('The two passwords do not match.')
+    } else if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email.trim())) {
+      return setError('Please enter a valid email address.')
     }
 
     setBusy(true)
     try {
-      let signInEmail = email.trim()
-      if (view === 'signin' && loginMethod === 'email') {
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(signInEmail)) {
-          setBusy(false)
-          return setError('Please enter the email address on your account.')
-        }
-      } else if (view === 'signin') {
-        const digits = mobile.replace(/\D/g, '')
-        if (digits.length < 7) {
-          setBusy(false)
-          return setError('Please enter the mobile number on your account.')
-        }
-        const fullMobile = mobile.trim().startsWith('+')
-          ? mobile.trim()
-          : `${dialCode} ${mobile.trim()}`
-        const found = await convex.query(api.members.loginEmailForMobile, {
-          mobile: fullMobile,
-        })
-        if (!found) {
-          setBusy(false)
-          return setError('No account found for that mobile number.')
-        }
-        signInEmail = found
-      }
-
-      const formData = new FormData()
-      formData.set('email', signInEmail)
-      formData.set('password', password)
-      formData.set('flow', view === 'signup' ? 'signUp' : 'signIn')
-      if (view === 'signup') formData.set('name', fullName.trim())
-
-      await signIn('password', formData)
-
       if (view === 'signup') {
-        const payload = {
-          fullName: fullName.trim(),
-          mobile: mobile.trim(),
-          referralCode: referralCode.trim() || undefined,
+        const { data, error: authError } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+          options: { data: { full_name: fullName.trim(), mobile: mobile.trim() } },
+        })
+        if (authError) throw authError
+        if (data.session && data.user) {
+          const { error: profileError } = await supabase.from('profiles').upsert({
+            id: data.user.id,
+            full_name: fullName.trim(),
+            mobile: mobile.trim(),
+          }, { onConflict: 'id' })
+          if (profileError) throw profileError
+          await navigate({ to: '/dashboard' })
+        } else {
+          setError('Please check your email and confirm your account before signing in.')
+          setView('signin')
         }
-        // The session can take a moment to reach the backend, so retry briefly.
-        for (let attempt = 0; attempt < 8; attempt += 1) {
-          try {
-            await saveProfile(payload)
-            break
-          } catch (profileError) {
-            if (attempt === 7) console.error('Could not save member profile', profileError)
-            await new Promise((resolve) => setTimeout(resolve, 250))
+      } else {
+        const { data, error: authError } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        })
+        if (authError) throw authError
+        if (data.user) {
+          const { data: profile } = await supabase.from('profiles').select('id').eq('id', data.user.id).maybeSingle()
+          if (!profile) {
+            const { error: profileError } = await supabase.from('profiles').insert({
+              id: data.user.id,
+              full_name: String(data.user.user_metadata?.full_name ?? ''),
+              mobile: String(data.user.user_metadata?.mobile ?? ''),
+            })
+            if (profileError) throw profileError
           }
         }
+        await navigate({ to: '/dashboard' })
       }
-
-      await navigate({ to: '/dashboard' })
     } catch (err) {
       setError(mapError(err, view))
     } finally {
@@ -145,13 +104,15 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
   const handleForgot = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError(null)
+    if (!supabase) return setError('Login is not configured yet. Please contact the website administrator.')
+    if (!email.trim()) return setError('Please enter your email address.')
     setBusy(true)
     try {
-      const formData = new FormData()
-      formData.set('email', email.trim())
-      formData.set('flow', 'reset')
-      await signIn('password', formData)
-      setView('reset')
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: window.location.origin + '/login',
+      })
+      if (resetError) throw resetError
+      setError('Password reset email sent. Open the link in your email to choose a new password.')
     } catch (err) {
       setError(mapError(err, 'forgot'))
     } finally {
@@ -162,15 +123,12 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
   const handleReset = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError(null)
+    if (!supabase) return setError('Login is not configured yet. Please contact the website administrator.')
     if (password.length < 8) return setError('Your new password needs at least 8 characters.')
     setBusy(true)
     try {
-      const formData = new FormData()
-      formData.set('email', email.trim())
-      formData.set('code', code.trim())
-      formData.set('newPassword', password)
-      formData.set('flow', 'reset-verification')
-      await signIn('password', formData)
+      const { error: updateError } = await supabase.auth.updateUser({ password })
+      if (updateError) throw updateError
       await navigate({ to: '/dashboard' })
     } catch (err) {
       setError(mapError(err, 'reset'))
@@ -195,7 +153,7 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
         ? 'We will email you a six digit code to set a new password.'
         : view === 'reset'
           ? `Enter the code we sent to ${email} and choose a new password.`
-          : 'Sign in with the mobile number and password on your account.'
+          : 'Sign in with your email address and password.'
 
   return (
     <div className="border border-border bg-card p-6 soft-shadow sm:p-9" data-testid="auth-panel" data-state={busy ? 'loading' : 'ready'}>
@@ -341,33 +299,24 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
 
       {view === 'signin' ? (
         <form className="mt-8 grid gap-4" onSubmit={handleSignInOrUp} data-testid="login-form">
-          <div role="group" aria-label="Sign in with" className="grid grid-cols-2 border border-border">
-            {([
-              { id: 'mobile' as const, label: 'Mobile number' },
-              { id: 'email' as const, label: 'Email address' },
-            ]).map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() => {
-                  setLoginMethod(option.id)
-                  clearError()
-                }}
-                disabled={busy}
-                aria-pressed={loginMethod === option.id}
-                data-testid={`login-method-${option.id}`}
-                className={`px-4 py-3 text-[0.6rem] uppercase tracking-[0.14em] transition-colors ${
-                  loginMethod === option.id
-                    ? 'bg-brass/10 text-ink'
-                    : 'text-ink-soft hover:text-ink'
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-          {loginMethod === 'email' ? (
-            <label className="block">
+          <label className="block">
+            <span className="eyebrow text-[0.5rem] text-ink-soft">Email address</span>
+            <input
+              type="email"
+              required
+              autoComplete="email"
+              value={email}
+              onChange={(event) => {
+                setEmail(event.target.value)
+                clearError()
+              }}
+              disabled={busy}
+              placeholder="you@example.com"
+              data-testid="login-email"
+              className={inputClass}
+            />
+          </label>
+          <label className="block">
               <span className="eyebrow text-[0.5rem] text-ink-soft">Email address</span>
               <input
                 type="email"
