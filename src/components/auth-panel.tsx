@@ -60,7 +60,10 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
         const { data, error: authError } = await supabase.auth.signUp({
           email: email.trim(),
           password,
-          options: { data: { full_name: fullName.trim(), mobile: mobile.trim() } },
+          options: {
+            data: { full_name: fullName.trim(), mobile: mobile.trim() },
+            emailRedirectTo: window.location.origin + '/login',
+          },
         })
         if (authError) throw authError
         if (data.session && data.user) {
