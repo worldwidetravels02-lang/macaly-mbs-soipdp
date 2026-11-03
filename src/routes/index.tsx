@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { Authenticated, Unauthenticated } from 'convex/react'
 import { ListingsGate } from '../components/listings-gate'
 import { Reveal } from '../components/reveal'
 import { ArrowRight, PageIntro, SiteFooter, SiteHeader } from '../components/site-chrome'
@@ -202,14 +201,7 @@ function Collection() {
           </p>
         </Reveal>
 
-        <Unauthenticated>
-          <ListingsGate
-            title="Explore the sample collection."
-            intro="Sign in to preview the member property-listing experience. All listing details are placeholders."
-          />
-        </Unauthenticated>
-
-        <Authenticated>
+<Authenticated>
         <div data-testid="home-collection" className="mt-14 grid gap-10 md:grid-cols-2 lg:grid-cols-3 lg:gap-8">
           {RESIDENCES.slice(0, 4).map((residence, index) => (
             <Reveal key={residence.slug} delay={index * 110}>
@@ -248,7 +240,6 @@ function Collection() {
             </Reveal>
           ))}
         </div>
-        </Authenticated>
       </div>
     </section>
   )
