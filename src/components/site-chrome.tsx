@@ -61,6 +61,18 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
+  useEffect(() => {
+    const savedLanguage = window.localStorage.getItem('msheireb-language')
+    const savedCurrency = window.localStorage.getItem('msheireb-currency')
+    if (savedLanguage === 'EN' || savedLanguage === 'AR') setLanguage(savedLanguage)
+    if (['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR'].includes(savedCurrency ?? '')) setCurrency(savedCurrency!)
+  }, [])
+
+  useEffect(() => {
+    window.localStorage.setItem('msheireb-language', language)
+    window.localStorage.setItem('msheireb-currency', currency)
+  }, [language, currency])
+
   const solid = scrolled || !overlay
   const tone = solid ? 'text-foreground' : 'text-on-deep'
 
