@@ -77,7 +77,7 @@ export function ResidenceDetail({ slug }: { slug: ResidenceSlug }) {
 
         <section className="border-y border-border bg-bone/40 py-14 sm:py-18">
           <div className="mx-auto max-w-7xl px-5 sm:px-8">
-            <FloorPlanSection />
+            <FloorPlanSection plans={residence.plans} />
           </div>
         </section>
 
