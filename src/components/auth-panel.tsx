@@ -317,62 +317,6 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
             />
           </label>
           <label className="block">
-              <span className="eyebrow text-[0.5rem] text-ink-soft">Email address</span>
-              <input
-                type="email"
-                required
-                autoComplete="email"
-                value={email}
-                onChange={(event) => {
-                  setEmail(event.target.value)
-                  clearError()
-                }}
-                disabled={busy}
-                placeholder="you@example.com"
-                data-testid="login-email"
-                className={inputClass}
-              />
-            </label>
-          ) : (
-          <div className="block">
-            <span className="eyebrow text-[0.5rem] text-ink-soft">Mobile number</span>
-            <div className="mt-2 grid grid-cols-[7.5rem_minmax(0,1fr)] gap-2">
-              <select
-                value={dialCode}
-                onChange={(event) => {
-                  setDialCode(event.target.value)
-                  clearError()
-                }}
-                disabled={busy}
-                aria-label="Country code"
-                data-testid="login-dial-code"
-                className="w-full border border-input bg-background px-3 py-3 text-[0.95rem] outline-none transition-colors focus:border-brass disabled:opacity-60"
-              >
-                {DIAL_CODES.map((country) => (
-                  <option key={country.code} value={country.code}>
-                    {country.code} {country.label}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="tel"
-                required
-                autoComplete="tel-national"
-                value={mobile}
-                onChange={(event) => {
-                  setMobile(event.target.value)
-                  clearError()
-                }}
-                disabled={busy}
-                placeholder="50 000 0000"
-                aria-label="Mobile number"
-                data-testid="login-mobile"
-                className="w-full border border-input bg-background px-4 py-3 text-[0.95rem] outline-none transition-colors placeholder:text-ink-soft/60 focus:border-brass disabled:opacity-60"
-              />
-            </div>
-          </div>
-          )}
-          <label className="block">
             <span className="eyebrow text-[0.5rem] text-ink-soft">Password</span>
             <input
               type="password"
