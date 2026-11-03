@@ -199,7 +199,6 @@ function Collection() {
           </p>
         </Reveal>
 
-<Authenticated>
         <div data-testid="home-collection" className="mt-14 grid gap-10 md:grid-cols-2 lg:grid-cols-3 lg:gap-8">
           {RESIDENCES.slice(0, 4).map((residence, index) => (
             <Reveal key={residence.slug} delay={index * 110}>
