@@ -51,7 +51,7 @@ function Hero() {
     <section className="relative isolate flex min-h-[100svh] flex-col justify-end overflow-hidden bg-deep">
       <img
         src={IMAGES.tower}
-        alt="Msheireb Properties tower at dusk, with curved balconies and a reflecting pool framed by palms"
+        alt="Illustrative luxury residential concept image"
         className="absolute inset-0 -z-10 h-full w-full object-cover"
         loading="eager"
       />
@@ -168,7 +168,7 @@ function Residential() {
             <div aria-hidden="true" className="absolute -left-4 -top-4 hidden h-full w-full border border-brass/40 sm:block" />
             <img
               src={IMAGES.living}
-              alt="Living room of an Msheireb residence at golden hour, looking over the water"
+              alt="Illustrative luxury residential interior concept image"
               className="relative aspect-[4/3] w-full object-cover"
               loading="lazy"
             />
@@ -270,7 +270,7 @@ function Amenities() {
           <div className="relative mt-10">
             <img
               src={IMAGES.pool}
-              alt="Indoor lap pool under a limestone colonnade with palms and warm uplighting"
+              alt="Illustrative residential amenity concept image"
               className="aspect-[4/3] w-full object-cover"
               loading="lazy"
             />
@@ -501,15 +501,15 @@ function DesignNotes() {
   const notes = [
     {
       title: 'Material',
-      body: 'Travertine, walnut and brushed brass, chosen because they age in your favour.',
+      body: 'Example material palette for concept imagery only.',
     },
     {
       title: 'Light',
-      body: 'Deep-set windows and 3.2 metre ceilings hold the desert light through the day.',
+      body: 'Example design consideration. Actual dimensions and specifications are to be confirmed.',
     },
     {
       title: 'Proportion',
-      body: 'Rooms sized for family life, not for photographs. Nothing wasted, nothing cramped.',
+      body: 'Example planning principle. Actual layouts and dimensions are to be confirmed.',
     },
   ]
 
@@ -517,25 +517,25 @@ function DesignNotes() {
     {
       src: IMAGES.villas,
       alt: 'Beachfront villas with private infinity pools and palm groves at dusk',
-      caption: 'Palm Crest · beachfront homes at dusk',
+      caption: 'Illustrative residential concept',
       frame: 'aspect-[4/3]',
     },
     {
       src: IMAGES.lowrise,
       alt: 'Limestone low-rise facades with planted terraces and shade screens',
-      caption: 'Downtown · limestone, shade and planted terraces',
+      caption: 'Illustrative exterior concept',
       frame: 'aspect-[16/10]',
     },
     {
       src: IMAGES.bath,
       alt: 'Travertine bathroom with a walnut vanity, brass tapware and palm shadows on the wall',
-      caption: 'Interiors · travertine, walnut and brass',
+      caption: 'Illustrative interior concept',
       frame: 'aspect-[3/2]',
     },
     {
       src: IMAGES.rooftop,
       alt: 'Rooftop terrace with a lap pool, linen seating and the Dubai skyline at dusk',
-      caption: 'Rooftops · lap pool and skyline at dusk',
+      caption: 'Illustrative rooftop concept',
       frame: 'aspect-[3/2]',
     },
   ]
@@ -581,14 +581,13 @@ function DesignNotes() {
       <div className="mx-auto w-full max-w-7xl px-5 sm:px-8">
         <Reveal className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="eyebrow text-brass">The design</p>
+            <p className="eyebrow text-brass">Design preview</p>
             <h2 className="display mt-4 max-w-xl text-[clamp(1.9rem,3.4vw,3rem)]">
-              Built slowly, in fewer places.
+              A considered approach to residential design.
             </h2>
           </div>
           <p className="max-w-sm text-[0.95rem] leading-relaxed text-ink-soft">
-            Every Msheireb address begins with the same three questions: what is the light doing,
-            what does the material do over time, and how will a family actually live here.
+            These notes and images are illustrative design concepts, not verified specifications for a completed project.
           </p>
         </Reveal>
 
