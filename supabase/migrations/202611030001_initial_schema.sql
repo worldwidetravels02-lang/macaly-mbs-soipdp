@@ -127,21 +127,21 @@ with check (id = (select auth.uid()));
 
 create policy "Users can update own profile or admins can update all"
 on public.profiles for update to authenticated
-using (id = (select auth.uid()) or (select public.is_admin()))
-with check (id = (select auth.uid()) or (select public.is_admin()));
+using (id = (select auth.uid()) or (select private.is_admin()))
+with check (id = (select auth.uid()) or (select private.is_admin()));
 
 create policy "Admins can read admin members"
 on public.admin_members for select to authenticated
-using ((select public.is_admin()));
+using ((select private.is_admin()));
 
 create policy "Published properties are public"
 on public.properties for select to anon, authenticated
-using (status = 'published' or (select public.is_admin()));
+using (status = 'published' or (select private.is_admin()));
 
 create policy "Admins manage properties"
 on public.properties for all to authenticated
-using ((select public.is_admin()))
-with check ((select public.is_admin()));
+using ((select private.is_admin()))
+with check ((select private.is_admin()));
 
 create policy "Visitors can submit enquiries"
 on public.enquiries for insert to anon, authenticated
@@ -149,21 +149,21 @@ with check (true);
 
 create policy "Admins manage enquiries"
 on public.enquiries for all to authenticated
-using ((select public.is_admin()))
-with check ((select public.is_admin()));
+using ((select private.is_admin()))
+with check ((select private.is_admin()));
 
 create policy "Active promotions are public"
 on public.promotions for select to anon, authenticated
-using ((active = true and (starts_at is null or starts_at <= now()) and (ends_at is null or ends_at >= now())) or (select public.is_admin()));
+using ((active = true and (starts_at is null or starts_at <= now()) and (ends_at is null or ends_at >= now())) or (select private.is_admin()));
 
 create policy "Admins manage promotions"
 on public.promotions for all to authenticated
-using ((select public.is_admin()))
-with check ((select public.is_admin()));
+using ((select private.is_admin()))
+with check ((select private.is_admin()));
 
 create policy "Members read own support threads"
 on public.support_threads for select to authenticated
-using (user_id = (select auth.uid()) or (select public.is_admin()));
+using (user_id = (select auth.uid()) or (select private.is_admin()));
 
 create policy "Members create own support threads"
 on public.support_threads for insert to authenticated
@@ -171,14 +171,14 @@ with check (user_id = (select auth.uid()));
 
 create policy "Members update own thread or admins update any"
 on public.support_threads for update to authenticated
-using (user_id = (select auth.uid()) or (select public.is_admin()))
-with check (user_id = (select auth.uid()) or (select public.is_admin()));
+using (user_id = (select auth.uid()) or (select private.is_admin()))
+with check (user_id = (select auth.uid()) or (select private.is_admin()));
 
 create policy "Thread participants read messages"
 on public.support_messages for select to authenticated
 using (
   sender_id = (select auth.uid())
-  or (select public.is_admin())
+  or (select private.is_admin())
   or exists (
     select 1 from public.support_threads t
     where t.id = thread_id and t.user_id = (select auth.uid())
@@ -197,16 +197,16 @@ with check (
 
 create policy "Admins can send support replies"
 on public.support_messages for insert to authenticated
-with check (sender_id = (select auth.uid()) and (select public.is_admin()));
+with check (sender_id = (select auth.uid()) and (select private.is_admin()));
 
 create policy "Users read own notifications"
 on public.notifications for select to authenticated
-using (user_id = (select auth.uid()) or (select public.is_admin()));
+using (user_id = (select auth.uid()) or (select private.is_admin()));
 
 create policy "Users mark own notifications read"
 on public.notifications for update to authenticated
-using (user_id = (select auth.uid()) or (select public.is_admin()))
-with check (user_id = (select auth.uid()) or (select public.is_admin()));
+using (user_id = (select auth.uid()) or (select private.is_admin()))
+with check (user_id = (select auth.uid()) or (select private.is_admin()));
 
 -- Profile row is created automatically when a user signs up.
 create or replace function public.handle_new_user()
