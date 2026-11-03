@@ -1,0 +1,147 @@
+{
+  "/": {
+    "title": "Msheireb Properties | Luxury Residences in Dubai",
+    "description": "Msheireb Properties designs and builds luxury residential addresses across Dubai. Explore beachfront residences, private club amenities and the member portal."
+  },
+  "/residences": {
+    "title": "Residences | Msheireb Properties Dubai",
+    "description": "Three Msheireb addresses in Dubai: beachfront homes on Palm Jumeirah, low-rise residences in Downtown Dubai and marina apartments in Dubai Marina."
+  },
+  "/residences/palm-jumeirah": {
+    "title": "Msheireb Palm Crest, Palm Jumeirah | Msheireb Properties",
+    "description": "Eighteen beachfront homes on Palm Jumeirah with private terraces and infinity pools. 4 and 5 bedroom penthouses from AED 18.5M."
+  },
+  "/residences/downtown": {
+    "title": "Msheireb Downtown, Downtown Dubai | Msheireb Properties",
+    "description": "A low-rise address of thirty-two homes around a shaded water court, minutes from Burj Khalifa. 2 and 3 bedroom residences from AED 4.2M."
+  },
+  "/residences/marina": {
+    "title": "Msheireb Marina, Dubai Marina | Msheireb Properties",
+    "description": "Ninety homes above Dubai Marina with a level-40 club floor, hammam and sea-facing living rooms. 3 and 4 bedroom residences from AED 7.8M."
+  },
+  "/amenities": {
+    "title": "Amenities | Msheireb Properties Dubai",
+    "description": "Infinity pool deck, private club, spa and hammam, concierge, landscaped decks and valet parking across every Msheireb address in Dubai."
+  },
+  "/about": {
+    "title": "About Msheireb Properties | Dubai",
+    "description": "Since 1996 Msheireb Properties has built twelve landmark residential addresses in Dubai. Our story, our milestones and our design practice."
+  },
+  "/contact": {
+    "title": "Contact and private previews | Msheireb Properties Dubai",
+    "description": "Book a private preview at the Msheireb Properties sales gallery on Palm Jumeirah, Dubai. Viewings seven days a week by appointment."
+  },
+  "/login": {
+    "title": "Member login | Msheireb Properties",
+    "description": "Sign in to the Msheireb Properties member portal to track your booking, download allotment papers and reach your concierge."
+  },
+  "/register": {
+    "title": "Create your member account | Msheireb Properties",
+    "description": "Register with Msheireb Properties to save residences, receive private preview invitations and manage your booking."
+  },
+  "/dashboard": {
+    "title": "Member dashboard | Msheireb Properties",
+    "description": "Your member dashboard: projects, orders, account details and a direct line to customer support."
+  },
+  "/account": {
+    "title": "Your account | Msheireb Properties",
+    "description": "Your Msheireb Properties member account: details, advisor and residences available to preview."
+  },
+  "/privacy": {
+    "title": "Privacy policy | Msheireb Properties",
+    "description": "How Msheireb Properties collects, uses and protects the details you share through enquiries and member registration."
+  },
+  "/terms": {
+    "title": "Terms of use | Msheireb Properties",
+    "description": "Terms of use for the Msheireb Properties website, member accounts and enquiries, including RERA disclosures."
+  },
+  "/membership": {
+    "title": "Membership levels 1 to 6 | Msheireb Properties",
+    "description": "Eight investor membership levels, from Level 1 to Level 5, Senior Projects, Premium Projects and Exclusive Projects, earned through approved wallet top-ups, with the AED 200 sign-in bonus and higher monthly profit percentages at each level."
+  },
+  "/wallet": {
+    "title": "Investment wallet | Msheireb Properties",
+    "description": "Your AED investment wallet: balance, membership level, sign-in bonus, top-up requests and withdrawal requests, reviewed by administration."
+  },
+  "/journal": {
+    "title": "Journal | Msheireb Properties",
+    "description": "Market letters, design notes and neighbourhood guides from the Msheireb Properties editorial desk in Dubai.",
+    "brand": "Msheireb Properties"
+  },
+  "/admin": {
+    "title": "Administration | Msheireb Properties",
+    "description": "Administration area for investor top-up amounts, wallet balances, membership levels and withdrawal releases."
+  },
+  "/support": {
+    "title": "Customer service chat | Msheireb Properties",
+    "description": "Message the Msheireb Properties administration team about your wallet, top-ups, withdrawals, membership level or a residence."
+  },
+  "/residences/al-barari": {
+    "title": "Msheireb Al Barari Garden Homes | Al Barari Residences",
+    "description": "Msheireb Al Barari Garden Homes in Al Barari, Dubai. 4 & 5 bedroom garden villas, From AED 12.4M. Private previews by appointment with the Msheireb Properties residential team."
+  },
+  "/residences/jbr": {
+    "title": "Msheireb Jumeirah Beach Residence | JBR Residences",
+    "description": "Msheireb Jumeirah Beach Residence in JBR, Dubai Marina. 2 & 3 bedroom sea-view apartments, From AED 3.9M. Private previews by appointment with the Msheireb Properties residential team."
+  },
+  "/residences/emirates-hills": {
+    "title": "Msheireb Emirates Hills Estate | Emirates Hills Residences",
+    "description": "Msheireb Emirates Hills Estate in Emirates Hills, Dubai. 5 to 7 bedroom mansions, From AED 32M. Private previews by appointment with the Msheireb Properties residential team."
+  },
+  "/residences/business-bay": {
+    "title": "Msheireb Business Bay Heights | Business Bay Residences",
+    "description": "Msheireb Business Bay Heights in Business Bay, Dubai. Studio to 3 bedroom residences, From AED 1.9M. Private previews by appointment with the Msheireb Properties residential team."
+  },
+  "/residences/jumeirah-golf": {
+    "title": "Msheireb Jumeirah Golf Villas | Jumeirah Golf Estates Residences",
+    "description": "Msheireb Jumeirah Golf Villas in Jumeirah Golf Estates, Dubai. 3 & 4 bedroom golf villas, From AED 8.6M. Private previews by appointment with the Msheireb Properties residential team."
+  },
+  "/residences/city-walk": {
+    "title": "Msheireb City Walk Terraces | City Walk Residences",
+    "description": "Msheireb City Walk Terraces in City Walk, Dubai. 2 & 3 bedroom terraced homes, From AED 5.4M. Private previews by appointment with the Msheireb Properties residential team."
+  },
+  "/residences/difc": {
+    "title": "Msheireb DIFC Residences | DIFC Residences",
+    "description": "Msheireb DIFC Residences in DIFC, Dubai. 1 to 3 bedroom residences, From AED 3.2M. Private previews by appointment with the Msheireb Properties residential team."
+  },
+  "/residences/bluewaters": {
+    "title": "Msheireb Bluewaters Island Homes | Bluewaters Island Residences",
+    "description": "Msheireb Bluewaters Island Homes in Bluewaters Island, Dubai. 2 & 3 bedroom island apartments, From AED 4.6M. Private previews by appointment with the Msheireb Properties residential team."
+  },
+  "/residences/al-wasl": {
+    "title": "Msheireb Al Wasl Garden Residences | Al Wasl Residences",
+    "description": "Msheireb Al Wasl Garden Residences in Al Wasl, Dubai. 3 & 4 bedroom residences, From AED 6.1M. Private previews by appointment with the Msheireb Properties residential team."
+  },
+  "/residences/dubai-hills": {
+    "title": "Msheireb Dubai Hills Courtyard Villas | Dubai Hills Estate Residences",
+    "description": "Msheireb Dubai Hills Courtyard Villas in Dubai Hills Estate, Dubai. 4 & 5 bedroom courtyard villas, From AED 9.8M. Private previews by appointment with the Msheireb Properties residential team."
+  },
+  "/residences/jumeirah-bay": {
+    "title": "Msheireb Jumeirah Bay Water Homes | Jumeirah Bay Island Residences",
+    "description": "Msheireb Jumeirah Bay Water Homes in Jumeirah Bay Island, Dubai. 4 & 5 bedroom water villas, From AED 24M. Private previews by appointment with the Msheireb Properties residential team."
+  },
+  "/residences/tilal-al-ghaf": {
+    "title": "Msheireb Tilal Al Ghaf Lagoon Homes | Tilal Al Ghaf Residences",
+    "description": "Msheireb Tilal Al Ghaf Lagoon Homes in Tilal Al Ghaf, Dubai. 3 & 4 bedroom lagoon villas, From AED 6.8M. Private previews by appointment with the Msheireb Properties residential team."
+  },
+  "/residences/mudon": {
+    "title": "Msheireb Mudon Al Ranim Townhouses | Mudon Residences",
+    "description": "Msheireb Mudon Al Ranim Townhouses in Mudon, Dubai. 3 & 4 bedroom townhouses, From AED 3.1M. Private previews by appointment with the Msheireb Properties residential team."
+  },
+  "/residences/arabian-ranches": {
+    "title": "Msheireb Arabian Ranches Estate Villas | Arabian Ranches Residences",
+    "description": "Msheireb Arabian Ranches Estate Villas in Arabian Ranches, Dubai. 4 & 5 bedroom estate villas, From AED 7.4M. Private previews by appointment with the Msheireb Properties residential team."
+  },
+  "/residences/the-valley": {
+    "title": "Msheireb The Valley Garden Townhouses | The Valley Residences",
+    "description": "Msheireb The Valley Garden Townhouses in The Valley, Dubai. 3 & 4 bedroom townhouses, From AED 2.6M. Private previews by appointment with the Msheireb Properties residential team."
+  },
+  "/residences/jumeirah-islands": {
+    "title": "Msheireb Jumeirah Islands Pavilions | Jumeirah Islands Residences",
+    "description": "Msheireb Jumeirah Islands Pavilions in Jumeirah Islands, Dubai. 4 & 5 bedroom pavilion villas, From AED 11.2M. Private previews by appointment with the Msheireb Properties residential team."
+  },
+  "/residences/creek-harbour": {
+    "title": "Msheireb Creek Harbour Skyline Homes | Dubai Creek Harbour Residences",
+    "description": "Msheireb Creek Harbour Skyline Homes in Dubai Creek Harbour, Dubai. 2 & 3 bedroom skyline apartments, From AED 2.9M. Private previews by appointment with the Msheireb Properties residential team."
+  }
+}

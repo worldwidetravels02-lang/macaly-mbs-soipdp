@@ -1,0 +1,415 @@
+@import url('https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..800;1,6..96,400..600&family=Jost:wght@300;400;500;600&display=swap');
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@plugin '@tailwindcss/typography';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* Msheireb Properties brand palette */
+  --ink: 162 16% 9%;
+  --ink-soft: 160 8% 36%;
+  --ivory: 40 33% 97%;
+  --bone: 38 26% 91%;
+  --brass: 36 46% 52%;
+  --brass-soft: 38 42% 74%;
+  --clay: 18 32% 44%;
+  --deep: 165 18% 8%;
+  --deep-soft: 165 12% 14%;
+  --on-deep: 40 30% 95%;
+  --on-deep-soft: 40 12% 71%;
+
+  --background: 40 33% 97%;
+  --foreground: 162 16% 9%;
+  --card: 0 0% 100%;
+  --card-foreground: 162 16% 9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 162 16% 9%;
+  --primary: 162 16% 10%;
+  --primary-foreground: 40 33% 97%;
+  --secondary: 38 26% 91%;
+  --secondary-foreground: 162 16% 12%;
+  --muted: 38 24% 93%;
+  --muted-foreground: 160 8% 36%;
+  --accent: 36 46% 52%;
+  --accent-foreground: 162 16% 9%;
+  --destructive: 8 62% 45%;
+  --destructive-foreground: 40 33% 97%;
+  --border: 160 10% 86%;
+  --input: 160 10% 86%;
+  --ring: 36 46% 52%;
+  --chart-1: 36 46% 52%;
+  --chart-2: 162 16% 24%;
+  --chart-3: 18 32% 44%;
+  --chart-4: 38 42% 74%;
+  --chart-5: 165 12% 14%;
+  --radius: 0.25rem;
+  --sidebar: 38 26% 94%;
+  --sidebar-foreground: 162 16% 9%;
+  --sidebar-primary: 162 16% 10%;
+  --sidebar-primary-foreground: 40 33% 97%;
+  --sidebar-accent: 38 26% 88%;
+  --sidebar-accent-foreground: 162 16% 9%;
+  --sidebar-border: 160 10% 86%;
+  --sidebar-ring: 36 46% 52%;
+}
+
+.dark {
+  --ink: 40 30% 95%;
+  --ink-soft: 40 12% 71%;
+  --ivory: 165 18% 8%;
+  --bone: 165 12% 13%;
+  --brass: 38 48% 60%;
+  --brass-soft: 38 30% 45%;
+  --clay: 18 34% 58%;
+  --deep: 165 20% 6%;
+  --deep-soft: 165 14% 11%;
+  --on-deep: 40 30% 95%;
+  --on-deep-soft: 40 12% 71%;
+
+  --background: 165 20% 7%;
+  --foreground: 40 30% 95%;
+  --card: 165 14% 11%;
+  --card-foreground: 40 30% 95%;
+  --popover: 165 14% 11%;
+  --popover-foreground: 40 30% 95%;
+  --primary: 40 30% 95%;
+  --primary-foreground: 165 20% 8%;
+  --secondary: 165 12% 15%;
+  --secondary-foreground: 40 30% 95%;
+  --muted: 165 12% 15%;
+  --muted-foreground: 40 10% 66%;
+  --accent: 38 48% 60%;
+  --accent-foreground: 165 20% 8%;
+  --destructive: 8 55% 42%;
+  --destructive-foreground: 40 30% 95%;
+  --border: 165 10% 22%;
+  --input: 165 10% 22%;
+  --ring: 38 48% 60%;
+  --sidebar: 165 14% 11%;
+  --sidebar-foreground: 40 30% 95%;
+  --sidebar-primary: 38 48% 60%;
+  --sidebar-primary-foreground: 165 20% 8%;
+  --sidebar-accent: 165 12% 16%;
+  --sidebar-accent-foreground: 40 30% 95%;
+  --sidebar-border: 165 10% 22%;
+  --sidebar-ring: 38 48% 60%;
+}
+
+@theme inline {
+  --font-display: 'Bodoni Moda', 'Times New Roman', Georgia, serif;
+  --font-sans: 'Jost', ui-sans-serif, system-ui, sans-serif;
+
+  --color-ink: hsl(var(--ink));
+  --color-ink-soft: hsl(var(--ink-soft));
+  --color-ivory: hsl(var(--ivory));
+  --color-bone: hsl(var(--bone));
+  --color-brass: hsl(var(--brass));
+  --color-brass-soft: hsl(var(--brass-soft));
+  --color-clay: hsl(var(--clay));
+  --color-deep: hsl(var(--deep));
+  --color-deep-soft: hsl(var(--deep-soft));
+  --color-on-deep: hsl(var(--on-deep));
+  --color-on-deep-soft: hsl(var(--on-deep-soft));
+
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-chart-1: hsl(var(--chart-1));
+  --color-chart-2: hsl(var(--chart-2));
+  --color-chart-3: hsl(var(--chart-3));
+  --color-chart-4: hsl(var(--chart-4));
+  --color-chart-5: hsl(var(--chart-5));
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: hsl(var(--sidebar));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-primary: hsl(var(--sidebar-primary));
+  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+  --color-sidebar-ring: hsl(var(--sidebar-ring));
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  overflow-x: hidden;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
+  section[id] {
+    scroll-margin-top: 5.5rem;
+  }
+}
+
+/* Editorial helpers */
+.eyebrow {
+  font-family: var(--font-sans);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+}
+
+.display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1.02;
+}
+
+.rule-line {
+  background-image: linear-gradient(
+    to right,
+    hsl(var(--brass) / 0.55),
+    hsl(var(--brass) / 0)
+  );
+  height: 1px;
+}
+
+.link-underline {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.link-underline::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -0.35rem;
+  height: 1px;
+  background-color: currentColor;
+  transform: scaleX(0.35);
+  transform-origin: left;
+  opacity: 0.55;
+  transition: transform 0.45s cubic-bezier(0.22, 0.61, 0.36, 1), opacity 0.3s ease;
+}
+
+.link-underline:hover::after,
+.link-underline:focus-visible::after {
+  transform: scaleX(1);
+  opacity: 1;
+}
+
+/* Animated login and signup affordances */
+.auth-link {
+  position: relative;
+}
+
+.auth-link::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -0.4rem;
+  height: 1px;
+  background-color: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.45s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.auth-link:hover::after,
+.auth-link:focus-visible::after {
+  transform: scaleX(1);
+}
+
+@keyframes sheenSweep {
+  0% {
+    transform: translateX(-140%);
+  }
+  55%,
+  100% {
+    transform: translateX(140%);
+  }
+}
+
+.cta-sheen {
+  position: relative;
+  overflow: hidden;
+}
+
+.cta-sheen::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 45%;
+  background-image: linear-gradient(
+    100deg,
+    transparent,
+    hsl(var(--brass-soft) / 0.35),
+    transparent
+  );
+  transform: translateX(-140%);
+  animation: sheenSweep 4.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  pointer-events: none;
+}
+
+/* Soft 3D review cards */
+.tilt-scene {
+  perspective: 1200px;
+}
+
+.tilt-card {
+  transform-style: preserve-3d;
+  transition:
+    transform 0.5s cubic-bezier(0.22, 0.61, 0.36, 1),
+    box-shadow 0.5s cubic-bezier(0.22, 0.61, 0.36, 1),
+    border-color 0.4s ease;
+  will-change: transform;
+}
+
+@keyframes cardFloat {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotateX(0deg);
+  }
+  50% {
+    transform: translate3d(0, -6px, 0) rotateX(1.5deg);
+  }
+}
+
+.tilt-float {
+  animation: cardFloat 7s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tilt-float {
+    animation: none;
+  }
+}
+
+@media (hover: hover) {
+  .tilt-card:hover {
+    transform: rotateX(4deg) rotateY(-6deg) translateY(-6px);
+    box-shadow: 0 26px 48px -26px hsl(var(--ink) / 0.38);
+    border-color: hsl(var(--brass) / 0.55);
+  }
+}
+
+/* Scroll reveal */
+.reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition:
+    opacity 0.9s cubic-bezier(0.22, 0.61, 0.36, 1),
+    transform 0.9s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.reveal[data-visible='true'] {
+  opacity: 1;
+  transform: none;
+}
+
+@keyframes riseIn {
+  from {
+    opacity: 0;
+    transform: translateY(26px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.rise {
+  animation: riseIn 1.05s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.toast-in {
+  animation: toastIn 0.4s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .reveal,
+  .rise,
+  .toast-in,
+  .cta-sheen::after,
+  .tilt-card {
+    animation: none !important;
+    transition: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+/* Hide Vite badge and error messages */
+body vite-error-overlay {
+  display: none;
+}
+
+/* Image veils and shadows (token based, no literal colors) */
+.hero-veil {
+  background-image: linear-gradient(
+    to bottom,
+    hsl(var(--deep) / 0.8) 0%,
+    hsl(var(--deep) / 0.28) 38%,
+    hsl(var(--deep) / 0.58) 72%,
+    hsl(var(--deep) / 0.95) 100%
+  );
+}
+
+.image-veil {
+  background-image: linear-gradient(
+    to top,
+    hsl(var(--deep) / 0.94),
+    hsl(var(--deep) / 0)
+  );
+}
+
+.soft-shadow {
+  box-shadow: 0 20px 50px -30px hsl(var(--deep) / 0.45);
+}
