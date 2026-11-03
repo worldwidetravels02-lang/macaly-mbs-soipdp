@@ -18,7 +18,8 @@ function mapError(err: unknown, view: View) {
   }
   if (view === 'signin') return 'Email or password is incorrect. Please try again.'
   if (view === 'reset') return 'That code is invalid or has expired. Please request a new one.'
-  return 'Something went wrong. Please try again.'
+  // Show the actual Supabase error during setup so configuration and policy issues can be diagnosed.
+  return message || 'Registration could not be completed. Please try again.'
 }
 
 export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
@@ -105,6 +106,7 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
         await navigate({ to: '/dashboard' })
       }
     } catch (err) {
+      console.error('Authentication request failed:', err)
       setError(mapError(err, view))
     } finally {
       setBusy(false)
