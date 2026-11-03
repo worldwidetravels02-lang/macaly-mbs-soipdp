@@ -139,9 +139,21 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
     if (password.length < 8) return setError('Your new password needs at least 8 characters.')
     setBusy(true)
     try {
+      if (!email.trim() || !code.trim()) {
+        throw new Error('Enter the email address and the recovery code sent to it.')
+      }
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        email: email.trim(),
+        token: code.trim(),
+        type: 'recovery',
+      })
+      if (verifyError) throw verifyError
       const { error: updateError } = await supabase.auth.updateUser({ password })
       if (updateError) throw updateError
-      await navigate({ to: '/dashboard' })
+      setSuccessMessage('Your password has been updated. You can now sign in.')
+      setView('signin')
+      setCode('')
+      setPassword('')
     } catch (err) {
       setError(mapError(err, 'reset'))
     } finally {
