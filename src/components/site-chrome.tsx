@@ -53,6 +53,8 @@ const NAV_LINKS = [
 export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
   const [scrolled, setScrolled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [language, setLanguage] = useState('EN')
+  const [currency, setCurrency] = useState('AED')
   const wallet = useQuery(api.wallet.myWallet)
 
   useEffect(() => {
@@ -93,7 +95,16 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
           ))}
         </nav>
 
-        <div className="hidden items-center gap-6 lg:flex">
+        <div className="hidden items-center gap-3 lg:flex">
+          <label className="sr-only" htmlFor="site-language">Language</label>
+          <select id="site-language" aria-label="Language" value={language} onChange={(event) => setLanguage(event.target.value)} className="eyebrow max-w-16 cursor-pointer border border-current/25 bg-transparent px-2 py-2 text-[0.52rem]">
+            <option value="EN">EN</option>
+            <option value="AR">AR</option>
+          </select>
+          <label className="sr-only" htmlFor="site-currency">Currency</label>
+          <select id="site-currency" aria-label="Currency" value={currency} onChange={(event) => setCurrency(event.target.value)} className="eyebrow cursor-pointer border border-current/25 bg-transparent px-2 py-2 text-[0.52rem]">
+            {['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR'].map((code) => <option key={code} value={code}>{code}</option>)}
+          </select>
           {wallet ? (
             <Link
               to="/dashboard"
@@ -168,6 +179,21 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
           data-testid="mobile-menu"
           className="mt-4 border-t border-border bg-background px-5 pb-7 pt-5 text-foreground lg:hidden"
         >
+          <div className="mb-5 flex gap-3">
+            <label className="flex flex-1 flex-col gap-2">
+              <span className="eyebrow text-[0.5rem] text-brass">Language</span>
+              <select aria-label="Language" value={language} onChange={(event) => setLanguage(event.target.value)} className="border border-border bg-background px-3 py-3 text-sm">
+                <option value="EN">English</option>
+                <option value="AR">العربية</option>
+              </select>
+            </label>
+            <label className="flex flex-1 flex-col gap-2">
+              <span className="eyebrow text-[0.5rem] text-brass">Currency</span>
+              <select aria-label="Currency" value={currency} onChange={(event) => setCurrency(event.target.value)} className="border border-border bg-background px-3 py-3 text-sm">
+                {['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR'].map((code) => <option key={code} value={code}>{code}</option>)}
+              </select>
+            </label>
+          </div>
           <nav aria-label="Mobile" className="flex flex-col">
             {NAV_LINKS.map((link) => (
               <Link
