@@ -28,12 +28,12 @@ language sql
 stable
 security definer
 set search_path = ''
-as $
+as $$
   select exists (
     select 1 from public.admin_members
     where user_id = (select auth.uid())
   );
-$;
+$$;
 
 revoke all on function private.is_admin() from public, anon;
 grant usage on schema private to authenticated;
