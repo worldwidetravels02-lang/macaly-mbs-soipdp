@@ -74,9 +74,7 @@ function Hero() {
           className="rise mt-8 max-w-xl text-[1.02rem] leading-relaxed text-on-deep/80 sm:text-lg"
           style={{ animationDelay: '300ms' }}
         >
-          Built on a legacy of elegance, style and lifestyle. Msheireb Properties crafts residences of
-          superlative standard: considered construction, world-class amenities, and an impeccable
-          reputation across the most enviable addresses in {SITE.city}.
+          Explore a curated presentation of luxury homes in {SITE.city}. This preview uses sample listings while verified project information is being prepared.
         </p>
 
         <div
@@ -118,9 +116,9 @@ function Hero() {
           style={{ animationDelay: '560ms' }}
         >
           {[
-            { value: '12', label: 'Landmark addresses' },
-            { value: '3,400+', label: 'Homes delivered' },
-            { value: '4.8M', label: 'Sq. ft. developed' },
+            { value: 'Sample', label: 'Property collection' },
+            { value: 'Dubai', label: 'Initial market' },
+            { value: 'Preview', label: 'Website demonstration' },
           ].map((stat) => (
             <div key={stat.label}>
               <dt className="eyebrow text-[0.55rem] text-on-deep-soft">{stat.label}</dt>
@@ -143,16 +141,14 @@ function Residential() {
             Built on a legacy of elegance, style and lifestyle.
           </h2>
           <p className="mt-6 text-[1.02rem] leading-relaxed text-ink-soft">
-            Our residential apartments offer the superlative standard of living. With quality
-            construction, world-class amenities and an impeccable reputation, our projects remain
-            the most enviable residences in {SITE.city}.
+            Browse the sample property presentation. Project specifications, availability, amenities and ownership details will be added after verification.
           </p>
 
           <ul className="mt-8 space-y-4 border-t border-border pt-8">
             {[
-              'Quality construction, verified at every stage',
-              'World-class amenities within the address',
-              'An impeccable reputation built over three decades',
+              'Illustrative property presentation',
+              'Sample layouts and concept imagery',
+              'Verified project details to be added',
             ].map((item) => (
               <li key={item} className="flex items-start gap-3 text-[0.98rem] text-ink-soft">
                 <span aria-hidden="true" className="mt-2 h-px w-6 shrink-0 bg-brass" />
@@ -178,8 +174,8 @@ function Residential() {
             />
             <div className="relative -mt-10 ml-0 w-[min(19rem,88%)] border border-border bg-card px-6 py-5 soft-shadow sm:ml-8">
               <p className="eyebrow text-[0.55rem] text-brass">Now previewing</p>
-              <p className="display mt-2 text-xl">Beachfront 4 &amp; 5 bedroom</p>
-              <p className="mt-1 text-sm text-ink-soft">Palm Jumeirah, Dubai</p>
+              <p className="display mt-2 text-xl">Sample residence</p>
+              <p className="mt-1 text-sm text-ink-soft">Dubai, UAE · sample location</p>
             </div>
           </div>
         </Reveal>
@@ -198,19 +194,18 @@ function Collection() {
           <div>
             <p className="eyebrow text-brass">The collection</p>
             <h2 className="display mt-5 max-w-xl text-[clamp(2rem,3.6vw,3.2rem)]">
-              Twenty addresses, one standard.
+              A preview of the collection.
             </h2>
           </div>
           <p className="max-w-sm text-[0.98rem] leading-relaxed text-ink-soft">
-            Every Msheireb residence is released in limited numbers, with private previews by
-            appointment only.
+            The listings below are demonstration content. Names, images and specifications are placeholders, not confirmed projects or offers.
           </p>
         </Reveal>
 
         <Unauthenticated>
           <ListingsGate
-            title="The collection opens for members."
-            intro="Sign in to browse all twenty addresses with live prices, floor plans and availability."
+            title="Explore the sample collection."
+            intro="Sign in to preview the member property-listing experience. All listing details are placeholders."
           />
         </Unauthenticated>
 
@@ -269,8 +264,7 @@ function Amenities() {
             The club is the quiet centre of the address.
           </h2>
           <p className="mt-6 text-[1.02rem] leading-relaxed text-on-deep/70">
-            Six levels of amenity space, designed with the same care as the residences themselves.
-            Available to residents and their guests, every day of the year.
+            Amenities shown here are illustrative examples only. Actual facilities will depend on each verified development.
           </p>
 
           <div className="relative mt-10">
@@ -281,8 +275,8 @@ function Amenities() {
               loading="lazy"
             />
             <div className="image-veil absolute inset-x-0 bottom-0 px-5 pb-4 pt-14">
-              <p className="eyebrow text-[0.5rem] text-brass-soft">The lap pool</p>
-              <p className="display mt-1 text-lg">Open 05:30 to 22:00</p>
+              <p className="eyebrow text-[0.5rem] text-brass-soft">Illustrative amenity</p>
+              <p className="display mt-1 text-lg">Hours to be confirmed</p>
             </div>
           </div>
         </Reveal>
@@ -336,26 +330,23 @@ function Legacy() {
           <p className="eyebrow text-brass">Legacy</p>
           <h2 className="display mt-5 text-[clamp(2rem,3.6vw,3.2rem)]">Detail is the whole argument.</h2>
           <p className="mt-6 text-[1.02rem] leading-relaxed text-ink-soft">
-            Travertine cut from a single quarry. Brass that patinas rather than fades. Windows set
-            deep enough to hold the desert light. Since 1996 we have built slowly, in fewer places,
-            with the people who live there in mind.
+            This section is a design placeholder for the company profile. Add the verified company history, completed developments and design credentials before launch.
           </p>
 
           <blockquote className="mt-10 border-l border-brass/60 pl-6">
             <p className="display text-[clamp(1.4rem,2.2vw,1.9rem)] italic leading-snug">
-              “A home should feel inevitable: as though the site, the light and the material were
-              always going to meet here.”
+              “A considered home begins with a clear understanding of place, light and the way people live.”
             </p>
             <footer className="eyebrow mt-4 text-[0.52rem] text-ink-soft">
-              The Msheireb design practice
+              Sample brand statement
             </footer>
           </blockquote>
 
           <dl className="mt-10 grid grid-cols-2 gap-6 border-t border-border pt-8 sm:grid-cols-3">
             {[
-              { value: '1996', label: 'Founded in Dubai' },
-              { value: '18', label: 'Design awards' },
-              { value: '1,200', label: 'Residents today' },
+              { value: 'To be confirmed', label: 'Company history' },
+              { value: 'To be confirmed', label: 'Awards and credentials' },
+              { value: 'To be confirmed', label: 'Completed residences' },
             ].map((stat) => (
               <div key={stat.label}>
                 <dt className="eyebrow text-[0.5rem] text-ink-soft">{stat.label}</dt>
@@ -652,38 +643,7 @@ function DesignNotes() {
 }
 
 function ResidentReviews() {
-  const reviews = [
-    {
-      quote: 'The light moves across the travertine all morning. Two years in, we still notice it.',
-      name: 'Layla and Omar H.',
-      detail: 'Palm Jumeirah',
-    },
-    {
-      quote: 'Handover happened on the day they promised, with every snag closed before we moved.',
-      name: 'Daniel R.',
-      detail: 'Msheireb Downtown',
-    },
-    {
-      quote: 'The concierge knows our family, our cars and our schedule. It feels like a private house.',
-      name: 'Aisha M.',
-      detail: 'Dubai Marina',
-    },
-    {
-      quote: 'We looked at eleven towers before this one. Nothing else had windows this deep or ceilings this quiet.',
-      name: 'Hana and Yusuf K.',
-      detail: 'Jumeirah Golf Villas',
-    },
-    {
-      quote: 'The service team fixed a leaking terrace drain the same evening we called. No forms, no chasing.',
-      name: 'Marcus T.',
-      detail: 'Business Bay Heights',
-    },
-    {
-      quote: 'Our children walk to the beach club alone. That kind of ease is what we were actually buying.',
-      name: 'Priya S.',
-      detail: 'Jumeirah Bay',
-    },
-  ]
+  const reviews: { quote: string; name: string; detail: string }[] = []
 
   return (
     <section id="reviews" className="scroll-mt-24 bg-background py-16 sm:py-24">
@@ -692,10 +652,10 @@ function ResidentReviews() {
           <div>
             <p className="eyebrow text-brass">Resident voices</p>
             <h2 className="display mt-4 max-w-lg text-[clamp(1.8rem,3.2vw,2.8rem)]">
-              Trusted by the people who live here.
+              Resident stories
             </h2>
           </div>
-          <p className="eyebrow text-[0.5rem] text-ink-soft">4.9 average · 1,200 residents</p>
+          <p className="eyebrow text-[0.5rem] text-ink-soft">Verified testimonials will appear here</p>
         </Reveal>
 
         <ul data-testid="home-reviews" className="tilt-scene mt-10 grid gap-5 md:grid-cols-3">
@@ -779,8 +739,7 @@ function ContactCta() {
           <p className="eyebrow text-brass">Contact</p>
           <h2 className="display mt-5 text-[clamp(2rem,3.6vw,3.2rem)]">Book a private preview.</h2>
           <p className="mt-6 max-w-lg text-[1.02rem] leading-relaxed text-ink-soft">
-            Site visits are arranged by appointment, seven days a week. Share a few details and our
-            residential team will follow up.
+            Contact information and viewing arrangements will be published once confirmed.
           </p>
         </Reveal>
         <Reveal className="lg:col-span-5" delay={120}>
