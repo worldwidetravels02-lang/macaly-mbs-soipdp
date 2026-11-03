@@ -43,6 +43,7 @@ export function EnquiryForm({
           email: form.email.trim() || null,
           message: form.message.trim() || null,
           source,
+          status: 'new',
         }),
       })
       setStatus('sent')
