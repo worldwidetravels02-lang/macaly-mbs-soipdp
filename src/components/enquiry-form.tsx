@@ -1,7 +1,6 @@
-import { useMutation } from 'convex/react'
 import { useState } from 'react'
-import { api } from '@/convex/_generated/api'
 import { RESIDENCES } from '../data/site'
+import { supabaseRest } from '../lib/supabase'
 import { ArrowRight } from './site-chrome'
 
 type Status = 'idle' | 'sending' | 'sent' | 'error'
@@ -15,7 +14,6 @@ export function EnquiryForm({
   source: string
   showResidenceSelect?: boolean
 }) {
-  const createEnquiry = useMutation(api.enquiries.create)
   const [status, setStatus] = useState<Status>('idle')
   const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState({
@@ -36,13 +34,16 @@ export function EnquiryForm({
     setError(null)
     setStatus('sending')
     try {
-      await createEnquiry({
-        name: form.name,
-        mobile: form.mobile,
-        email: form.email.trim() || undefined,
-        residence: form.residence,
-        message: form.message.trim() || undefined,
-        source,
+      await supabaseRest<unknown[]>('enquiries', {
+        method: 'POST',
+        headers: { Prefer: 'return=minimal' },
+        body: JSON.stringify({
+          full_name: form.name.trim(),
+          mobile: form.mobile.trim(),
+          email: form.email.trim() || null,
+          message: form.message.trim() || null,
+          source,
+        }),
       })
       setStatus('sent')
       setForm({ name: '', mobile: '', email: '', residence, message: '' })
