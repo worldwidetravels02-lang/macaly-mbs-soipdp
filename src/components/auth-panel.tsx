@@ -10,7 +10,7 @@ const inputClass =
 
 function mapError(err: unknown, view: View) {
   const message = err instanceof Error ? err.message : ''
-  if (message.includes('already exists')) {
+  if (message.includes('already exists') || message.includes('already registered') || message.includes('already been registered')) {
     return 'An account with this email already exists. Please sign in instead.'
   }
   if (message.includes('Too many') || message.includes('rate')) {
@@ -74,7 +74,9 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
             full_name: fullName.trim(),
             mobile: mobile.trim(),
           }, { onConflict: 'id' })
-          if (profileError) throw profileError
+          // Profile creation is best-effort; the authenticated account is already created.
+          // The profile can be completed later when the member signs in.
+          if (profileError) console.error('Profile save failed after signup:', profileError.message)
           setSuccessMessage('Registration successful! Welcome to Msheireb Properties. Taking you to Explore Residences…')
           window.setTimeout(() => {
             void navigate({ to: '/residences/' })
