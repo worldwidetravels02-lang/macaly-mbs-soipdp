@@ -4,7 +4,6 @@ import { ListingsGate } from '../components/listings-gate'
 import { Reveal } from '../components/reveal'
 import { ArrowRight, PageIntro, SiteFooter, SiteHeader } from '../components/site-chrome'
 import { AMENITIES, IMAGES, RESIDENCES, RESIDENCE_PATHS, SITE } from '../data/site'
-import { useResidencePrice } from '../lib/prices'
 import { canonicalUrl } from '../lib/canonical-url'
 import siteMetadata from '../metadata.json'
 
@@ -184,7 +183,6 @@ function Residential() {
 }
 
 function Collection() {
-  const priceFor = useResidencePrice()
 
   return (
     <section id="residences" className="bg-bone/60 py-20 sm:py-28 lg:py-32">
@@ -217,7 +215,7 @@ function Collection() {
                     loading="lazy"
                   />
                   <span className="eyebrow absolute left-4 top-4 bg-deep/85 px-3 py-1.5 text-[0.5rem] text-on-deep backdrop-blur">
-                    {priceFor(residence.slug, residence.price)}
+                    {residence.price}
                   </span>
                 </div>
 
