@@ -73,7 +73,7 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
             mobile: mobile.trim(),
           }, { onConflict: 'id' })
           if (profileError) throw profileError
-          await navigate({ to: '/dashboard' })
+          await navigate({ to: '/residences/' })
         } else {
           setError('Please check your email and confirm your account before signing in.')
           setView('signin')
