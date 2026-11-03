@@ -1,6 +1,4 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { AuthLoading, Authenticated, Unauthenticated } from 'convex/react'
-import { ListingsGate } from '../components/listings-gate'
 import { Reveal } from '../components/reveal'
 import { ArrowRight, PageIntro, SiteFooter, SiteHeader } from '../components/site-chrome'
 import { IMAGES, RESIDENCES, RESIDENCE_PATHS } from '../data/site'
@@ -41,18 +39,7 @@ function ResidencesPage() {
           imageAlt="Msheireb Properties tower at dusk"
         />
 
-        <AuthLoading>
-          <p className="mx-auto w-full max-w-7xl px-5 py-16 text-sm text-ink-soft sm:px-8">
-            Checking your session…
-          </p>
-        </AuthLoading>
-
-        <Unauthenticated>
-          <ListingsGate />
-        </Unauthenticated>
-
-        <Authenticated>
-        <section className="py-16 sm:py-20">
+<section className="py-16 sm:py-20">
           <div className="mx-auto w-full max-w-7xl px-5 sm:px-8">
             <ul className="grid gap-10 md:grid-cols-2 lg:grid-cols-3 lg:gap-8">
               {RESIDENCES.map((residence, index) => (
@@ -122,7 +109,7 @@ function ResidencesPage() {
             </Reveal>
           </div>
         </section>
-        </Authenticated>
+
       </main>
       <SiteFooter />
     </div>
