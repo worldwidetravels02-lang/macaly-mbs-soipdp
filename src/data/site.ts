@@ -371,9 +371,9 @@ export const SITE = {
   tagline: 'Redefining urban living',
   city: 'Dubai',
   country: 'United Arab Emirates',
-  address: ['Msheireb Properties, Palm Jumeirah', 'Dubai, United Arab Emirates'],
-  hours: 'Monday to Sunday, 10:00 to 19:00 GST',
-  phone: '+971 4 000 0000',
+  address: ['Dubai, United Arab Emirates', 'Sales address to be confirmed'],
+  hours: 'Appointment details to be confirmed',
+  phone: '',
 }
 
 const PHOTOS = {
@@ -857,3 +857,32 @@ const EXTRA_RESIDENCES: Residence[] = LISTING_SEEDS.map((seed) => ({
 }))
 
 RESIDENCES.push(...EXTRA_RESIDENCES)
+
+ 
+// Temporary demonstration content: replace these placeholders with verified
+// project information before accepting reservations or publishing prices.
+RESIDENCES.forEach((residence, index) => {
+  residence.name = `Sample Dubai Residence ${String(index + 1).padStart(2, '0')}`
+  residence.area = 'Dubai, United Arab Emirates · Sample location'
+  residence.configuration = 'Illustrative apartment and villa layouts'
+  residence.price = 'Price on request'
+  residence.alt = 'Illustrative luxury residential concept image'
+  residence.summary = 'Demonstration listing only. Project details are awaiting confirmation.'
+  residence.description = 'This is a sample property page used to demonstrate the website layout. The project, availability, specifications and imagery have not been verified.'
+  residence.bedrooms = 'To be confirmed'
+  residence.size = 'To be confirmed'
+  residence.handover = 'To be confirmed'
+  residence.features = ['Sample feature — details to be confirmed']
+  residence.gallery = residence.gallery.map((shot) => ({
+    ...shot,
+    caption: 'Illustrative concept image',
+  }))
+  residence.plans = []
+  residence.investment = {
+    entryFrom: 'Price on request',
+    yieldPct: 'Not provided',
+    options: [],
+    note: 'No price, rental yield, payment plan or investment return is being represented. Confirm all project and financial details before publication.',
+  }
+})
+
