@@ -20,18 +20,24 @@ create table if not exists public.admin_members (
   created_at timestamptz not null default now()
 );
 
-create or replace function public.is_admin()
+create schema if not exists private;
+
+create or replace function private.is_admin()
 returns boolean
 language sql
 stable
 security definer
-set search_path = public
-as $$
+set search_path = ''
+as $
   select exists (
     select 1 from public.admin_members
     where user_id = (select auth.uid())
   );
-$$;
+$;
+
+revoke all on function private.is_admin() from public, anon;
+grant usage on schema private to authenticated;
+grant execute on function private.is_admin() to authenticated;
 
 create table if not exists public.properties (
   id uuid primary key default gen_random_uuid(),
@@ -113,7 +119,7 @@ alter table public.notifications enable row level security;
 
 create policy "Users can read own profile or admins can read all"
 on public.profiles for select to authenticated
-using (id = (select auth.uid()) or (select public.is_admin()));
+using (id = (select auth.uid()) or (select private.is_admin()));
 
 create policy "Users can create own profile"
 on public.profiles for insert to authenticated
