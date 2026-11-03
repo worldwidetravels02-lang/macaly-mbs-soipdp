@@ -43,7 +43,6 @@ export function Wordmark() {
 const NAV_LINKS = [
   { label: 'Residences', to: '/residences' },
   { label: 'Amenities', to: '/amenities' },
-  { label: 'Journal', to: '/journal' },
   { label: 'About', to: '/about' },
   { label: 'Contact', to: '/contact' },
 ] as const
@@ -309,23 +308,8 @@ export function SiteFooter() {
                   </Link>
                 </li>
                 <li>
-                  <Link to="/journal" className="transition-colors hover:text-brass-soft">
-                    Journal
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/membership" className="transition-colors hover:text-brass-soft">
-                    Membership levels
-                  </Link>
-                </li>
-                <li>
                   <Link to="/account" className="transition-colors hover:text-brass-soft">
                     Member account
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/wallet" className="transition-colors hover:text-brass-soft">
-                    Investment wallet
                   </Link>
                 </li>
                 <li>
