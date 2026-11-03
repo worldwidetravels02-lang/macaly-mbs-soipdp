@@ -1,15 +1,12 @@
-import { useQuery } from 'convex/react'
-import { api } from '@/convex/_generated/api'
-
-/** Returns the live offer title for a listing slug, if administration published one. */
+/** Promotions are managed in Supabase. The current promotions schema has no
+ * residence slug, so it is safer not to attach a promotion to the wrong home.
+ * This returns no per-residence offer until a property_id/slug relationship is
+ * added to the database schema.
+ */
 export function useActiveOffers() {
-  const rows = useQuery(api.promotions.activePromotions)
-
-  return (slug: string) => rows?.find((row) => row.slug === slug)?.title ?? null
+  return (_slug: string) => null
 }
 
-/** Returns the full live offer for a listing slug. */
-export function useOffer(slug: string) {
-  const rows = useQuery(api.promotions.activePromotions)
-  return rows?.find((row) => row.slug === slug) ?? null
+export function useOffer(_slug: string) {
+  return null
 }
