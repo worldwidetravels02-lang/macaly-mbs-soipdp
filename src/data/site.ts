@@ -334,36 +334,12 @@ export const RESIDENCES: Residence[] = [
 ]
 
 export const AMENITIES = [
-  {
-    index: '01',
-    title: 'Infinity pool deck',
-    detail: 'A 40-metre horizon pool, shaded cabanas and a lap lane that opens at dawn.',
-  },
-  {
-    index: '02',
-    title: 'The private club',
-    detail: 'Members-only lounge, screening room and a chef’s table for twelve.',
-  },
-  {
-    index: '03',
-    title: 'Wellness & spa',
-    detail: 'Hammam, salt room, and treatment suites with resident therapists.',
-  },
-  {
-    index: '04',
-    title: 'Concierge',
-    detail: 'Travel, staffing, repairs and deliveries handled by a resident team.',
-  },
-  {
-    index: '05',
-    title: 'Landscaped decks',
-    detail: 'Two acres of gardens, walking loops and quiet reading courts.',
-  },
-  {
-    index: '06',
-    title: 'Valet & parking',
-    detail: 'Two basement levels with valet, EV charging and a detailing bay.',
-  },
+  { index: '01', title: 'Wellness spaces', detail: 'Illustrative amenity category — actual facilities to be confirmed.' },
+  { index: '02', title: 'Resident services', detail: 'Illustrative amenity category — actual services to be confirmed.' },
+  { index: '03', title: 'Fitness facilities', detail: 'Illustrative amenity category — actual facilities to be confirmed.' },
+  { index: '04', title: 'Outdoor spaces', detail: 'Illustrative amenity category — actual facilities to be confirmed.' },
+  { index: '05', title: 'Shared lounges', detail: 'Illustrative amenity category — actual facilities to be confirmed.' },
+  { index: '06', title: 'Parking', detail: 'Illustrative amenity category — actual arrangements to be confirmed.' },
 ]
 
 export const SITE = {
