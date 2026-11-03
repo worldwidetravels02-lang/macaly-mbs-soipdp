@@ -1,7 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { useQuery } from 'convex/react'
 import { useEffect, useState } from 'react'
-import { api } from '@/convex/_generated/api'
 import { RESIDENCES, RESIDENCE_PATHS, SITE } from '../data/site'
 import { formatAed } from '../lib/format'
 
@@ -55,7 +53,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [language, setLanguage] = useState('EN')
   const [currency, setCurrency] = useState('AED')
-  const wallet = useQuery(api.wallet.myWallet)
+  const wallet = null
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40)
