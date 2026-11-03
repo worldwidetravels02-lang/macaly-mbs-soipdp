@@ -28,7 +28,7 @@ export function getSupabaseConfig() {
   }
 
   return {
-    url: supabaseUrl.replace(/\\/$/, ''),
+    url: supabaseUrl.replace(/\/$/, ''),
     anonKey: supabaseAnonKey,
   }
 }
@@ -43,7 +43,7 @@ export async function supabaseRest<T>(
   options: RequestInit = {},
 ): Promise<T> {
   const config = getSupabaseConfig()
-  const response = await fetch(`${config.url}/rest/v1/${path.replace(/^\\//, '')}`, {
+  const response = await fetch(`${config.url}/rest/v1/${path.replace(/^\//, '')}`, {
     ...options,
     headers: {
       apikey: config.anonKey,
