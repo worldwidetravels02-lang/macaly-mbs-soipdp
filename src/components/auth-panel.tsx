@@ -27,6 +27,7 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
   const [view, setView] = useState<View>(mode === 'register' ? 'signup' : 'signin')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
@@ -43,6 +44,7 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
   const handleSignInOrUp = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError(null)
+    setSuccessMessage(null)
     if (!supabase) return setError('Login is not configured yet. Please contact the website administrator.')
 
     if (view === 'signup') {
@@ -73,7 +75,10 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
             mobile: mobile.trim(),
           }, { onConflict: 'id' })
           if (profileError) throw profileError
-          await navigate({ to: '/residences/' })
+          setSuccessMessage('Registration successful! Welcome to Msheireb Properties. Taking you to Explore Residences…')
+          window.setTimeout(() => {
+            void navigate({ to: '/residences/' })
+          }, 1400)
         } else {
           setError('Please check your email and confirm your account before signing in.')
           setView('signin')
@@ -163,6 +168,10 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
       <p className="eyebrow text-brass">{view === 'signup' ? 'Registration' : 'Member portal'}</p>
       <h1 className="display mt-4 text-[clamp(1.8rem,3vw,2.5rem)]">{heading}</h1>
       <p className="mt-3 text-sm leading-relaxed text-ink-soft">{subheading}</p>
+
+      {successMessage ? (
+        <p role="status" className="mt-6 border border-brass/50 bg-brass/10 px-4 py-3 text-sm text-ink">{successMessage}</p>
+      ) : null}
 
       {view === 'signup' ? (
         <form className="mt-8 grid gap-4" onSubmit={handleSignInOrUp} data-testid="register-form">
