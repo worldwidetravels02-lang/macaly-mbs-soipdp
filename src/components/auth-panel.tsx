@@ -47,10 +47,10 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
 
     if (view === 'signup') {
       if (fullName.trim().length < 2) return setError('Please enter your full name.')
-      if (mobile.replace(/\\D/g, '').length < 7) return setError('Please enter a valid mobile number.')
+      if (mobile.replace(/\D/g, '').length < 7) return setError('Please enter a valid mobile number.')
       if (password.length < 8) return setError('Your password needs at least 8 characters.')
       if (password !== confirmPassword) return setError('The two passwords do not match.')
-    } else if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email.trim())) {
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       return setError('Please enter a valid email address.')
     }
 
