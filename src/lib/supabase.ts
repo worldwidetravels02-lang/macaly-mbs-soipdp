@@ -1,19 +1,24 @@
-/**
- * Supabase REST connection for the Vite/TanStack application.
- *
- * Configure these as build-time variables in Cloudflare:
- *   VITE_SUPABASE_URL
- *   VITE_SUPABASE_ANON_KEY
- *
- * This lightweight helper intentionally does not replace the existing
- * Convex authentication/provider yet. Authentication migration is a
- * separate step and must be tested before Convex is removed.
- */
+import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey)
+
+/**
+ * Browser-safe Supabase client. Only the public publishable/anon key belongs
+ * in VITE_ variables. Never place a service-role or secret key in frontend code.
+ */
+export const supabase =
+  supabaseUrl && supabaseAnonKey
+    ? createClient(supabaseUrl, supabaseAnonKey, {
+        auth: {
+          autoRefreshToken: true,
+          persistSession: true,
+          detectSessionInUrl: true,
+        },
+      })
+    : null
 
 export function getSupabaseConfig() {
   if (!supabaseUrl || !supabaseAnonKey) {
@@ -23,21 +28,22 @@ export function getSupabaseConfig() {
   }
 
   return {
-    url: supabaseUrl.replace(/\/$/, ''),
+    url: supabaseUrl.replace(/\\/$/, ''),
     anonKey: supabaseAnonKey,
   }
 }
 
 /**
- * Make an authenticated request to a Supabase REST endpoint.
- * Use only the publishable/anon key in browser code. Never use service_role here.
+ * Make a public-key authenticated request to a Supabase REST endpoint.
+ * Prefer the Supabase client for auth-aware requests so the user's access
+ * token is used. Never use service_role in browser code.
  */
 export async function supabaseRest<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
   const config = getSupabaseConfig()
-  const response = await fetch(`${config.url}/rest/v1/${path.replace(/^\//, '')}`, {
+  const response = await fetch(`${config.url}/rest/v1/${path.replace(/^\\//, '')}`, {
     ...options,
     headers: {
       apikey: config.anonKey,
