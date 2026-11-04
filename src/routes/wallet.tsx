@@ -10,6 +10,7 @@ const currencies = ['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR'] as const
 type Currency = (typeof currencies)[number]
 type WalletRow = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; description?: string | null; transaction_type?: string; direction?: string }
 type RequestRow = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; admin_note?: string | null; payment_method?: string | null; payout_method?: string | null }
+type PaymentDetails = { bank_name: string | null; account_name: string | null; account_number: string | null; iban: string | null; swift: string | null; note: string | null }
 
 const fieldClass = 'mt-2 w-full border border-input bg-background px-4 py-3 text-[0.95rem] outline-none transition-colors placeholder:text-ink-soft/60 focus:border-brass disabled:opacity-60'
 
@@ -40,6 +41,7 @@ function WalletPage() {
   const [topups, setTopups] = useState<RequestRow[]>([])
   const [withdrawals, setWithdrawals] = useState<RequestRow[]>([])
   const [profits, setProfits] = useState<RequestRow[]>([])
+  const [paymentDetails, setPaymentDetails] = useState<PaymentDetails | null>(null)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [topup, setTopup] = useState({ amount: '', reference: '' })
@@ -59,15 +61,16 @@ function WalletPage() {
         return
       }
       setUserId(authData.user.id)
-      const [profileResult, balanceResult, transactionResult, topupResult, withdrawalResult, profitResult] = await Promise.all([
+      const [profileResult, balanceResult, transactionResult, topupResult, withdrawalResult, profitResult, paymentDetailsResult] = await Promise.all([
         client.from('profiles').select('preferred_currency').eq('id', authData.user.id).maybeSingle(),
         client.from('wallet_balances').select('balance').eq('user_id', authData.user.id).eq('currency', currency).maybeSingle(),
         client.from('wallet_transactions').select('id,amount,currency,status,created_at,description,transaction_type,direction').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(30),
         client.from('topup_requests').select('id,amount,currency,status,created_at,admin_note,payment_method').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(20),
         client.from('withdrawal_requests').select('id,amount,currency,status,created_at,admin_note,payout_method').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(20),
         client.from('profit_payouts').select('id,amount,currency,status,created_at').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(20),
+        client.from('payment_details').select('bank_name,account_name,account_number,iban,swift,note').order('updated_at', { ascending: false }).limit(1).maybeSingle(),
       ])
-      for (const result of [profileResult, balanceResult, transactionResult, topupResult, withdrawalResult, profitResult]) {
+      for (const result of [profileResult, balanceResult, transactionResult, topupResult, withdrawalResult, profitResult, paymentDetailsResult]) {
         if (result.error) throw result.error
       }
       const savedCurrency = profileResult.data?.preferred_currency
@@ -80,6 +83,7 @@ function WalletPage() {
       setTopups((topupResult.data ?? []) as RequestRow[])
       setWithdrawals((withdrawalResult.data ?? []) as RequestRow[])
       setProfits((profitResult.data ?? []) as RequestRow[])
+      setPaymentDetails(paymentDetailsResult.data as PaymentDetails | null)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not load your wallet.')
     } finally {
@@ -205,6 +209,18 @@ function WalletPage() {
                 <p className="display mt-3 text-2xl">{topups.filter((row) => row.currency === currency && row.status === 'pending').length + withdrawals.filter((row) => row.currency === currency && row.status === 'pending').length}</p>
                 <p className="mt-2 text-xs text-ink-soft">Top-ups and withdrawals awaiting review in {currency}.</p>
               </div>
+            </section>
+
+            <section className="border border-border bg-card p-6">
+              <p className="eyebrow text-brass">Bank transfer details</p>
+              <h2 className="display mt-2 text-2xl">Where to send your payment</h2>
+              {paymentDetails && [paymentDetails.bank_name, paymentDetails.account_name, paymentDetails.account_number, paymentDetails.iban, paymentDetails.swift].some((value) => value?.trim()) ? <>
+                <dl className="mt-5 grid gap-4 sm:grid-cols-2">
+                  {([['Bank name', paymentDetails.bank_name], ['Account name', paymentDetails.account_name], ['Account number', paymentDetails.account_number], ['IBAN', paymentDetails.iban], ['SWIFT / BIC', paymentDetails.swift]] as const).filter(([, value]) => value?.trim()).map(([label, value]) => <div key={label}><dt className="eyebrow text-[0.5rem] text-ink-soft">{label}</dt><dd className="mt-1 break-all text-sm font-medium">{value}</dd></div>)}
+                </dl>
+                {paymentDetails.note?.trim() ? <p className="mt-4 border-t border-border pt-4 text-sm leading-6 text-ink-soft">{paymentDetails.note}</p> : null}
+                <p className="mt-4 text-xs leading-5 text-ink-soft">Please transfer the funds first, then submit your amount and payment reference below. Your wallet is credited only after an administrator verifies the transfer.</p>
+              </> : <p className="mt-4 text-sm leading-6 text-ink-soft">Bank transfer instructions have not been added yet. Please contact customer support before sending money.</p>}
             </section>
 
             <section className="grid gap-6 lg:grid-cols-2">
