@@ -10,7 +10,7 @@ const currencies = ['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR'] as const
 type Currency = (typeof currencies)[number]
 type WalletRow = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; description?: string | null; transaction_type?: string; direction?: string }
 type ProfitRow = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; admin_note?: string | null }
-type RequestRow = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; admin_note?: string | null }
+type RequestRow = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; admin_note?: string | null; payout_method?: string | null; payout_details?: Record<string, unknown> | null }
 type WalletNotification = { id: string; title: string; body: string; read_at: string | null; created_at: string }
 
 const fieldClass = 'mt-2 w-full border border-input bg-background px-4 py-3 text-[0.95rem] outline-none transition-colors placeholder:text-ink-soft/60 focus:border-brass disabled:opacity-60'
@@ -45,6 +45,8 @@ function WalletPage() {
   const [notifications, setNotifications] = useState<WalletNotification[]>([])
   const [depositAmount, setDepositAmount] = useState('')
   const [withdrawalAmount, setWithdrawalAmount] = useState('')
+  const [payoutMethod, setPayoutMethod] = useState('Bank transfer')
+  const [payoutDetails, setPayoutDetails] = useState('')
   const [requestBusy, setRequestBusy] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -68,7 +70,7 @@ function WalletPage() {
         client.from('wallet_transactions').select('id,amount,currency,status,created_at,description,transaction_type,direction').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(30),
         client.from('profit_payouts').select('id,amount,currency,status,created_at,admin_note').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(20),
         client.from('topup_requests').select('id,amount,currency,status,created_at,admin_note').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(30),
-        client.from('withdrawal_requests').select('id,amount,currency,status,created_at,admin_note').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(30),
+        client.from('withdrawal_requests').select('id,amount,currency,status,created_at,admin_note,payout_method,payout_details').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(30),
         client.from('notifications').select('id,title,body,read_at,created_at').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(20),
       ])
       for (const result of [profileResult, balanceResult, transactionResult, profitResult, topupResult, withdrawalResult, notificationResult]) {
@@ -111,13 +113,17 @@ function WalletPage() {
       if (authError) throw authError
       if (!authData.user) throw new Error('Please sign in again.')
       const table = kind === 'deposit' ? 'topup_requests' : 'withdrawal_requests'
-      const { error: insertError } = await client.from(table).insert({ user_id: authData.user.id, amount, currency, status: 'pending' })
+      const requestPayload = kind === 'withdrawal'
+        ? { user_id: authData.user.id, amount, currency, status: 'pending', payout_method: payoutMethod.trim(), payout_details: { instructions: payoutDetails.trim() } }
+        : { user_id: authData.user.id, amount, currency, status: 'pending' }
+      const { error: insertError } = await client.from(table).insert(requestPayload)
       if (insertError) throw insertError
       if (kind === 'deposit') {
         setDepositAmount('')
         setNotice('Your deposit request was submitted. Please contact customer support for the next instructions.')
       } else {
         setWithdrawalAmount('')
+        setPayoutDetails('')
         setNotice('Your withdrawal request was submitted and is awaiting administrator review.')
       }
       await loadWallet()
@@ -214,7 +220,10 @@ function WalletPage() {
               <form onSubmit={(event) => { event.preventDefault(); void submitWalletRequest('withdrawal') }} className="grid gap-3 border border-border bg-card p-6">
                 <div><p className="eyebrow text-brass">Withdraw funds</p><h2 className="display mt-2 text-xl">Withdrawal request</h2><p className="mt-2 text-xs leading-6 text-ink-soft">Choose the amount and submit. Your request stays pending until an administrator reviews it. Contact support if you need help.</p></div>
                 <label className="text-xs text-ink-soft">Withdrawal amount ({currency})<input required type="number" min="0.01" max="100000000" step="0.01" className={fieldClass} value={withdrawalAmount} onChange={(event) => setWithdrawalAmount(event.target.value)} placeholder="Enter amount" /></label>
-                <button disabled={requestBusy || !withdrawalAmount} className="eyebrow inline-flex items-center justify-center gap-2 bg-primary px-5 py-3 text-[0.6rem] text-primary-foreground disabled:opacity-50">Apply for withdrawal <ArrowRight /></button>
+                <label className="text-xs text-ink-soft">Payout method<input required maxLength={80} className={fieldClass} value={payoutMethod} onChange={(event) => setPayoutMethod(event.target.value)} placeholder="e.g. Bank transfer" /></label>
+                <label className="text-xs text-ink-soft">Payout details<textarea required maxLength={2000} rows={3} className={fieldClass} value={payoutDetails} onChange={(event) => setPayoutDetails(event.target.value)} placeholder="Enter the details needed to arrange your payout" /></label>
+                <p className="text-xs leading-5 text-ink-soft">Only provide payout information needed for the transfer. An administrator reviews the request and arranges any external transfer separately.</p>
+                <button disabled={requestBusy || !withdrawalAmount || !payoutMethod.trim() || !payoutDetails.trim()} className="eyebrow inline-flex items-center justify-center gap-2 bg-primary px-5 py-3 text-[0.6rem] text-primary-foreground disabled:opacity-50">Apply for withdrawal <ArrowRight /></button>
                 <Link to="/support" className="text-sm text-brass underline underline-offset-4">Contact customer support</Link>
               </form>
             </section>
@@ -272,6 +281,7 @@ function RequestHistory({ title, rows }: { title: string; rows: RequestRow[] }) 
                 <p className="text-sm">{date(row.created_at)}</p>
                 <p className="mt-1 text-xs capitalize text-ink-soft">{row.status.replace(/_/g, ' ')}</p>
                 {row.admin_note ? <p className="mt-2 text-xs text-ink-soft">{row.admin_note}</p> : null}
+                {row.payout_method ? <p className="mt-2 text-xs text-ink-soft">Payout method: {row.payout_method}</p> : null}
               </div>
               <p className="display shrink-0 text-lg">{money(row.amount, row.currency)}</p>
             </li>
