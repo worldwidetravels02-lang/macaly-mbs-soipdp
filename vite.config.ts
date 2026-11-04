@@ -12,7 +12,6 @@ import { nitro } from 'nitro/vite'
 import viteReact from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import errorOverlay from "@visulima/vite-overlay"
-import { macalyTagger } from '@macaly/static-tagger'
 
 const config = defineConfig({
   server: {
@@ -32,14 +31,6 @@ const config = defineConfig({
   }),
   plugins: [
     devtools({ injectSource: { enabled: false } }),
-    // Macaly Tagger is crucial for proper functionality of Visual Edits in Macaly
-    !!process.env.DEV_BUILD && macalyTagger({
-      ignorePackages: [
-        '@react-three/fiber',
-        '@react-three/drei',
-        '@react-three/postprocessing',
-      ],
-    }),
     errorOverlay({
       forwardConsole: true,
       forwardedConsoleMethods: ["error", "warn"],
