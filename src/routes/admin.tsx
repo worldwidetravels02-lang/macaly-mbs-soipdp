@@ -68,6 +68,7 @@ function AdminPage() {
   const [profileLevel, setProfileLevel] = useState('0')
   const [notificationDraft, setNotificationDraft] = useState({ user_id: '', title: '', body: '' })
   const [profitDraft, setProfitDraft] = useState({ user_id: '', amount: '', currency: 'AED', period_start: '', period_end: '', description: 'Monthly profit credited to customer wallet' })
+  const [manualWalletDraft, setManualWalletDraft] = useState({ user_id: '', amount: '', currency: 'AED', description: 'Balance added by administrator' })
   const [selectedThread, setSelectedThread] = useState('')
   const [reply, setReply] = useState('')
   const [postDraft, setPostDraft] = useState({ title: '', slug: '', category: 'News', excerpt: '', content: '', cover_image_url: '', author_name: 'Msheireb Properties' })
@@ -281,6 +282,20 @@ function AdminPage() {
     if (rpcError) throw rpcError
   }, action === 'pay' ? 'Withdrawal marked paid in the internal ledger.' : action === 'approve' ? 'Withdrawal approved; no bank transfer was made.' : 'Withdrawal rejected.')
 
+  const addWalletBalance = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    await run(async () => {
+      const { error: rpcError } = await requireSupabase().rpc('admin_add_wallet_balance', {
+        p_user_id: manualWalletDraft.user_id,
+        p_amount: Number(manualWalletDraft.amount),
+        p_currency: manualWalletDraft.currency,
+        p_description: manualWalletDraft.description,
+      })
+      if (rpcError) throw rpcError
+      setManualWalletDraft({ user_id: '', amount: '', currency: 'AED', description: 'Balance added by administrator' })
+    }, 'Wallet balance added to the customer account.')
+  }
+
   const creditProfit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     await run(async () => {
@@ -425,6 +440,20 @@ function AdminPage() {
               ].map(([label, value]) => <div key={String(label)} className="border border-border bg-card p-4"><p className="text-xs text-ink-soft">{label}</p><p className="display mt-2 text-2xl">{value}</p></div>)}</section>
               <DataTable title="Top-up requests" rows={rows.topups ?? []} columns={['user_id','amount','currency','payment_method','payment_reference','status','created_at']} render={(item) => item.status === 'pending' ? <div className="flex gap-2"><button disabled={busy} className={softButton} onClick={() => reviewTopup(text(item.id), true)}>Approve</button><button disabled={busy} className={softButton} onClick={() => reviewTopup(text(item.id), false)}>Reject</button></div> : null} />
               <DataTable title="Withdrawal requests" rows={rows.withdrawals ?? []} columns={['user_id','amount','currency','payout_method','status','created_at']} render={(item) => item.status === 'pending' ? <div className="flex flex-wrap gap-2"><button disabled={busy} className={softButton} onClick={() => reviewWithdrawal(text(item.id), 'approve')}>Approve</button><button disabled={busy} className={softButton} onClick={() => reviewWithdrawal(text(item.id), 'reject')}>Reject</button></div> : item.status === 'approved' ? <button disabled={busy} className={softButton} onClick={() => reviewWithdrawal(text(item.id), 'pay')}>Mark paid after transfer</button> : null} />
+              <form onSubmit={addWalletBalance} className="border border-brass/40 bg-card p-6">
+                <h2 className="display text-xl">Add amount to customer wallet</h2>
+                <p className="mt-2 text-xs leading-6 text-ink-soft">Administrator-only manual credit. The amount is posted to the customer's internal wallet ledger and recorded in the financial audit history. This does not transfer real money.</p>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <select required className={inputClass} value={manualWalletDraft.user_id} onChange={(e) => setManualWalletDraft({ ...manualWalletDraft, user_id: e.target.value })}>
+                    <option value="">Select customer</option>
+                    {(rows.users ?? []).map((customer) => <option key={text(customer.id)} value={text(customer.id)}>{text(customer.full_name) || text(customer.mobile) || text(customer.id)}</option>)}
+                  </select>
+                  <input required type="number" min="0.01" max="100000000" step="0.01" className={inputClass} placeholder="Amount" value={manualWalletDraft.amount} onChange={(e) => setManualWalletDraft({ ...manualWalletDraft, amount: e.target.value })} />
+                  <select className={inputClass} value={manualWalletDraft.currency} onChange={(e) => setManualWalletDraft({ ...manualWalletDraft, currency: e.target.value })}>{CURRENCIES.map((code) => <option key={code}>{code}</option>)}</select>
+                  <input maxLength={240} className={inputClass} placeholder="Reason / description" value={manualWalletDraft.description} onChange={(e) => setManualWalletDraft({ ...manualWalletDraft, description: e.target.value })} />
+                </div>
+                <button disabled={busy || !manualWalletDraft.user_id || !manualWalletDraft.amount} className={buttonClass + ' mt-4'}>Add wallet balance <ArrowRight /></button>
+              </form>
               <form onSubmit={creditProfit} className="border border-border bg-card p-6"><h2 className="display text-xl">Credit profit to customer wallet</h2><p className="mt-2 text-xs leading-6 text-ink-soft">This posts an internal wallet credit and audit record. It does not send a bank transfer.</p><div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3"><input required className={inputClass} placeholder="Customer user UUID" value={profitDraft.user_id} onChange={(e) => setProfitDraft({ ...profitDraft, user_id: e.target.value })} /><input required type="number" min="0.01" step="0.01" className={inputClass} placeholder="Amount" value={profitDraft.amount} onChange={(e) => setProfitDraft({ ...profitDraft, amount: e.target.value })} /><select className={inputClass} value={profitDraft.currency} onChange={(e) => setProfitDraft({ ...profitDraft, currency: e.target.value })}>{CURRENCIES.map((code) => <option key={code}>{code}</option>)}</select><input required type="date" className={inputClass} value={profitDraft.period_start} onChange={(e) => setProfitDraft({ ...profitDraft, period_start: e.target.value })} /><input required type="date" className={inputClass} value={profitDraft.period_end} onChange={(e) => setProfitDraft({ ...profitDraft, period_end: e.target.value })} /><input className={inputClass} value={profitDraft.description} onChange={(e) => setProfitDraft({ ...profitDraft, description: e.target.value })} /></div><button disabled={busy} className={buttonClass + ' mt-4'}>Credit internal wallet <ArrowRight /></button></form>
               <DataTable title="Recent profit credits" rows={rows.profits ?? []} columns={['user_id','amount','currency','period_start','period_end','status','created_at']} />
               <DataTable title="Financial audit history" rows={rows.financialAudit ?? []} columns={['created_at','actor_id','action','entity_type','entity_id','details']} />
