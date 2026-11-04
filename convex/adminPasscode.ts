@@ -9,6 +9,7 @@ import { internal } from "./_generated/api"
 const DEFAULT_PASSCODE = "11223344"
 
 const SETTINGS_KEY = "admin-passcode"
+const OWNER_EMAIL = "admin01@gmail.com"
 
 async function sha256Hex(value: string): Promise<string> {
   const bytes = new TextEncoder().encode(value)
@@ -61,6 +62,9 @@ export const activateAdmin = mutation({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx)
     if (!userId) throw new ConvexError("Sign in first")
+    const user = await ctx.db.get(userId)
+    const email = (user?.email ?? "").trim().toLowerCase()
+    if (email !== OWNER_EMAIL) throw new ConvexError("Only the configured site owner can activate first administrator access")
     const attempt = args.passcode.trim()
     if (attempt === "") throw new ConvexError("Enter the admin passcode")
     const expected = await storedHash(ctx)
@@ -138,6 +142,9 @@ export const createAdminAccount = action({
   returns: v.null(),
   handler: async (ctx, args) => {
     const email = args.email.trim().toLowerCase()
+    if (email !== OWNER_EMAIL) {
+      throw new ConvexError("Use the configured site owner email to create the first administrator account")
+    }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       throw new ConvexError("Enter a valid email address")
     }
