@@ -303,7 +303,7 @@ function AccessGate({ signedIn, adminExists }: { signedIn: boolean; adminExists:
         </form>
       ) : null}
 
-      {signedIn && adminExists ? (
+      {signedIn && !adminExists ? (
         <form
           onSubmit={activate}
           data-testid="admin-activate-form"
@@ -312,10 +312,10 @@ function AccessGate({ signedIn, adminExists }: { signedIn: boolean; adminExists:
         >
           <p className="eyebrow text-[0.5rem] text-ink-soft">Activate this account</p>
           <p className="text-xs leading-relaxed text-ink-soft">
-            Enter the admin passcode to give this signed-in account administration access.
+            Enter the private owner setup secret configured in the Convex deployment settings.
           </p>
           <label className="block">
-            <span className="eyebrow text-[0.5rem] text-ink-soft">Admin passcode</span>
+            <span className="eyebrow text-[0.5rem] text-ink-soft">Private setup secret</span>
             <input
               type="password"
               autoComplete="current-password"
