@@ -10,8 +10,6 @@ const currencies = ['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR'] as const
 type Currency = (typeof currencies)[number]
 type WalletRow = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; description?: string | null; transaction_type?: string; direction?: string }
 type RequestRow = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; admin_note?: string | null; payment_method?: string | null; payout_method?: string | null }
-type CryptoRow = { id: string; kind: string; amount: number | string; currency: Currency; coin: string; network: string; destination_address: string; transaction_hash: string | null; status: string; admin_note: string | null; created_at: string }
-type CryptoInstruction = { coin?: string; network?: string; address?: string; destination_address?: string; note?: string }
 
 const fieldClass = 'mt-2 w-full border border-input bg-background px-4 py-3 text-[0.95rem] outline-none transition-colors placeholder:text-ink-soft/60 focus:border-brass disabled:opacity-60'
 
@@ -42,9 +40,6 @@ function WalletPage() {
   const [topups, setTopups] = useState<RequestRow[]>([])
   const [withdrawals, setWithdrawals] = useState<RequestRow[]>([])
   const [profits, setProfits] = useState<RequestRow[]>([])
-  const [cryptoPayments, setCryptoPayments] = useState<CryptoRow[]>([])
-  const [cryptoInstructions, setCryptoInstructions] = useState<CryptoInstruction[]>([])
-  const [cryptoForm, setCryptoForm] = useState({ kind: 'topup', amount: '', coin: '', network: '', address: '', hash: '' })
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [topup, setTopup] = useState({ amount: '', method: 'Bank transfer', reference: '' })
@@ -64,17 +59,15 @@ function WalletPage() {
         return
       }
       setUserId(authData.user.id)
-      const [profileResult, balanceResult, transactionResult, topupResult, withdrawalResult, profitResult, cryptoResult, paymentDetailsResult] = await Promise.all([
+      const [profileResult, balanceResult, transactionResult, topupResult, withdrawalResult, profitResult] = await Promise.all([
         client.from('profiles').select('preferred_currency').eq('id', authData.user.id).maybeSingle(),
         client.from('wallet_balances').select('balance').eq('user_id', authData.user.id).eq('currency', currency).maybeSingle(),
         client.from('wallet_transactions').select('id,amount,currency,status,created_at,description,transaction_type,direction').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(30),
         client.from('topup_requests').select('id,amount,currency,status,created_at,admin_note,payment_method').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(20),
         client.from('withdrawal_requests').select('id,amount,currency,status,created_at,admin_note,payout_method').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(20),
         client.from('profit_payouts').select('id,amount,currency,status,created_at').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(20),
-        client.from('crypto_payments').select('id,kind,amount,currency,coin,network,destination_address,transaction_hash,status,admin_note,created_at').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(30),
-        client.from('payment_details').select('crypto').order('updated_at', { ascending: false }).limit(1),
       ])
-      for (const result of [profileResult, balanceResult, transactionResult, topupResult, withdrawalResult, profitResult, cryptoResult, paymentDetailsResult]) {
+      for (const result of [profileResult, balanceResult, transactionResult, topupResult, withdrawalResult, profitResult]) {
         if (result.error) throw result.error
       }
       const savedCurrency = profileResult.data?.preferred_currency
@@ -87,9 +80,6 @@ function WalletPage() {
       setTopups((topupResult.data ?? []) as RequestRow[])
       setWithdrawals((withdrawalResult.data ?? []) as RequestRow[])
       setProfits((profitResult.data ?? []) as RequestRow[])
-      setCryptoPayments((cryptoResult.data ?? []) as CryptoRow[])
-      const rawInstructions = paymentDetailsResult.data?.[0]?.crypto
-      setCryptoInstructions(Array.isArray(rawInstructions) ? rawInstructions as CryptoInstruction[] : [])
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not load your wallet.')
     } finally {
@@ -138,27 +128,6 @@ function WalletPage() {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not submit your top-up request.')
     } finally { setSending(false) }
-  }
-
-
-  async function submitCrypto(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setError(''); setNotice('')
-    const amount = Number(cryptoForm.amount)
-    if (!userId || !Number.isFinite(amount) || amount <= 0) return setError('Enter a valid crypto payment amount.')
-    if (!cryptoForm.coin.trim() || !cryptoForm.network.trim() || !cryptoForm.address.trim()) return setError('Enter the coin, network and destination address used for this transfer.')
-    setSending(true)
-    try {
-      const { error: insertError } = await requireSupabase().from('crypto_payments').insert({
-        user_id: userId, kind: cryptoForm.kind, amount, currency, coin: cryptoForm.coin.trim(),
-        network: cryptoForm.network.trim(), destination_address: cryptoForm.address.trim(),
-        transaction_hash: cryptoForm.hash.trim() || null, status: 'pending',
-      })
-      if (insertError) throw insertError
-      setCryptoForm({ ...cryptoForm, amount: '', hash: '' })
-      setNotice('Your crypto transfer details were submitted for manual review. No wallet credit is made until an administrator approves the submission.')
-      await loadWallet()
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not submit the crypto payment.') }
-    finally { setSending(false) }
   }
 
   async function submitWithdrawal(event: FormEvent<HTMLFormElement>) {
@@ -256,19 +225,6 @@ function WalletPage() {
               </form>
             </section>
 
-            <section className="grid gap-6 lg:grid-cols-2">
-              <form onSubmit={submitCrypto} className="grid gap-4 border border-border bg-card p-6">
-                <div><p className="eyebrow text-brass">Digital assets</p><h2 className="display mt-2 text-2xl">Submit a crypto transfer</h2><p className="mt-2 text-sm text-ink-soft">Use the payment address supplied by administration. Submissions are manually checked and do not automatically add funds.</p></div>
-                {cryptoInstructions.length > 0 ? <div className="grid gap-3 border border-border p-4">{cryptoInstructions.map((item, index) => <div key={index} className="text-xs"><p className="font-medium">{item.coin || 'Crypto'} · {item.network || 'Network'}</p><p className="mt-1 break-all text-ink-soft">{item.address || item.destination_address || 'Ask support for the current address.'}</p>{item.note ? <p className="mt-1 text-ink-soft">{item.note}</p> : null}</div>)}</div> : <p className="border border-brass/30 p-3 text-xs text-ink-soft">No crypto payment instructions have been published yet. Contact support before transferring funds.</p>}
-                <p className="border border-border p-3 text-xs text-ink-soft">Payment purpose: wallet top-up. Property deposits and investment payments will have separate verified payment workflows.</p>
-                <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Amount ({currency})</span><input className={fieldClass} type="number" min="0.01" step="0.01" required value={cryptoForm.amount} onChange={(event) => setCryptoForm({ ...cryptoForm, amount: event.target.value })} /></label>
-                <div className="grid gap-3 sm:grid-cols-2"><label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Coin</span><input className={fieldClass} required value={cryptoForm.coin} onChange={(event) => setCryptoForm({ ...cryptoForm, coin: event.target.value })} placeholder="e.g. USDT" /></label><label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Network</span><input className={fieldClass} required value={cryptoForm.network} onChange={(event) => setCryptoForm({ ...cryptoForm, network: event.target.value })} placeholder="e.g. TRC20" /></label></div>
-                <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Destination address used</span><input className={fieldClass} required value={cryptoForm.address} onChange={(event) => setCryptoForm({ ...cryptoForm, address: event.target.value })} /></label>
-                <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Transaction hash (optional)</span><input className={fieldClass} value={cryptoForm.hash} onChange={(event) => setCryptoForm({ ...cryptoForm, hash: event.target.value })} /></label>
-                <button disabled={sending} className="eyebrow justify-self-start bg-primary px-6 py-4 text-[0.58rem] text-primary-foreground disabled:opacity-50">{sending ? 'Submitting…' : 'Submit crypto transfer'}</button>
-              </form>
-              <section className="border border-border bg-card"><h2 className="display border-b border-border px-6 py-4 text-lg">Crypto submission history</h2>{cryptoPayments.length === 0 ? <p className="px-6 py-6 text-sm text-ink-soft">No crypto submissions yet.</p> : <ul className="divide-y divide-border">{cryptoPayments.map((row) => <li key={row.id} className="grid gap-2 px-6 py-4"><div className="flex justify-between gap-3"><p className="text-sm">{row.coin} · {row.network} · {money(row.amount, row.currency)}</p><span className="eyebrow text-[0.5rem] text-brass">{row.status}</span></div><p className="break-all text-xs text-ink-soft">{row.transaction_hash || 'Transaction hash not supplied'}</p>{row.admin_note ? <p className="text-xs text-ink-soft">Admin note: {row.admin_note}</p> : null}<p className="text-xs text-ink-soft">{date(row.created_at)}</p></li>)}</ul>}</section>
-            </section>
 
             <section className="grid gap-6 lg:grid-cols-2">
               <History title="Top-up requests" rows={topups.filter((row) => row.currency === currency)} />
@@ -279,7 +235,7 @@ function WalletPage() {
                 {transactions.filter((row) => row.currency === currency).length === 0 ? <p className="px-6 py-6 text-sm text-ink-soft">No posted wallet activity yet.</p> : <><ul data-testid="wallet-transactions" className="divide-y divide-border">{transactions.filter((row) => row.currency === currency).map((row) => { const direction = row.direction?.toLowerCase(); const sign = direction === 'debit' ? '−' : direction === 'credit' ? '+' : ''; const amountTone = direction === 'debit' ? 'text-destructive' : direction === 'credit' ? 'text-emerald-700' : 'text-foreground'; return <li key={row.id} className="flex items-center justify-between gap-4 px-6 py-4"><div className="min-w-0"><p className="truncate text-sm">{row.description || row.transaction_type?.replace(/_/g, ' ') || 'Wallet transaction'}</p><p className="mt-1 text-xs text-ink-soft">{date(row.created_at)} · {row.status.replace(/_/g, ' ')}</p></div><p className={`display shrink-0 text-lg ${amountTone}`}>{sign}{money(row.amount, currency)}</p></li> })}</ul><p className="border-t border-border px-6 py-3 text-xs text-ink-soft">Showing up to the latest 30 wallet transactions.</p></>}
               </div>
             </section>
-            <p className="text-xs leading-relaxed text-ink-soft">Wallet entries and profit credits shown here are internal platform records. They are not proof of a bank transfer, regulated investment return, or external payment settlement. Crypto submissions are sent to administration for manual review; submission alone does not credit your wallet.</p>
+            <p className="text-xs leading-relaxed text-ink-soft">Wallet entries and profit credits shown here are internal platform records. They are not proof of a bank transfer, regulated investment return, or external payment settlement.</p>
           </> : null}
         </div>
       </main>
