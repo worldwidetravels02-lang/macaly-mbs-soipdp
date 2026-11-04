@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { RESIDENCES, RESIDENCE_PATHS, SITE } from '../data/site'
-import { formatAed } from '../lib/format'
+import { requireSupabase } from '../lib/supabase-client'
 
 export function ArrowRight({ className = 'h-4 w-4' }: { className?: string }) {
   return (
@@ -64,7 +64,26 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [language, setLanguage] = useState('EN')
   const [currency, setCurrency] = useState('AED')
-  const wallet = null
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+
+  useEffect(() => {
+    const client = requireSupabase()
+    let active = true
+    client.auth.getSession().then(({ data, error }) => {
+      if (!active) return
+      if (error) console.error('Could not check header session:', error.message)
+      setIsAuthenticated(Boolean(data.session?.user))
+    }).catch((error) => {
+      if (active) console.error('Could not check header session:', error)
+    })
+    const { data } = client.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(Boolean(session?.user))
+    })
+    return () => {
+      active = false
+      data.subscription.unsubscribe()
+    }
+  }, [])
 
   useEffect(() => {
     try {
@@ -146,7 +165,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
           <select id="site-currency" aria-label="Currency" value={currency} onChange={(event) => changeCurrency(event.target.value)} className="eyebrow cursor-pointer border border-current/25 bg-transparent px-2 py-2 text-[0.52rem]">
             {['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR'].map((code) => <option key={code} value={code}>{code}</option>)}
           </select>
-          {wallet ? (
+          {isAuthenticated ? (
             <Link
               to="/dashboard"
               data-testid="header-wallet"
@@ -157,7 +176,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
                 <span className="display block text-sm">Dashboard</span>
               </span>
               <span className="eyebrow border-l border-current/25 pl-3 text-[0.45rem] text-brass">
-                L{wallet.tier.level}
+                Member
               </span>
             </Link>
           ) : (
@@ -260,7 +279,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
                     <span className="eyebrow block text-[0.45rem] text-ink-soft">My area</span>
                     <span className="display block text-lg">Dashboard</span>
                   </span>
-                  <span className="eyebrow text-[0.5rem] text-brass">{wallet.tier.name}</span>
+                  <span className="eyebrow text-[0.5rem] text-brass">Member</span>
                 </Link>
                 <Link
                   to="/account"
