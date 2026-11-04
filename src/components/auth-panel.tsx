@@ -1,5 +1,5 @@
 import { Link, useNavigate } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { requireSupabase } from '@/lib/supabase-client'
 import { ArrowRight } from './site-chrome'
 
@@ -31,6 +31,18 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [code, setCode] = useState('')
+
+  useEffect(() => {
+    const client = requireSupabase()
+    const { data } = client.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setView('reset')
+        setNotice('Choose a new password for your account.')
+        setError(null)
+      }
+    })
+    return () => data.subscription.unsubscribe()
+  }, [])
 
   const clearMessages = () => {
     setError(null)
@@ -90,6 +102,7 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
     try {
       const { error: authError } = await requireSupabase().auth.resetPasswordForEmail(
         email.trim().toLowerCase(),
+        { redirectTo: `${window.location.origin}/login` },
       )
       if (authError) throw authError
       setNotice('If an account exists for this email, a password-reset link has been sent. Open it on this device, then return here to sign in with your new password.')
@@ -107,17 +120,10 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
     if (password.length < 8) return setError('Your new password needs at least 8 characters.')
     setBusy(true)
     try {
-      const { error: authError } = await requireSupabase().auth.verifyOtp({
-        email: email.trim().toLowerCase(),
-        token: code.trim(),
-        type: 'recovery',
-      })
-      if (authError) throw authError
       const { error: updateError } = await requireSupabase().auth.updateUser({ password })
       if (updateError) throw updateError
       setNotice('Your password has been updated. You can now sign in.')
       setView('signin')
-      setCode('')
       setPassword('')
     } catch (err) {
       setError(mapError(err, 'reset'))
@@ -129,12 +135,12 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
   const heading =
     view === 'signup' ? 'Create your member account'
       : view === 'forgot' ? 'Reset your password'
-        : view === 'reset' ? 'Enter your reset code' : 'Welcome back'
+        : view === 'reset' ? 'Choose a new password' : 'Welcome back'
 
   const subheading =
     view === 'signup' ? 'Register to save residences, receive private previews and manage your booking.'
       : view === 'forgot' ? 'We will send a password-reset email if an account exists.'
-        : view === 'reset' ? 'Enter the recovery code from your email and choose a new password.'
+        : view === 'reset' ? 'Your recovery link is verified. Enter a new password below.'
           : 'Sign in with the email address and password on your account.'
 
   return (
@@ -205,9 +211,6 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
 
       {view === 'reset' ? (
         <form className="mt-8 grid gap-4" onSubmit={handleReset} data-testid="reset-form">
-          <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Recovery code</span>
-            <input type="text" inputMode="numeric" required value={code} onChange={e => { setCode(e.target.value); clearMessages() }} disabled={busy} placeholder="Code from your email" data-testid="reset-code" className={inputClass} />
-          </label>
           <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">New password</span>
             <input type="password" required autoComplete="new-password" value={password} onChange={e => { setPassword(e.target.value); clearMessages() }} disabled={busy} placeholder="At least 8 characters" data-testid="reset-password" className={inputClass} />
           </label>
