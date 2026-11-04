@@ -107,6 +107,9 @@ export function EnquiryForm({
           <input
             type="tel"
             required
+            minLength={7}
+            pattern="[0-9+().\\-\\s]{7,}"
+            title="Enter a valid phone number with at least 7 digits."
             value={form.mobile}
             onChange={update('mobile')}
             disabled={status === 'sending'}
