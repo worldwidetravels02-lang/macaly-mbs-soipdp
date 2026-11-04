@@ -9,6 +9,7 @@ const meta = siteMetadata['/wallet']
 const currencies = ['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR'] as const
 type Currency = (typeof currencies)[number]
 type WalletRow = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; description?: string | null; transaction_type?: string; direction?: string }
+type ProfitRow = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; admin_note?: string | null }
 
 const fieldClass = 'mt-2 w-full border border-input bg-background px-4 py-3 text-[0.95rem] outline-none transition-colors placeholder:text-ink-soft/60 focus:border-brass disabled:opacity-60'
 
@@ -36,9 +37,8 @@ function WalletPage() {
   const [currency, setCurrency] = useState<Currency>('AED')
   const [balance, setBalance] = useState(0)
   const [transactions, setTransactions] = useState<WalletRow[]>([])
-  const [profits, setProfits] = useState<RequestRow[]>([])
+  const [profits, setProfits] = useState<ProfitRow[]>([])
   const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
 
   const loadWallet = useCallback(async () => {
     setLoading(true)
@@ -108,7 +108,7 @@ function WalletPage() {
             <div>
               <p className="eyebrow text-brass">Member account</p>
               <h1 className="display mt-3 text-[clamp(1.8rem,4vw,2.6rem)]">Your wallet</h1>
-              <p className="mt-2 text-sm text-ink-soft">Secure wallet records and payment requests.</p>
+              <p className="mt-2 text-sm text-ink-soft">Read-only wallet balance and transaction history.</p>
             </div>
             <label className="block min-w-36">
               <span className="eyebrow text-[0.5rem] text-ink-soft">Display currency</span>
@@ -127,7 +127,6 @@ function WalletPage() {
             </section>
           ) : null}
           {error ? <p role="alert" data-testid="wallet-error" className="border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</p> : null}
-          {notice ? <p role="status" className="border border-brass/40 bg-brass/5 px-4 py-3 text-sm text-ink-soft">{notice}</p> : null}
 
           {userId && !loading ? <>
             <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
