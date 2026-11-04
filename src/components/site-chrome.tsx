@@ -95,6 +95,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
     if (!['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR'].includes(value)) return
     setCurrency(value)
     try { window.localStorage.setItem('msheireb-currency', value) } catch { /* optional */ }
+    window.dispatchEvent(new CustomEvent('msheireb-currency-change', { detail: value }))
   }
 
   useEffect(() => {
