@@ -112,7 +112,6 @@ function AdminPage() {
 }
 
 function AccessGate({ signedIn, adminExists }: { signedIn: boolean; adminExists: boolean }) {
-  const claimAdmin = useMutation(api.admin.claimAdmin)
   const activateAdmin = useMutation(api.adminPasscode.activateAdmin)
   const createAdminAccount = useAction(api.adminPasscode.createAdminAccount)
   const [setup, setSetup] = useState({ email: '', password: '', passcode: '' })
@@ -121,7 +120,6 @@ function AccessGate({ signedIn, adminExists }: { signedIn: boolean; adminExists:
   const [activationPasscode, setActivationPasscode] = useState('')
   const [activating, setActivating] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
   const [credentials, setCredentials] = useState({ email: '', password: '' })
   const [signingIn, setSigningIn] = useState(false)
 
@@ -184,18 +182,6 @@ function AccessGate({ signedIn, adminExists }: { signedIn: boolean; adminExists:
     }
   }
 
-  const claim = async () => {
-    setBusy(true)
-    setError(null)
-    try {
-      await claimAdmin()
-    } catch (err) {
-      setError(errorMessage(err, 'Could not claim administration access'))
-    } finally {
-      setBusy(false)
-    }
-  }
-
   return (
     <div data-testid="admin-gate" className="border border-border bg-card p-8 sm:p-12">
       <p className="eyebrow text-brass">Administration</p>
@@ -205,7 +191,7 @@ function AccessGate({ signedIn, adminExists }: { signedIn: boolean; adminExists:
       <p className="mt-4 max-w-lg text-[0.98rem] leading-relaxed text-ink-soft">
         {adminExists
           ? 'Administration is limited to approved accounts. Ask an existing administrator to add your email address.'
-          : 'No administrator exists yet. The first member to claim this area becomes the owner and can then add other administrators by email.'}
+          : 'The owner must complete the protected administrator setup before the panel can be used.'}
       </p>
 
       {error ? (
@@ -274,8 +260,7 @@ function AccessGate({ signedIn, adminExists }: { signedIn: boolean; adminExists:
         >
           <p className="eyebrow text-[0.5rem] text-ink-soft">Set up an administrator</p>
           <p className="text-xs leading-relaxed text-ink-soft">
-            Create an administrator account with the admin passcode. Use this on a new device or a
-            fresh deployment.
+            Create the owner account using the private setup secret configured in the Convex deployment settings.
           </p>
           <input
             type="email"
@@ -299,7 +284,8 @@ function AccessGate({ signedIn, adminExists }: { signedIn: boolean; adminExists:
           <input
             type="password"
             required
-            placeholder="Admin passcode"
+            minLength={20}
+            placeholder="Private setup secret (from Convex settings)"
             value={setup.passcode}
             onChange={(event) => setSetup({ ...setup, passcode: event.target.value })}
             data-testid="admin-create-passcode"
@@ -353,18 +339,6 @@ function AccessGate({ signedIn, adminExists }: { signedIn: boolean; adminExists:
 
       <div className="mt-8 flex flex-col gap-3 sm:flex-row">
 
-        {!adminExists && signedIn ? (
-          <button
-            type="button"
-            onClick={claim}
-            disabled={busy}
-            data-testid="claim-admin"
-            className="eyebrow inline-flex items-center justify-between gap-8 bg-primary px-6 py-4 text-[0.6rem] text-primary-foreground transition-colors hover:bg-ink/85 disabled:opacity-60"
-          >
-            {busy ? 'Setting up…' : 'Claim administration access'}
-            <ArrowRight />
-          </button>
-        ) : null}
 
         <Link
           to="/wallet"
