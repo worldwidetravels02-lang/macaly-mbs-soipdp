@@ -171,6 +171,15 @@ function AdminPage() {
     pending: (rows.topups ?? []).filter((row) => row.status === 'pending').length + (rows.withdrawals ?? []).filter((row) => row.status === 'pending').length,
   }), [rows])
 
+  const financeSummary = useMemo(() => ({
+    topups: (rows.topups ?? []).length,
+    withdrawals: (rows.withdrawals ?? []).length,
+    profitCredits: (rows.profits ?? []).length,
+    pendingTopups: (rows.topups ?? []).filter((row) => row.status === 'pending').length,
+    pendingWithdrawals: (rows.withdrawals ?? []).filter((row) => row.status === 'pending').length,
+    approvedWithdrawals: (rows.withdrawals ?? []).filter((row) => row.status === 'approved').length,
+  }), [rows])
+
   const run = async (work: () => Promise<unknown>, success: string) => {
     setBusy(true); setError(''); setNotice('')
     try { await work(); setNotice(success); await load() }
@@ -363,6 +372,10 @@ function AdminPage() {
             </section> : null}
 
             {section === 'finance' ? <div className="grid gap-6">
+              <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{[
+                ['Top-up requests', financeSummary.topups], ['Withdrawal requests', financeSummary.withdrawals], ['Profit credits', financeSummary.profitCredits],
+                ['Pending top-ups', financeSummary.pendingTopups], ['Pending withdrawals', financeSummary.pendingWithdrawals], ['Approved withdrawals awaiting transfer', financeSummary.approvedWithdrawals],
+              ].map(([label, value]) => <div key={String(label)} className="border border-border bg-card p-4"><p className="text-xs text-ink-soft">{label}</p><p className="display mt-2 text-2xl">{value}</p></div>)}</section>
               <DataTable title="Top-up requests" rows={rows.topups ?? []} columns={['user_id','amount','currency','payment_method','payment_reference','status','created_at']} render={(item) => item.status === 'pending' ? <div className="flex gap-2"><button disabled={busy} className={softButton} onClick={() => reviewTopup(text(item.id), true)}>Approve</button><button disabled={busy} className={softButton} onClick={() => reviewTopup(text(item.id), false)}>Reject</button></div> : null} />
               <DataTable title="Withdrawal requests" rows={rows.withdrawals ?? []} columns={['user_id','amount','currency','payout_method','status','created_at']} render={(item) => item.status === 'pending' ? <div className="flex flex-wrap gap-2"><button disabled={busy} className={softButton} onClick={() => reviewWithdrawal(text(item.id), 'approve')}>Approve</button><button disabled={busy} className={softButton} onClick={() => reviewWithdrawal(text(item.id), 'reject')}>Reject</button></div> : item.status === 'approved' ? <button disabled={busy} className={softButton} onClick={() => reviewWithdrawal(text(item.id), 'pay')}>Mark paid after transfer</button> : null} />
               <form onSubmit={creditProfit} className="border border-border bg-card p-6"><h2 className="display text-xl">Credit profit to customer wallet</h2><p className="mt-2 text-xs leading-6 text-ink-soft">This posts an internal wallet credit and audit record. It does not send a bank transfer.</p><div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3"><input required className={inputClass} placeholder="Customer user UUID" value={profitDraft.user_id} onChange={(e) => setProfitDraft({ ...profitDraft, user_id: e.target.value })} /><input required type="number" min="0.01" step="0.01" className={inputClass} placeholder="Amount" value={profitDraft.amount} onChange={(e) => setProfitDraft({ ...profitDraft, amount: e.target.value })} /><select className={inputClass} value={profitDraft.currency} onChange={(e) => setProfitDraft({ ...profitDraft, currency: e.target.value })}>{CURRENCIES.map((code) => <option key={code}>{code}</option>)}</select><input required type="date" className={inputClass} value={profitDraft.period_start} onChange={(e) => setProfitDraft({ ...profitDraft, period_start: e.target.value })} /><input required type="date" className={inputClass} value={profitDraft.period_end} onChange={(e) => setProfitDraft({ ...profitDraft, period_end: e.target.value })} /><input className={inputClass} value={profitDraft.description} onChange={(e) => setProfitDraft({ ...profitDraft, description: e.target.value })} /></div><button disabled={busy} className={buttonClass + ' mt-4'}>Credit internal wallet <ArrowRight /></button></form>
