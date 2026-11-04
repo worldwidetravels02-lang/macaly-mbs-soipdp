@@ -151,6 +151,19 @@ function AdminPage() {
     return () => listener.subscription.unsubscribe()
   }, [load])
 
+  const customerLabel = (userId: unknown) => {
+    const profile = (rows.users ?? []).find((item) => item.id === userId)
+    return text(profile?.full_name) || text(profile?.mobile) || text(userId) || 'Unknown customer'
+  }
+
+  const topupRequestsWithCustomer = useMemo(() => (rows.topups ?? []).map((item) => ({
+    ...item, customer_name: customerLabel(item.user_id),
+  })), [rows.topups, rows.users])
+
+  const withdrawalRequestsWithCustomer = useMemo(() => (rows.withdrawals ?? []).map((item) => ({
+    ...item, customer_name: customerLabel(item.user_id),
+  })), [rows.withdrawals, rows.users])
+
   const filteredWalletTransactions = useMemo(() => {
     const query = walletSearch.trim().toLowerCase()
     const customers = rows.users ?? []
@@ -463,8 +476,8 @@ function AdminPage() {
                 ['Top-up requests', financeSummary.topups], ['Withdrawal requests', financeSummary.withdrawals], ['Profit credits', financeSummary.profitCredits],
                 ['Pending top-ups', financeSummary.pendingTopups], ['Pending withdrawals', financeSummary.pendingWithdrawals], ['Approved withdrawals awaiting transfer', financeSummary.approvedWithdrawals],
               ].map(([label, value]) => <div key={String(label)} className="border border-border bg-card p-4"><p className="text-xs text-ink-soft">{label}</p><p className="display mt-2 text-2xl">{value}</p></div>)}</section>
-              <DataTable title="Top-up requests" rows={rows.topups ?? []} columns={['user_id','amount','currency','payment_method','payment_reference','status','created_at']} render={(item) => item.status === 'pending' ? <div className="flex gap-2"><button disabled={busy} className={softButton} onClick={() => reviewTopup(text(item.id), true)}>Approve</button><button disabled={busy} className={softButton} onClick={() => reviewTopup(text(item.id), false)}>Reject</button></div> : null} />
-              <DataTable title="Withdrawal requests" rows={rows.withdrawals ?? []} columns={['user_id','amount','currency','payout_method','status','created_at']} render={(item) => item.status === 'pending' ? <div className="flex flex-wrap gap-2"><button disabled={busy} className={softButton} onClick={() => reviewWithdrawal(text(item.id), 'approve')}>Approve</button><button disabled={busy} className={softButton} onClick={() => reviewWithdrawal(text(item.id), 'reject')}>Reject</button></div> : item.status === 'approved' ? <button disabled={busy} className={softButton} onClick={() => reviewWithdrawal(text(item.id), 'pay')}>Mark paid after transfer</button> : null} />
+              <DataTable title="Top-up requests" rows={topupRequestsWithCustomer} columns={['customer_name','amount','currency','payment_method','payment_reference','status','admin_note','created_at']} render={(item) => item.status === 'pending' ? <div className="flex gap-2"><button disabled={busy} className={softButton} onClick={() => reviewTopup(text(item.id), true)}>Approve</button><button disabled={busy} className={softButton} onClick={() => reviewTopup(text(item.id), false)}>Reject</button></div> : null} />
+              <DataTable title="Withdrawal requests" rows={withdrawalRequestsWithCustomer} columns={['customer_name','amount','currency','payout_method','payout_details','status','admin_note','created_at']} render={(item) => item.status === 'pending' ? <div className="flex flex-wrap gap-2"><button disabled={busy} className={softButton} onClick={() => reviewWithdrawal(text(item.id), 'approve')}>Approve</button><button disabled={busy} className={softButton} onClick={() => reviewWithdrawal(text(item.id), 'reject')}>Reject</button></div> : item.status === 'approved' ? <button disabled={busy} className={softButton} onClick={() => reviewWithdrawal(text(item.id), 'pay')}>Mark paid after transfer</button> : null} />
               <form onSubmit={addWalletBalance} className="border border-brass/40 bg-card p-6">
                 <h2 className="display text-xl">Add amount to customer wallet</h2>
                 <p className="mt-2 text-xs leading-6 text-ink-soft">Administrator-only manual credit. The amount is posted to the customer's internal wallet ledger and recorded in the financial audit history. This does not transfer real money.</p>
