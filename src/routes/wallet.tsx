@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { ArrowRight, SiteFooter, SiteHeader } from '../components/site-chrome'
 import { requireSupabase } from '../lib/supabase-client'
@@ -32,6 +32,7 @@ export const Route = createFileRoute('/wallet')({
 })
 
 function WalletPage() {
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
   const [currency, setCurrency] = useState<Currency>('AED')
@@ -115,6 +116,10 @@ function WalletPage() {
     setNotice('')
     const amount = Number(topup.amount)
     if (!userId || !Number.isFinite(amount) || amount <= 0) return setError('Enter a valid amount greater than zero.')
+    if (topup.method === 'Card payment') {
+      void navigate({ to: '/checkout', search: { kind: 'topup', amount, currency } })
+      return
+    }
     setSending(true)
     try {
       const { error: insertError } = await requireSupabase().from('topup_requests').insert({
