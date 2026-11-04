@@ -56,7 +56,7 @@ export function JournalEditor() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
-  const [confirmId, setConfirmId] = useState<Id<'posts'> | null>(null)
+  const [confirmId, setConfirmId] = useState<string | null>(null)
 
   useEffect(() => {
     void loadPosts().catch((err) => setError(errorMessage(err, 'Could not load journal posts.')))
