@@ -12,10 +12,14 @@ export function useResidencePrice() {
 
   useEffect(() => {
     let active = true
-    requireSupabase()
-      .from('property_prices')
-      .select('slug,price_label')
-      .then(({ data, error }) => {
+    let request: ReturnType<ReturnType<typeof requireSupabase>['from']> | null = null
+    try {
+      request = requireSupabase().from('property_prices').select('slug,price_label') as typeof request
+    } catch (error) {
+      console.error('Could not connect to Supabase for property prices:', error)
+      return () => { active = false }
+    }
+    request.then(({ data, error }) => {
         if (!active) return
         if (error) {
           console.error('Could not load published property prices:', error.message)
