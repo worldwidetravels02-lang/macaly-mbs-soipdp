@@ -1,7 +1,3 @@
-// IMPORTANT (Macaly agent): Do not change or remove anything in this file unless you 100% understand it.
-// This config wires up Macaly-specific behavior (Visual Edits tagger, allowed hosts, dev build, prerender).
-// Modifying it without full understanding can break Macaly app functionality for the user.
-
 import { defineConfig } from 'vite'
 import { devtools } from '@tanstack/devtools-vite'
 import tsconfigPaths from 'vite-tsconfig-paths'
@@ -14,9 +10,6 @@ import tailwindcss from '@tailwindcss/vite'
 import errorOverlay from "@visulima/vite-overlay"
 
 const config = defineConfig({
-  server: {
-    allowedHosts: ['.macaly.dev', '.macaly.app', '.macaly-app.com', '.macaly-user-data.dev', '.e2b.app', '.e2b-juliett.dev'],
-  },
   ...(process.env.DEV_BUILD && {
     build: {
       target: 'esnext',
