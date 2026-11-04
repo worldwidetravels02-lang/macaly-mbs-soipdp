@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { TIERS } from '@/convex/tiers'
+import { TIERS } from '../lib/tiers'
 import { Reveal } from '../components/reveal'
 import { ArrowRight, PageIntro, SiteFooter, SiteHeader } from '../components/site-chrome'
 import { IMAGES } from '../data/site'
