@@ -30,6 +30,7 @@ Deploy the `convex/` backend to a Convex deployment and configure its environmen
 - `CHAT_ID`: delivery-service chat identifier, if required.
 - `SECRET_KEY`: delivery-service secret, if required.
 - `APP_NAME`: application name used in OTP delivery.
+- `ADMIN_SETUP_SECRET`: private first-admin bootstrap secret (at least 20 characters). Generate a unique random value and set it only in the Convex deployment environment; never commit it to GitHub. After the owner has created the administrator and saved a new passcode in Admin Settings, remove this environment variable.
 
 The OTP provider in `convex/ResendOTP.ts` depends on the OTP service above. Email registration and password reset will not work until that service is configured and tested.
 
@@ -55,16 +56,17 @@ https://YOUR-CONVEX-DEPLOYMENT.convex.site/stripe/webhook
 
 Use the exact HTTP Actions URL shown by your Convex deployment. Do not accept real customer deposits, withdrawals, or investment funds until payment reconciliation, identity checks, legal/compliance requirements, and manual approval workflows have been reviewed.
 
-The repository currently contains an automatic monthly profit payout cron in `convex/crons.ts`. It is enabled in the source code. Before deploying to a production Convex deployment, either disable that schedule or independently verify and approve the payout formula, funding basis, and business/legal requirements. Do not assume a payout is safe simply because the code runs.
+Automatic monthly profit payouts are currently disabled in `convex/crons.ts`. Keep them disabled until the payout formula, funding basis, reconciliation, and business/legal requirements have been independently reviewed and approved.
 
 ## 6. Admin security before launch
 
-- Remove any shared/default bootstrap passcode and use a private owner-controlled setup.
-- Verify that only the intended owner can create the first administrator.
+- First-admin setup now fails closed unless a private `ADMIN_SETUP_SECRET` is configured in Convex.
+- Public self-claim and automatic promotion based only on an email address are disabled.
+- Verify the owner setup flow with the private secret before launch; then save a new admin passcode and remove the bootstrap secret.
 - Require strong unique passwords and a strong passcode; never commit credentials to GitHub.
 - Test access from a non-admin account and verify every admin mutation rejects it.
 - Review admin recovery and account invitation flows before inviting staff.
 
 ## 7. Important
 
-This guide documents the variables and deployment shape visible in the current source. It does not mean a hosting provider, Convex deployment, Stripe account, email/OTP service, domain, or production secrets have already been configured.
+The first-admin setup uses a private `ADMIN_SETUP_SECRET` stored only in Convex. Never share it in chat or add it to GitHub. This guide documents the variables and deployment shape visible in the current source. It does not mean a hosting provider, Convex deployment, Stripe account, email/OTP service, domain, or production secrets have already been configured.
