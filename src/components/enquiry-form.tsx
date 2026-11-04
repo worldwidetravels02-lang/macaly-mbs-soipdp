@@ -41,7 +41,10 @@ export function EnquiryForm({
           full_name: form.name.trim(),
           mobile: form.mobile.trim(),
           email: form.email.trim() || null,
-          message: form.message.trim() || null,
+          message: [
+            `Interested in: ${form.residence.trim() || 'General enquiry'}`,
+            form.message.trim(),
+          ].filter(Boolean).join('\\n\\n'),
           source,
         }),
       })
@@ -64,7 +67,7 @@ export function EnquiryForm({
         <p className="eyebrow text-brass">Thank you</p>
         <h3 className="display mt-3 text-2xl">Your enquiry is with our team.</h3>
         <p className="mt-3 text-sm leading-relaxed text-ink-soft">
-          A residential advisor will call you within one working day to arrange your private preview.
+          Our team will review your request and contact you using the details you provided.
         </p>
         <button
           type="button"
