@@ -1091,8 +1091,10 @@ function AdminDashboard() {
         <div className="border-b border-border px-6 py-5">
           <h2 className="display text-xl">Monthly profit payouts</h2>
           <p className="mt-1 text-xs text-ink-soft">
-            Profit is credited to member wallets automatically on the first of each month at their
-            membership level percentage. You can also run a month by hand.
+            Review the expected amounts below, then run the payout manually. Each successful
+            payout is credited to the member's AED wallet and recorded in their transaction history.
+            The calculation uses completed wallet top-ups plus funded investments and the member's
+            current membership level. Automatic payouts are currently paused.
           </p>
         </div>
 
