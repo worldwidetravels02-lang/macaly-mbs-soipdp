@@ -131,14 +131,8 @@ function AccountPage() {
       const { data: approved, error: approvedError } = await client.from('verifications').select('id').eq('user_id', user.id).eq('status', 'approved').limit(1).maybeSingle()
       if (approvedError) throw approvedError
       if (approved) throw new Error('Your identity verification is already approved.')
-      const { data: rejected } = await client.from('verifications').select('id').eq('user_id', user.id).eq('status', 'rejected').order('submitted_at', { ascending: false }).limit(1).maybeSingle()
-      if (rejected) {
-        const { error: updateError } = await client.from('verifications').update({ status: 'pending', document_url: objectPath, document_name: documentFile.name, document_type: documentType, note: null, review_note: null, submitted_at: new Date().toISOString(), reviewed_at: null, reviewed_by: null }).eq('id', rejected.id)
-        if (updateError) throw updateError
-      } else {
-        const { error: insertError } = await client.from('verifications').insert({ user_id: user.id, status: 'pending', document_url: objectPath, document_name: documentFile.name, document_type: documentType })
-        if (insertError) throw insertError
-      }
+      const { error: insertError } = await client.from('verifications').insert({ user_id: user.id, status: 'pending', document_url: objectPath, document_name: documentFile.name, document_type: documentType })
+      if (insertError) throw insertError
       setVerification({ status: 'pending', document_type: documentType, document_name: documentFile.name, review_note: null, submitted_at: new Date().toISOString() })
       setDocumentFile(null); setNotice('Your identity document was uploaded privately and submitted for administrator review.')
     } catch (err) { setError(err instanceof Error ? err.message : 'Could not submit your identity document.') }
