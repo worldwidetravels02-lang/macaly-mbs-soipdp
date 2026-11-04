@@ -10,6 +10,7 @@ const currencies = ['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR'] as const
 type Currency = (typeof currencies)[number]
 type WalletRow = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; description?: string | null; transaction_type?: string; direction?: string }
 type ProfitRow = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; admin_note?: string | null }
+type RequestRow = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; admin_note?: string | null }
 
 const fieldClass = 'mt-2 w-full border border-input bg-background px-4 py-3 text-[0.95rem] outline-none transition-colors placeholder:text-ink-soft/60 focus:border-brass disabled:opacity-60'
 
@@ -38,6 +39,11 @@ function WalletPage() {
   const [balance, setBalance] = useState(0)
   const [transactions, setTransactions] = useState<WalletRow[]>([])
   const [profits, setProfits] = useState<ProfitRow[]>([])
+  const [topups, setTopups] = useState<RequestRow[]>([])
+  const [withdrawals, setWithdrawals] = useState<RequestRow[]>([])
+  const [depositAmount, setDepositAmount] = useState('')
+  const [withdrawalAmount, setWithdrawalAmount] = useState('')
+  const [requestBusy, setRequestBusy] = useState(false)
   const [error, setError] = useState('')
 
   const loadWallet = useCallback(async () => {
@@ -53,13 +59,15 @@ function WalletPage() {
         return
       }
       setUserId(authData.user.id)
-      const [profileResult, balanceResult, transactionResult, profitResult] = await Promise.all([
+      const [profileResult, balanceResult, transactionResult, profitResult, topupResult, withdrawalResult] = await Promise.all([
         client.from('profiles').select('preferred_currency').eq('id', authData.user.id).maybeSingle(),
         client.from('wallet_balances').select('balance').eq('user_id', authData.user.id).eq('currency', currency).maybeSingle(),
         client.from('wallet_transactions').select('id,amount,currency,status,created_at,description,transaction_type,direction').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(30),
-        client.from('profit_payouts').select('id,amount,currency,status,created_at').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(20),
+        client.from('profit_payouts').select('id,amount,currency,status,created_at,admin_note').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(20),
+        client.from('topup_requests').select('id,amount,currency,status,created_at,admin_note').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(30),
+        client.from('withdrawal_requests').select('id,amount,currency,status,created_at,admin_note').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(30),
       ])
-      for (const result of [profileResult, balanceResult, transactionResult, profitResult]) {
+      for (const result of [profileResult, balanceResult, transactionResult, profitResult, topupResult, withdrawalResult]) {
         if (result.error) throw result.error
       }
       const savedCurrency = profileResult.data?.preferred_currency
@@ -70,6 +78,8 @@ function WalletPage() {
       setBalance(Number(balanceResult.data?.balance ?? 0))
       setTransactions((transactionResult.data ?? []) as WalletRow[])
       setProfits((profitResult.data ?? []) as ProfitRow[])
+      setTopups((topupResult.data ?? []) as RequestRow[])
+      setWithdrawals((withdrawalResult.data ?? []) as RequestRow[])
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not load your wallet.')
     } finally {
@@ -84,6 +94,24 @@ function WalletPage() {
     return () => listener.subscription.unsubscribe()
   }, [loadWallet])
 
+  async function submitWalletRequest(kind: 'deposit' | 'withdrawal') {
+    const rawAmount = kind === 'deposit' ? depositAmount : withdrawalAmount
+    const amount = Number(rawAmount)
+    if (!Number.isFinite(amount) || amount <= 0 || amount > 100000000) { setError('Enter a valid amount.'); return }
+    setRequestBusy(true); setError('')
+    try {
+      const client = requireSupabase()
+      const { data: authData, error: authError } = await client.auth.getUser()
+      if (authError) throw authError
+      if (!authData.user) throw new Error('Please sign in again.')
+      const table = kind === 'deposit' ? 'topup_requests' : 'withdrawal_requests'
+      const { error: insertError } = await client.from(table).insert({ user_id: authData.user.id, amount, currency, status: 'pending' })
+      if (insertError) throw insertError
+      if (kind === 'deposit') setDepositAmount(''); else setWithdrawalAmount('')
+      await loadWallet()
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not submit your request.') }
+    finally { setRequestBusy(false) }
+  }
   async function changeCurrency(nextCurrency: Currency) {
     setError('')
     if (userId) {
@@ -147,6 +175,25 @@ function WalletPage() {
               </div>
             </section>
 
+
+            <section className="grid gap-6 lg:grid-cols-2">
+              <form onSubmit={(event) => { event.preventDefault(); void submitWalletRequest('deposit') }} className="grid gap-3 border border-border bg-card p-6">
+                <div><p className="eyebrow text-brass">Add funds</p><h2 className="display mt-2 text-xl">Deposit request</h2><p className="mt-2 text-xs leading-6 text-ink-soft">Enter the amount and submit a request. Then contact customer support for instructions. No payment is taken on this page.</p></div>
+                <label className="text-xs text-ink-soft">Deposit amount ({currency})<input required type="number" min="0.01" max="100000000" step="0.01" className={fieldClass} value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} placeholder="Enter amount" /></label>
+                <button disabled={requestBusy || !depositAmount} className="eyebrow inline-flex items-center justify-center gap-2 bg-primary px-5 py-3 text-[0.6rem] text-primary-foreground disabled:opacity-50">Submit deposit request <ArrowRight /></button>
+                <Link to="/support" className="text-sm text-brass underline underline-offset-4">Contact customer support for deposit instructions</Link>
+              </form>
+              <form onSubmit={(event) => { event.preventDefault(); void submitWalletRequest('withdrawal') }} className="grid gap-3 border border-border bg-card p-6">
+                <div><p className="eyebrow text-brass">Withdraw funds</p><h2 className="display mt-2 text-xl">Withdrawal request</h2><p className="mt-2 text-xs leading-6 text-ink-soft">Choose the amount and submit. Your request stays pending until an administrator reviews it. Contact support if you need help.</p></div>
+                <label className="text-xs text-ink-soft">Withdrawal amount ({currency})<input required type="number" min="0.01" max="100000000" step="0.01" className={fieldClass} value={withdrawalAmount} onChange={(event) => setWithdrawalAmount(event.target.value)} placeholder="Enter amount" /></label>
+                <button disabled={requestBusy || !withdrawalAmount} className="eyebrow inline-flex items-center justify-center gap-2 bg-primary px-5 py-3 text-[0.6rem] text-primary-foreground disabled:opacity-50">Apply for withdrawal <ArrowRight /></button>
+                <Link to="/support" className="text-sm text-brass underline underline-offset-4">Contact customer support</Link>
+              </form>
+            </section>
+            <section className="grid gap-6 lg:grid-cols-2">
+              <RequestHistory title="Deposit requests" rows={topups} />
+              <RequestHistory title="Withdrawal requests" rows={withdrawals} />
+            </section>
             <section className="grid gap-6 lg:grid-cols-2">
               <History title="Profit credits" rows={profits.filter((row) => row.currency === currency)} />
               <div className="border border-border bg-card">
@@ -164,6 +211,29 @@ function WalletPage() {
 }
 
 
+
+
+function RequestHistory({ title, rows }: { title: string; rows: RequestRow[] }) {
+  return (
+    <div className="border border-border bg-card">
+      <h2 className="display border-b border-border px-6 py-4 text-lg">{title}</h2>
+      {rows.length === 0 ? <p className="px-6 py-6 text-sm text-ink-soft">No requests submitted yet.</p> : (
+        <ul className="divide-y divide-border">
+          {rows.map((row) => (
+            <li key={row.id} className="flex items-start justify-between gap-4 px-6 py-4">
+              <div className="min-w-0">
+                <p className="text-sm">{date(row.created_at)}</p>
+                <p className="mt-1 text-xs capitalize text-ink-soft">{row.status.replace(/_/g, ' ')}</p>
+                {row.admin_note ? <p className="mt-2 text-xs text-ink-soft">{row.admin_note}</p> : null}
+              </div>
+              <p className="display shrink-0 text-lg">{money(row.amount, row.currency)}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
 
 function History({ title, rows }: { title: string; rows: ProfitRow[] }) {
   return (
