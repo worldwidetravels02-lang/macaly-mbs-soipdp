@@ -69,7 +69,7 @@ function WalletPage() {
       }
       setBalance(Number(balanceResult.data?.balance ?? 0))
       setTransactions((transactionResult.data ?? []) as WalletRow[])
-      setProfits((profitResult.data ?? []) as RequestRow[])
+      setProfits((profitResult.data ?? []) as ProfitRow[])
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not load your wallet.')
     } finally {
@@ -163,3 +163,28 @@ function WalletPage() {
   )
 }
 
+
+
+function History({ title, rows }: { title: string; rows: ProfitRow[] }) {
+  return (
+    <div className="border border-border bg-card">
+      <h2 className="display border-b border-border px-6 py-4 text-lg">{title}</h2>
+      {rows.length === 0 ? (
+        <p className="px-6 py-6 text-sm text-ink-soft">No profit credits recorded yet.</p>
+      ) : (
+        <ul className="divide-y divide-border">
+          {rows.map((row) => (
+            <li key={row.id} className="flex items-start justify-between gap-4 px-6 py-4">
+              <div className="min-w-0">
+                <p className="text-sm">Profit payout</p>
+                <p className="mt-1 text-xs text-ink-soft">{date(row.created_at)} · {row.status.replace(/_/g, ' ')}</p>
+                {row.admin_note ? <p className="mt-2 text-xs text-ink-soft">{row.admin_note}</p> : null}
+              </div>
+              <p className="display shrink-0 text-lg">{money(row.amount, row.currency)}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
