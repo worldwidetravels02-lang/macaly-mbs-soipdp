@@ -60,6 +60,7 @@ function AdminPage() {
   const [promotionDraft, setPromotionDraft] = useState({ title: '', description: '', image_url: '', active: false })
   const [editingPromotionId, setEditingPromotionId] = useState('')
   const [customerSearch, setCustomerSearch] = useState('')
+  const [profileCustomerId, setProfileCustomerId] = useState('')
   const [notificationDraft, setNotificationDraft] = useState({ user_id: '', title: '', body: '' })
   const [profitDraft, setProfitDraft] = useState({ user_id: '', amount: '', currency: 'AED', period_start: '', period_end: '', description: 'Monthly profit credited to customer wallet' })
   const [selectedThread, setSelectedThread] = useState('')
