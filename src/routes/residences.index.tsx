@@ -6,6 +6,7 @@ import { ArrowRight, PageIntro, SiteFooter, SiteHeader } from '../components/sit
 import { IMAGES, RESIDENCES, RESIDENCE_PATHS } from '../data/site'
 import { canonicalUrl } from '../lib/canonical-url'
 import { useResidencePrice } from '../lib/prices'
+import { useFxPriceLabel } from '../lib/fx-currency'
 import { useActiveOffers } from '../lib/offers'
 import siteMetadata from '../metadata.json'
 
@@ -27,6 +28,7 @@ export const Route = createFileRoute('/residences/')({
 
 function ResidencesPage() {
   const priceFor = useResidencePrice()
+  const convertPriceLabel = useFxPriceLabel()
   const offerFor = useActiveOffers()
 
   return (
@@ -69,7 +71,7 @@ function ResidencesPage() {
                         loading="lazy"
                       />
                       <span className="eyebrow absolute left-4 top-4 bg-deep/85 px-3 py-1.5 text-[0.5rem] text-on-deep backdrop-blur">
-                        {priceFor(residence.slug, residence.price)}
+                        {convertPriceLabel(priceFor(residence.slug, residence.price))}
                       </span>
                       {offerFor(residence.slug) ? (
                         <span
