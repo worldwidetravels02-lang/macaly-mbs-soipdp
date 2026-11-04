@@ -41,7 +41,10 @@ export function EnquiryForm({
           full_name: form.name.trim(),
           mobile: form.mobile.trim(),
           email: form.email.trim() || null,
-          message: form.message.trim() || null,
+          message: [
+            form.residence ? `Interested in: ${form.residence}` : '',
+            form.message.trim(),
+          ].filter(Boolean).join('\\n\\n') || null,
           source,
           status: 'new',
         }),
