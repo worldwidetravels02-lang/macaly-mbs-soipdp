@@ -182,8 +182,8 @@ function WalletPage() {
               </div>
               <div className="border border-border bg-card p-6">
                 <p className="eyebrow text-[0.5rem] text-ink-soft">Pending requests</p>
-                <p className="display mt-3 text-2xl">{topups.filter((row) => row.status === 'pending').length + withdrawals.filter((row) => row.status === 'pending').length}</p>
-                <p className="mt-2 text-xs text-ink-soft">Top-ups and withdrawals awaiting review.</p>
+                <p className="display mt-3 text-2xl">{topups.filter((row) => row.currency === currency && row.status === 'pending').length + withdrawals.filter((row) => row.currency === currency && row.status === 'pending').length}</p>
+                <p className="mt-2 text-xs text-ink-soft">Top-ups and withdrawals awaiting review in {currency}.</p>
               </div>
             </section>
 
