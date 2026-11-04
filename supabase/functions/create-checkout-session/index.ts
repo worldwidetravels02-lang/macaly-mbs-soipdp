@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
     const amountInput = Number(body?.amountAed)
     const currency = typeof body?.currency === "string" ? body.currency.toUpperCase() : ""
     const residence = typeof body?.residence === "string" ? body.residence.trim() : ""
-    if (!kind || !Number.isFinite(amountInput) || !["AED","USD","INR"].includes(currency)) {
+    if (!kind || !Number.isFinite(amountInput) || amountInput <= 0 || !["AED","USD","INR","OMR","SAR","KWD","BHD","QAR"].includes(currency)) {
       return json({ error: "Invalid checkout details" }, 400)
     }
 
@@ -63,11 +63,10 @@ Deno.serve(async (req) => {
     if (verificationError) throw verificationError
     if (!verification) return json({ error: "Upload your identity document and wait for approval before making a payment" }, 403)
 
-    const amountAed = kind === "deposit" ? 200 : Math.round(amountInput)
-    if (kind === "topup" && (amountAed < 50 || amountAed > 1000000)) {
-      return json({ error: "Top-ups must be between AED 50 and AED 1,000,000" }, 400)
-    }
     if (kind === "deposit" && !residence) return json({ error: "Choose the residence you want to reserve" }, 400)
+    if (kind === "topup" && (amountInput < 50 || amountInput > 1000000)) {
+      return json({ error: "Top-ups must be between 50 and 1,000,000 in the selected currency" }, 400)
+    }
 
     let propertyId: string | null = null
     if (kind === "deposit") {
@@ -83,11 +82,16 @@ Deno.serve(async (req) => {
       propertyId = property.id
     }
 
-    const fallbackRates: Record<string, number> = { AED: 1, USD: 3.6725, INR: 0.0441 }
-    const { data: rateRow } = await admin.from("fx_rates").select("aed_per_unit").eq("code", currency).maybeSingle()
-    const aedPerUnit = currency === "AED" ? 1 : Number(rateRow?.aed_per_unit ?? fallbackRates[currency])
-    if (!Number.isFinite(aedPerUnit) || aedPerUnit <= 0) throw new Error("Exchange rate is not configured")
-    const amountCharged = Math.round((amountAed / aedPerUnit) * 100) / 100
+    const { data: rateRow, error: rateError } = await admin.from("fx_rates").select("aed_per_unit").eq("code", currency).maybeSingle()
+    if (rateError) throw rateError
+    const aedPerUnit = currency === "AED" ? 1 : Number(rateRow?.aed_per_unit)
+    if (!Number.isFinite(aedPerUnit) || aedPerUnit <= 0) {
+      return json({ error: "The selected currency exchange rate is not configured. Please contact support." }, 400)
+    }
+    const amountAed = kind === "deposit" ? 200 : Math.round(amountInput * aedPerUnit * 100) / 100
+    const amountCharged = kind === "deposit"
+      ? Math.round((amountAed / aedPerUnit) * 1000) / 1000
+      : Math.round(amountInput * 1000) / 1000
     const mode = Deno.env.get("STRIPE_MODE") === "live" ? "live" : "test"
 
     const { data: payment, error: insertError } = await admin.from("payments").insert({
