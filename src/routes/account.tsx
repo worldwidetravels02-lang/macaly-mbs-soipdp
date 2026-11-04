@@ -37,6 +37,10 @@ function AccountPage() {
   const [mobile, setMobile] = useState('')
   const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [verification, setVerification] = useState<{ status: string; document_type: string; document_name: string; review_note: string | null; submitted_at: string } | null>(null)
+  const [documentType, setDocumentType] = useState('Passport')
+  const [documentFile, setDocumentFile] = useState<File | null>(null)
+  const [uploadingDocument, setUploadingDocument] = useState(false)
 
   useEffect(() => {
     const supabase = requireSupabase()
@@ -63,6 +67,12 @@ function AccountPage() {
         setProfile(next)
         setName(next.full_name ?? '')
         setMobile(next.mobile ?? '')
+        const { data: verificationRow, error: verificationError } = await supabase.from('verifications')
+          .select('status,document_type,document_name,review_note,submitted_at')
+          .eq('user_id', currentUser.id).order('submitted_at', { ascending: false }).limit(1).maybeSingle()
+        if (!active) return
+        if (verificationError) setError(verificationError.message)
+        setVerification(verificationRow)
       }
       setLoading(false)
     })
@@ -99,6 +109,40 @@ function AccountPage() {
     } finally {
       setSaving(false)
     }
+  }
+
+
+  const submitVerification = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!user || !documentFile) { setError('Choose a document file first.'); return }
+    if (documentFile.size > 10 * 1024 * 1024) { setError('The document must be 10 MB or smaller.'); return }
+    const allowed = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp']
+    if (!allowed.includes(documentFile.type)) { setError('Upload a PDF, JPG, PNG or WEBP document.'); return }
+    setUploadingDocument(true); setError(null); setNotice(null)
+    try {
+      const client = requireSupabase()
+      const safeName = documentFile.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+      const objectPath = user.id + '/' + crypto.randomUUID() + '-' + safeName
+      const { error: uploadError } = await client.storage.from('identity-documents').upload(objectPath, documentFile, { contentType: documentFile.type, upsert: false })
+      if (uploadError) throw uploadError
+      const { data: existing, error: existingError } = await client.from('verifications').select('id,status').eq('user_id', user.id).in('status', ['pending']).limit(1).maybeSingle()
+      if (existingError) throw existingError
+      if (existing) throw new Error('You already have a verification awaiting review. Please wait for the result before submitting another document.')
+      const { data: approved, error: approvedError } = await client.from('verifications').select('id').eq('user_id', user.id).eq('status', 'approved').limit(1).maybeSingle()
+      if (approvedError) throw approvedError
+      if (approved) throw new Error('Your identity verification is already approved.')
+      const { data: rejected } = await client.from('verifications').select('id').eq('user_id', user.id).eq('status', 'rejected').order('submitted_at', { ascending: false }).limit(1).maybeSingle()
+      if (rejected) {
+        const { error: updateError } = await client.from('verifications').update({ status: 'pending', document_url: objectPath, document_name: documentFile.name, document_type: documentType, note: null, review_note: null, submitted_at: new Date().toISOString(), reviewed_at: null, reviewed_by: null }).eq('id', rejected.id)
+        if (updateError) throw updateError
+      } else {
+        const { error: insertError } = await client.from('verifications').insert({ user_id: user.id, status: 'pending', document_url: objectPath, document_name: documentFile.name, document_type: documentType })
+        if (insertError) throw insertError
+      }
+      setVerification({ status: 'pending', document_type: documentType, document_name: documentFile.name, review_note: null, submitted_at: new Date().toISOString() })
+      setDocumentFile(null); setNotice('Your identity document was uploaded privately and submitted for administrator review.')
+    } catch (err) { setError(err instanceof Error ? err.message : 'Could not submit your identity document.') }
+    finally { setUploadingDocument(false) }
   }
 
   const signOut = async () => {
@@ -152,6 +196,11 @@ function AccountPage() {
                 {notice ? <p role="status" className="border border-brass/40 bg-brass/5 px-4 py-3 text-sm">{notice}</p> : null}
                 <button type="submit" disabled={saving} data-testid="account-profile-save" className="eyebrow w-fit bg-primary px-6 py-3 text-[0.58rem] text-primary-foreground disabled:opacity-60">{saving ? 'Saving…' : 'Save changes'}</button>
               </form>
+              <section className="grid max-w-2xl gap-4 border border-border bg-card p-6 sm:p-8">
+                <div><p className="eyebrow text-brass">Identity verification</p><h2 className="display mt-2 text-xl">Verify your identity</h2><p className="mt-2 text-sm text-ink-soft">Upload a clear photo or PDF of your identity document. Files are stored in a private bucket and are not public links.</p></div>
+                {verification ? <div className="border border-border p-4 text-sm"><p>Status: <strong>{verification.status.replace(/_/g, ' ')}</strong></p><p className="mt-1 text-xs text-ink-soft">{verification.document_type} · {verification.document_name}</p>{verification.review_note ? <p className="mt-2 text-xs text-ink-soft">Administrator note: {verification.review_note}</p> : null}</div> : <p className="text-sm text-ink-soft">No identity document has been submitted.</p>}
+                {verification?.status !== 'approved' && verification?.status !== 'pending' ? <form onSubmit={submitVerification} className="grid gap-3"><label className="grid gap-2"><span className="eyebrow text-[0.5rem] text-ink-soft">Document type</span><select className="border border-input bg-background px-4 py-3 text-sm" value={documentType} onChange={(event) => setDocumentType(event.target.value)}><option>Passport</option><option>National ID</option><option>Residence permit</option><option>Driving licence</option></select></label><label className="grid gap-2"><span className="eyebrow text-[0.5rem] text-ink-soft">Document file (PDF, JPG, PNG, WEBP · max 10 MB)</span><input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp" onChange={(event) => setDocumentFile(event.target.files?.[0] ?? null)} required className="block w-full text-sm" /></label><button type="submit" disabled={uploadingDocument || !documentFile} className="eyebrow w-fit bg-primary px-6 py-3 text-[0.58rem] text-primary-foreground disabled:opacity-60">{uploadingDocument ? 'Uploading…' : 'Submit identity document'}</button></form> : null}
+              </section>
               <div className="flex flex-wrap gap-3">
                 <Link to="/dashboard" className="eyebrow inline-flex items-center gap-3 border border-border px-5 py-3 text-[0.55rem] hover:border-brass">Customer dashboard <ArrowRight className="h-3 w-3" /></Link>
                 <Link to="/support" className="eyebrow inline-flex items-center gap-3 border border-border px-5 py-3 text-[0.55rem] hover:border-brass">Customer support <ArrowRight className="h-3 w-3" /></Link>
