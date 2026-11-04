@@ -1,5 +1,4 @@
 import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
-import AppConvexProvider from '../components/convex-client-provider'
 
 // CSS imported as a side effect — do NOT add `?url` or `?inline`.
 //
@@ -38,7 +37,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        <AppConvexProvider>{children}</AppConvexProvider>
+        {children}
         <Scripts />
       </body>
     </html>
