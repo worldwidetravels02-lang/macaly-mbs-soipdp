@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { AuthLoading, Authenticated, Unauthenticated } from 'convex/react'
+import { useEffect, useState } from 'react'
+import { requireSupabase } from '../lib/supabase-client'
 import { ListingsGate } from '../components/listings-gate'
 import { Reveal } from '../components/reveal'
 import { ArrowRight, PageIntro, SiteFooter, SiteHeader } from '../components/site-chrome'
@@ -27,6 +28,32 @@ export const Route = createFileRoute('/residences/')({
 })
 
 function ResidencesPage() {
+  const [checkingSession, setCheckingSession] = useState(true)
+  const [signedIn, setSignedIn] = useState(false)
+
+  useEffect(() => {
+    const client = requireSupabase()
+    let active = true
+    client.auth.getSession().then(({ data, error }) => {
+      if (!active) return
+      if (error) console.error('Could not check residence listing session:', error.message)
+      setSignedIn(Boolean(data.session?.user))
+      setCheckingSession(false)
+    }).catch((error) => {
+      if (!active) return
+      console.error('Could not check residence listing session:', error)
+      setCheckingSession(false)
+    })
+    const { data } = client.auth.onAuthStateChange((_event, session) => {
+      setSignedIn(Boolean(session?.user))
+      setCheckingSession(false)
+    })
+    return () => {
+      active = false
+      data.subscription.unsubscribe()
+    }
+  }, [])
+
   const priceFor = useResidencePrice()
   const convertPriceLabel = useFxPriceLabel()
   const offerFor = useActiveOffers()
@@ -43,17 +70,13 @@ function ResidencesPage() {
           imageAlt="Msheireb Properties tower at dusk"
         />
 
-        <AuthLoading>
+        {checkingSession ? (
           <p className="mx-auto w-full max-w-7xl px-5 py-16 text-sm text-ink-soft sm:px-8">
             Checking your session…
           </p>
-        </AuthLoading>
-
-        <Unauthenticated>
+        ) : !signedIn ? (
           <ListingsGate />
-        </Unauthenticated>
-
-        <Authenticated>
+        ) : (
         <section className="py-16 sm:py-20">
           <div className="mx-auto w-full max-w-7xl px-5 sm:px-8">
             <ul className="grid gap-10 md:grid-cols-2 lg:grid-cols-3 lg:gap-8">
@@ -124,7 +147,7 @@ function ResidencesPage() {
             </Reveal>
           </div>
         </section>
-        </Authenticated>
+        )}
       </main>
       <SiteFooter />
     </div>
