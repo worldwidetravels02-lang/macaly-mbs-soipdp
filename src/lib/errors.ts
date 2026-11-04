@@ -1,4 +1,4 @@
-/** Reads the friendly message from a Convex error, falling back to the raw message. */
+/** Reads a useful message from a backend error, falling back to a safe user-facing message. */
 export function errorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === 'object' && 'data' in err) {
     const data = (err as { data?: unknown }).data
