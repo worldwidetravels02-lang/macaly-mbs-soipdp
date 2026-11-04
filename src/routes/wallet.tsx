@@ -11,6 +11,7 @@ type Currency = (typeof currencies)[number]
 type WalletRow = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; description?: string | null; transaction_type?: string; direction?: string }
 type ProfitRow = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; admin_note?: string | null }
 type RequestRow = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; admin_note?: string | null }
+type WalletNotification = { id: string; title: string; body: string; read_at: string | null; created_at: string }
 
 const fieldClass = 'mt-2 w-full border border-input bg-background px-4 py-3 text-[0.95rem] outline-none transition-colors placeholder:text-ink-soft/60 focus:border-brass disabled:opacity-60'
 
@@ -41,6 +42,7 @@ function WalletPage() {
   const [profits, setProfits] = useState<ProfitRow[]>([])
   const [topups, setTopups] = useState<RequestRow[]>([])
   const [withdrawals, setWithdrawals] = useState<RequestRow[]>([])
+  const [notifications, setNotifications] = useState<WalletNotification[]>([])
   const [depositAmount, setDepositAmount] = useState('')
   const [withdrawalAmount, setWithdrawalAmount] = useState('')
   const [requestBusy, setRequestBusy] = useState(false)
@@ -59,15 +61,16 @@ function WalletPage() {
         return
       }
       setUserId(authData.user.id)
-      const [profileResult, balanceResult, transactionResult, profitResult, topupResult, withdrawalResult] = await Promise.all([
+      const [profileResult, balanceResult, transactionResult, profitResult, topupResult, withdrawalResult, notificationResult] = await Promise.all([
         client.from('profiles').select('preferred_currency').eq('id', authData.user.id).maybeSingle(),
         client.from('wallet_balances').select('balance').eq('user_id', authData.user.id).eq('currency', currency).maybeSingle(),
         client.from('wallet_transactions').select('id,amount,currency,status,created_at,description,transaction_type,direction').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(30),
         client.from('profit_payouts').select('id,amount,currency,status,created_at,admin_note').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(20),
         client.from('topup_requests').select('id,amount,currency,status,created_at,admin_note').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(30),
         client.from('withdrawal_requests').select('id,amount,currency,status,created_at,admin_note').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(30),
+        client.from('notifications').select('id,title,body,read_at,created_at').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(20),
       ])
-      for (const result of [profileResult, balanceResult, transactionResult, profitResult, topupResult, withdrawalResult]) {
+      for (const result of [profileResult, balanceResult, transactionResult, profitResult, topupResult, withdrawalResult, notificationResult]) {
         if (result.error) throw result.error
       }
       const savedCurrency = profileResult.data?.preferred_currency
@@ -80,6 +83,7 @@ function WalletPage() {
       setProfits((profitResult.data ?? []) as ProfitRow[])
       setTopups((topupResult.data ?? []) as RequestRow[])
       setWithdrawals((withdrawalResult.data ?? []) as RequestRow[])
+      setNotifications((notificationResult.data ?? []) as WalletNotification[])
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not load your wallet.')
     } finally {
@@ -192,6 +196,22 @@ function WalletPage() {
               </form>
             </section>
             <section className="grid gap-6 lg:grid-cols-2">
+            {notifications.length > 0 ? <section className="border border-border bg-card">
+              <div className="flex items-center justify-between border-b border-border px-6 py-4">
+                <h2 className="display text-lg">Wallet notifications</h2>
+                <span className="text-xs text-ink-soft">{notifications.filter((item) => !item.read_at).length} unread</span>
+              </div>
+              <ul className="divide-y divide-border">
+                {notifications.map((item) => <li key={item.id} className="px-6 py-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-sm font-medium">{item.title}</p>
+                    {!item.read_at ? <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-brass" aria-label="Unread" /> : null}
+                  </div>
+                  <p className="mt-1 text-sm leading-6 text-ink-soft">{item.body}</p>
+                  <p className="mt-2 text-xs text-ink-soft">{date(item.created_at)}</p>
+                </li>)}
+              </ul>
+            </section> : null}
               <RequestHistory title="Deposit requests" rows={topups} />
               <RequestHistory title="Withdrawal requests" rows={withdrawals} />
             </section>
