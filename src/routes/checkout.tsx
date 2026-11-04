@@ -3,7 +3,7 @@ import { EmbeddedCheckout, EmbeddedCheckoutProvider } from '@stripe/react-stripe
 import { loadStripe, type Stripe } from '@stripe/stripe-js'
 import { useCallback, useEffect, useState } from 'react'
 import { SiteHeader } from '../components/site-chrome'
-import { CURRENCIES, formatMoney } from '../lib/currency'
+import { CURRENCIES } from '../lib/currency'
 import { errorMessage } from '../lib/errors'
 import { requireSupabase } from '../lib/supabase-client'
 
