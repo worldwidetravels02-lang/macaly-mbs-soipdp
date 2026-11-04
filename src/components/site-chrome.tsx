@@ -48,6 +48,17 @@ const NAV_LINKS = [
   { label: 'Contact', to: '/contact' },
 ] as const
 
+const ARABIC_LABELS: Record<string, string> = {
+  Residences: 'المساكن', Amenities: 'المرافق', Journal: 'المجلة', About: 'من نحن', Contact: 'اتصل بنا',
+  Language: 'اللغة', Currency: 'العملة', Login: 'تسجيل الدخول', 'Sign up': 'إنشاء حساب',
+  'Book a visit': 'احجز زيارة', 'Create account': 'إنشاء حساب', 'Explore residences': 'استكشف المساكن',
+  'Member login': 'دخول الأعضاء',
+}
+
+function translateSiteLabel(label: string, language: string): string {
+  return language === 'AR' ? (ARABIC_LABELS[label] ?? label) : label
+}
+
 export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
   const [scrolled, setScrolled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -119,18 +130,18 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
               className="eyebrow text-[0.6rem] opacity-80 transition-opacity hover:opacity-100"
               activeProps={{ className: 'text-brass opacity-100' }}
             >
-              {link.label}
+              {translateSiteLabel(link.label, language)}
             </Link>
           ))}
         </nav>
 
         <div className="hidden items-center gap-3 lg:flex">
-          <label className="sr-only" htmlFor="site-language">Language</label>
+          <label className="sr-only" htmlFor="site-language">{translateSiteLabel('Language', language)}</label>
           <select id="site-language" aria-label="Language" value={language} onChange={(event) => changeLanguage(event.target.value)} className="eyebrow max-w-16 cursor-pointer border border-current/25 bg-transparent px-2 py-2 text-[0.52rem]">
             <option value="EN">EN</option>
             <option value="AR">AR</option>
           </select>
-          <label className="sr-only" htmlFor="site-currency">Currency</label>
+          <label className="sr-only" htmlFor="site-currency">{translateSiteLabel('Currency', language)}</label>
           <select id="site-currency" aria-label="Currency" value={currency} onChange={(event) => changeCurrency(event.target.value)} className="eyebrow cursor-pointer border border-current/25 bg-transparent px-2 py-2 text-[0.52rem]">
             {['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR'].map((code) => <option key={code} value={code}>{code}</option>)}
           </select>
@@ -231,7 +242,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
                 onClick={() => setMenuOpen(false)}
                 className="display border-b border-border py-4 text-2xl"
               >
-                {link.label}
+                {translateSiteLabel(link.label, language)}
               </Link>
             ))}
           </nav>
