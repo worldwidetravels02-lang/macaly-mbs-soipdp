@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { ListingsGate } from '../components/listings-gate'
 import { Reveal } from '../components/reveal'
 import { ArrowRight, PageIntro, SiteFooter, SiteHeader } from '../components/site-chrome'
 import { AMENITIES, IMAGES, RESIDENCES, RESIDENCE_PATHS, SITE } from '../data/site'
