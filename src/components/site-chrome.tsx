@@ -56,6 +56,31 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
   const wallet = null
 
   useEffect(() => {
+    try {
+      const savedLanguage = window.localStorage.getItem('msheireb-language')
+      const savedCurrency = window.localStorage.getItem('msheireb-currency')
+      if (savedLanguage === 'EN' || savedLanguage === 'AR') setLanguage(savedLanguage)
+      if (['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR'].includes(savedCurrency ?? '')) {
+        setCurrency(savedCurrency!)
+      }
+    } catch {
+      // Preferences remain usable for this page even when storage is unavailable.
+    }
+  }, [])
+
+  const changeLanguage = (value: string) => {
+    if (value !== 'EN' && value !== 'AR') return
+    setLanguage(value)
+    try { window.localStorage.setItem('msheireb-language', value) } catch { /* optional */ }
+  }
+
+  const changeCurrency = (value: string) => {
+    if (!['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR'].includes(value)) return
+    setCurrency(value)
+    try { window.localStorage.setItem('msheireb-currency', value) } catch { /* optional */ }
+  }
+
+  useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40)
     onScroll()
     window.addEventListener('scroll', onScroll, { passive: true })
@@ -95,12 +120,12 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
 
         <div className="hidden items-center gap-3 lg:flex">
           <label className="sr-only" htmlFor="site-language">Language</label>
-          <select id="site-language" aria-label="Language" value={language} onChange={(event) => setLanguage(event.target.value)} className="eyebrow max-w-16 cursor-pointer border border-current/25 bg-transparent px-2 py-2 text-[0.52rem]">
+          <select id="site-language" aria-label="Language" value={language} onChange={(event) => changeLanguage(event.target.value)} className="eyebrow max-w-16 cursor-pointer border border-current/25 bg-transparent px-2 py-2 text-[0.52rem]">
             <option value="EN">EN</option>
             <option value="AR">AR</option>
           </select>
           <label className="sr-only" htmlFor="site-currency">Currency</label>
-          <select id="site-currency" aria-label="Currency" value={currency} onChange={(event) => setCurrency(event.target.value)} className="eyebrow cursor-pointer border border-current/25 bg-transparent px-2 py-2 text-[0.52rem]">
+          <select id="site-currency" aria-label="Currency" value={currency} onChange={(event) => changeCurrency(event.target.value)} className="eyebrow cursor-pointer border border-current/25 bg-transparent px-2 py-2 text-[0.52rem]">
             {['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR'].map((code) => <option key={code} value={code}>{code}</option>)}
           </select>
           {wallet ? (
