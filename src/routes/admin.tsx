@@ -300,6 +300,16 @@ function AdminPage() {
     if (stateError) throw stateError
   }, `Customer account set to ${status}.`)
 
+  const openIdentityDocument = async (objectPath: string) => {
+    try {
+      const { data, error: signedUrlError } = await requireSupabase().storage.from('identity-documents').createSignedUrl(objectPath, 60)
+      if (signedUrlError) throw signedUrlError
+      if (data?.signedUrl) window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not open the private identity document.')
+    }
+  }
+
   const updateStatus = (table: string, id: string, patch: Row, success: string) => run(async () => {
     const { error: updateError } = await requireSupabase().from(table).update(patch).eq('id', id)
     if (updateError) throw updateError
@@ -428,7 +438,7 @@ function AdminPage() {
 
             {section === 'investments' ? <div className="grid gap-6"><DataTable title="Customer investment requests" rows={rows.investmentRequests ?? []} columns={['user_id','property_name','plan_code','amount','expected_profit','expected_commission','status','created_at']} render={(item) => item.status === 'pending' ? <div className="flex gap-2"><button disabled={busy} className={softButton} onClick={() => updateStatus('investment_requests', text(item.id), { status: 'approved', reviewed_at: new Date().toISOString(), reviewed_by: user?.id }, 'Investment request approved.')}>Approve</button><button disabled={busy} className={softButton} onClick={() => updateStatus('investment_requests', text(item.id), { status: 'rejected', reviewed_at: new Date().toISOString(), reviewed_by: user?.id }, 'Investment request rejected.')}>Reject</button></div> : null} /><DataTable title="Active investment ledger" rows={rows.investments ?? []} columns={['user_id','property_id','amount','currency','status','created_at']} /></div> : null}
 
-            {section === 'verifications' ? <DataTable title="Customer identity verification" rows={rows.verifications ?? []} columns={['user_id','document_type','document_name','document_url','note','status','submitted_at']} render={(item) => item.status === 'pending' ? <div className="flex gap-2"><button disabled={busy} className={softButton} onClick={() => updateStatus('verifications', text(item.id), { status: 'approved', reviewed_at: new Date().toISOString(), reviewed_by: user?.id }, 'Identity verification approved.')}>Approve</button><button disabled={busy} className={softButton} onClick={() => updateStatus('verifications', text(item.id), { status: 'rejected', reviewed_at: new Date().toISOString(), reviewed_by: user?.id, review_note: 'Please resubmit a valid document.' }, 'Identity verification rejected.')}>Reject</button></div> : null} /> : null}
+            {section === 'verifications' ? <DataTable title="Customer identity verification" rows={rows.verifications ?? []} columns={['user_id','document_type','document_name','document_url','note','status','submitted_at']} render={(item) => <div className="flex flex-wrap gap-2"><button type="button" className={softButton} onClick={() => void openIdentityDocument(text(item.document_url))}>View private document</button>{item.status === 'pending' ? <><button disabled={busy} className={softButton} onClick={() => updateStatus('verifications', text(item.id), { status: 'approved', reviewed_at: new Date().toISOString(), reviewed_by: user?.id }, 'Identity verification approved.')}>Approve</button><button disabled={busy} className={softButton} onClick={() => updateStatus('verifications', text(item.id), { status: 'rejected', reviewed_at: new Date().toISOString(), reviewed_by: user?.id, review_note: 'Please resubmit a valid document.' }, 'Identity verification rejected.')}>Reject</button></> : null}</div>} /> : null}
 
             {section === 'crypto' ? <DataTable title="Crypto payment submissions" rows={rows.cryptoPayments ?? []} columns={['user_id','kind','amount','currency','coin','network','transaction_hash','proof_url','status','created_at']} render={(item) => item.status === 'pending' ? <div className="flex gap-2"><button disabled={busy} className={softButton} onClick={() => updateStatus('crypto_payments', text(item.id), { status: 'approved', reviewed_at: new Date().toISOString(), reviewed_by: user?.id, admin_note: 'Approved after manual verification' }, 'Crypto submission approved.')}>Approve</button><button disabled={busy} className={softButton} onClick={() => updateStatus('crypto_payments', text(item.id), { status: 'rejected', reviewed_at: new Date().toISOString(), reviewed_by: user?.id, admin_note: 'Rejected after review' }, 'Crypto submission rejected.')}>Reject</button></div> : null} /> : null}
 
