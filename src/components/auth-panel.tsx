@@ -30,7 +30,6 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
   const [referralCode, setReferralCode] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [code, setCode] = useState('')
 
   useEffect(() => {
     const client = requireSupabase()
@@ -54,7 +53,7 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
     clearMessages()
     if (view === 'signup') {
       if (fullName.trim().length < 2) return setError('Please enter your full name.')
-      if (mobile.replace(/\\D/g, '').length < 7) return setError('Please enter a valid mobile number.')
+      if (mobile.replace(/\D/g, '').length < 7) return setError('Please enter a valid mobile number.')
       if (password.length < 8) return setError('Your password needs at least 8 characters.')
       if (password !== confirmPassword) return setError('The two passwords do not match.')
     }
