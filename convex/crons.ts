@@ -1,14 +1,8 @@
 import { cronJobs } from "convex/server"
-import { internal } from "./_generated/api"
 
+// Automatic wallet credits are intentionally disabled until the payout
+// formula, funding, legal requirements, and operational controls are reviewed.
+// Do not schedule financial payouts automatically in production yet.
 const crons = cronJobs()
-
-/** Credits monthly membership profit to every funded wallet on the first of the month. */
-crons.monthly(
-  "monthly profit payouts",
-  { day: 1, hourUTC: 2, minuteUTC: 0 },
-  internal.profitPayouts.runScheduled,
-  {},
-)
 
 export default crons
