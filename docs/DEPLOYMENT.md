@@ -55,7 +55,7 @@ https://YOUR-CONVEX-DEPLOYMENT.convex.site/stripe/webhook
 
 Use the exact HTTP Actions URL shown by your Convex deployment. Do not accept real customer deposits, withdrawals, or investment funds until payment reconciliation, identity checks, legal/compliance requirements, and manual approval workflows have been reviewed.
 
-The repository currently contains an automatic monthly profit payout cron. Keep it disabled in production until the payout formula, funding basis, and business/legal approval have been independently verified.
+The repository currently contains an automatic monthly profit payout cron in `convex/crons.ts`. It is enabled in the source code. Before deploying to a production Convex deployment, either disable that schedule or independently verify and approve the payout formula, funding basis, and business/legal requirements. Do not assume a payout is safe simply because the code runs.
 
 ## 6. Admin security before launch
 
