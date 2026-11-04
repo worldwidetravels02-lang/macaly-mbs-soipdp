@@ -98,6 +98,7 @@ function WalletPage() {
     const rawAmount = kind === 'deposit' ? depositAmount : withdrawalAmount
     const amount = Number(rawAmount)
     if (!Number.isFinite(amount) || amount <= 0 || amount > 100000000) { setError('Enter a valid amount.'); return }
+    if (kind === 'withdrawal' && amount > balance) { setError('Your withdrawal request cannot exceed your available posted balance.'); return }
     setRequestBusy(true); setError('')
     try {
       const client = requireSupabase()
