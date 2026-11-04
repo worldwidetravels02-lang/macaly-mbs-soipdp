@@ -8,7 +8,7 @@ import { canonicalUrl } from '../lib/canonical-url'
 import siteMetadata from '../metadata.json'
 
 type Row = Record<string, any>
-type Section = 'overview' | 'properties' | 'enquiries' | 'users' | 'promotions' | 'finance' | 'support' | 'settings'
+type Section = 'overview' | 'properties' | 'enquiries' | 'users' | 'promotions' | 'finance' | 'investments' | 'verifications' | 'crypto' | 'tasks' | 'payments' | 'content' | 'team' | 'support' | 'settings'
 const SECTIONS: { id: Section; label: string }[] = [
   { id: 'overview', label: 'Overview' },
   { id: 'properties', label: 'Properties' },
@@ -16,6 +16,13 @@ const SECTIONS: { id: Section; label: string }[] = [
   { id: 'users', label: 'Customers' },
   { id: 'promotions', label: 'Promotions' },
   { id: 'finance', label: 'Wallet & finance' },
+  { id: 'investments', label: 'Investments' },
+  { id: 'verifications', label: 'Identity checks' },
+  { id: 'crypto', label: 'Crypto payments' },
+  { id: 'tasks', label: 'Tasks & levels' },
+  { id: 'payments', label: 'Payment records' },
+  { id: 'content', label: 'Content & journal' },
+  { id: 'team', label: 'Administrators' },
   { id: 'support', label: 'Support' },
   { id: 'settings', label: 'Settings' },
 ]
@@ -79,6 +86,18 @@ function AdminPage() {
         fx: client.from('fx_rates').select('*').order('code'),
         prices: client.from('property_prices').select('*').order('slug'),
         plans: client.from('membership_plans').select('*').order('level'),
+        investmentRequests: client.from('investment_requests').select('*').order('created_at', { ascending: false }).limit(100),
+        verifications: client.from('verifications').select('*').order('submitted_at', { ascending: false }).limit(100),
+        cryptoPayments: client.from('crypto_payments').select('*').order('created_at', { ascending: false }).limit(100),
+        tasks: client.from('member_tasks').select('*').order('created_at', { ascending: false }).limit(100),
+        payments: client.from('payments').select('*').order('created_at', { ascending: false }).limit(100),
+        reservationDeposits: client.from('reservation_deposits').select('*').order('created_at', { ascending: false }).limit(100),
+        posts: client.from('posts').select('*').order('created_at', { ascending: false }).limit(100),
+        admins: client.from('admin_members').select('*').order('created_at', { ascending: false }),
+        accounts: client.from('account_states').select('*'),
+        paymentDetails: client.from('payment_details').select('*').order('updated_at', { ascending: false }),
+        memberProfiles: client.from('member_profiles').select('*').order('created_at', { ascending: false }).limit(200),
+        notifications: client.from('notifications').select('*').order('created_at', { ascending: false }).limit(100),
       }
       const names = Object.keys(queries)
       const results = await Promise.all(names.map((name) => queries[name]))
@@ -161,6 +180,11 @@ function AdminPage() {
     }, 'Profit credited to the customer internal wallet.')
   }
 
+  const setAccountState = (customerId: string, status: 'active' | 'frozen' | 'blocked') => run(async () => {
+    const { error: stateError } = await requireSupabase().from('account_states').upsert({ user_id: customerId, status, reason: status === 'active' ? null : 'Updated by administrator', updated_by: user?.id, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+    if (stateError) throw stateError
+  }, `Customer account set to ${status}.`)
+
   const updateStatus = (table: string, id: string, patch: Row, success: string) => run(async () => {
     const { error: updateError } = await requireSupabase().from(table).update(patch).eq('id', id)
     if (updateError) throw updateError
@@ -230,7 +254,7 @@ function AdminPage() {
             </section> : null}
 
             {section === 'enquiries' ? <DataTable title="Customer enquiries" rows={rows.enquiries ?? []} columns={['full_name','mobile','email','status','created_at']} render={(item) => <div className="flex flex-wrap items-center gap-2"><span className="text-xs text-ink-soft">{text(item.status)}</span><button className={softButton} disabled={busy || item.status === 'contacted'} onClick={() => updateStatus('enquiries', text(item.id), { status: 'contacted' }, 'Enquiry marked contacted.')}>Mark contacted</button><button className={softButton} disabled={busy || item.status === 'closed'} onClick={() => updateStatus('enquiries', text(item.id), { status: 'closed' }, 'Enquiry closed.')}>Close</button></div>} /> : null}
-            {section === 'users' ? <DataTable title="Registered customers" rows={rows.users ?? []} columns={['full_name','mobile','preferred_currency','preferred_language','created_at']} /> : null}
+            {section === 'users' ? <DataTable title="Registered customers" rows={rows.users ?? []} columns={['full_name','mobile','preferred_currency','preferred_language','created_at']} render={(item) => { const state = (rows.accounts ?? []).find((entry) => entry.user_id === item.id)?.status ?? 'active'; return <div className="flex flex-wrap items-center gap-2"><span>{state}</span>{state !== 'active' ? <button disabled={busy} className={softButton} onClick={() => setAccountState(text(item.id), 'active')}>Unfreeze / activate</button> : <button disabled={busy} className={softButton} onClick={() => setAccountState(text(item.id), 'frozen')}>Freeze</button>}<button disabled={busy} className={softButton} onClick={() => setAccountState(text(item.id), 'blocked')}>Block</button></div> }} /> : null}
             {section === 'promotions' ? <section className="grid gap-6 xl:grid-cols-[minmax(18rem,0.8fr)_1.2fr]">
               <form onSubmit={savePromotion} className="h-fit border border-border bg-card p-6"><h2 className="display text-xl">Create promotion</h2><div className="mt-5 grid gap-3"><input required className={inputClass} placeholder="Promotion title" value={promotionDraft.title} onChange={(e) => setPromotionDraft({ ...promotionDraft, title: e.target.value })} /><textarea className={inputClass} rows={4} placeholder="Description" value={promotionDraft.description} onChange={(e) => setPromotionDraft({ ...promotionDraft, description: e.target.value })} /><input className={inputClass} placeholder="Image URL" value={promotionDraft.image_url} onChange={(e) => setPromotionDraft({ ...promotionDraft, image_url: e.target.value })} /><label className="flex items-center gap-3 text-sm"><input type="checkbox" checked={promotionDraft.active} onChange={(e) => setPromotionDraft({ ...promotionDraft, active: e.target.checked })} /> Active immediately</label><button disabled={busy} className={buttonClass}>Create promotion <ArrowRight /></button></div></form>
               <DataTable title="Promotions" rows={rows.promotions ?? []} columns={['title','description','active','starts_at','ends_at']} render={(item) => <button disabled={busy} className={softButton} onClick={() => updateStatus('promotions', text(item.id), { active: !item.active, updated_at: new Date().toISOString() }, item.active ? 'Promotion paused.' : 'Promotion activated.')}>{item.active ? 'Pause' : 'Activate'}</button>} />
@@ -243,6 +267,20 @@ function AdminPage() {
               <DataTable title="Recent profit credits" rows={rows.profits ?? []} columns={['user_id','amount','currency','period_start','period_end','status','created_at']} />
               <DataTable title="Investment requests" rows={rows.investments ?? []} columns={['user_id','property_id','amount','currency','status','created_at']} />
             </div> : null}
+
+            {section === 'investments' ? <div className="grid gap-6"><DataTable title="Customer investment requests" rows={rows.investmentRequests ?? []} columns={['user_id','property_name','plan_code','amount','expected_profit','expected_commission','status','created_at']} render={(item) => item.status === 'pending' ? <div className="flex gap-2"><button disabled={busy} className={softButton} onClick={() => updateStatus('investment_requests', text(item.id), { status: 'approved', reviewed_at: new Date().toISOString(), reviewed_by: user?.id }, 'Investment request approved.')}>Approve</button><button disabled={busy} className={softButton} onClick={() => updateStatus('investment_requests', text(item.id), { status: 'rejected', reviewed_at: new Date().toISOString(), reviewed_by: user?.id }, 'Investment request rejected.')}>Reject</button></div> : null} /><DataTable title="Active investment ledger" rows={rows.investments ?? []} columns={['user_id','property_id','amount','currency','status','created_at']} /></div> : null}
+
+            {section === 'verifications' ? <DataTable title="Customer identity verification" rows={rows.verifications ?? []} columns={['user_id','document_type','document_name','document_url','note','status','submitted_at']} render={(item) => item.status === 'pending' ? <div className="flex gap-2"><button disabled={busy} className={softButton} onClick={() => updateStatus('verifications', text(item.id), { status: 'approved', reviewed_at: new Date().toISOString(), reviewed_by: user?.id }, 'Identity verification approved.')}>Approve</button><button disabled={busy} className={softButton} onClick={() => updateStatus('verifications', text(item.id), { status: 'rejected', reviewed_at: new Date().toISOString(), reviewed_by: user?.id, review_note: 'Please resubmit a valid document.' }, 'Identity verification rejected.')}>Reject</button></div> : null} /> : null}
+
+            {section === 'crypto' ? <DataTable title="Crypto payment submissions" rows={rows.cryptoPayments ?? []} columns={['user_id','kind','amount','currency','coin','network','transaction_hash','proof_url','status','created_at']} render={(item) => item.status === 'pending' ? <div className="flex gap-2"><button disabled={busy} className={softButton} onClick={() => updateStatus('crypto_payments', text(item.id), { status: 'approved', reviewed_at: new Date().toISOString(), reviewed_by: user?.id, admin_note: 'Approved after manual verification' }, 'Crypto submission approved.')}>Approve</button><button disabled={busy} className={softButton} onClick={() => updateStatus('crypto_payments', text(item.id), { status: 'rejected', reviewed_at: new Date().toISOString(), reviewed_by: user?.id, admin_note: 'Rejected after review' }, 'Crypto submission rejected.')}>Reject</button></div> : null} /> : null}
+
+            {section === 'tasks' ? <div className="grid gap-6"><DataTable title="Customer tasks" rows={rows.tasks ?? []} columns={['user_id','title','detail','target_level','status','created_at']} render={(item) => item.status === 'submitted' ? <div className="flex gap-2"><button disabled={busy} className={softButton} onClick={() => updateStatus('member_tasks', text(item.id), { status: 'approved', reviewed_at: new Date().toISOString(), reviewed_by: user?.id, review_note: 'Approved' }, 'Task approved.')}>Approve</button><button disabled={busy} className={softButton} onClick={() => updateStatus('member_tasks', text(item.id), { status: 'rejected', reviewed_at: new Date().toISOString(), reviewed_by: user?.id, review_note: 'Please review and resubmit' }, 'Task returned for correction.')}>Return</button></div> : null} /><DataTable title="Membership plans and levels" rows={rows.plans ?? []} columns={['level','code','name','minimum_amount','profit_percent','commission_percent','active']} render={(item) => <button disabled={busy} className={softButton} onClick={() => updateStatus('membership_plans', text(item.id), { active: !item.active, updated_at: new Date().toISOString(), updated_by: user?.id }, item.active ? 'Membership plan disabled.' : 'Membership plan enabled.')}>{item.active ? 'Disable' : 'Enable'}</button>} /><DataTable title="Extended member profiles" rows={rows.memberProfiles ?? []} columns={['user_id','address','referral_code','interest','membership_level','created_at']} /></div> : null}
+
+            {section === 'payments' ? <div className="grid gap-6"><DataTable title="Payment intents (test-mode records only)" rows={rows.payments ?? []} columns={['user_id','kind','amount','amount_charged','currency','provider','mode','status','created_at']} /><DataTable title="Reservation deposits" rows={rows.reservationDeposits ?? []} columns={['user_id','property_name','amount','amount_charged','currency','mode','created_at']} /><DataTable title="Payment instructions" rows={rows.paymentDetails ?? []} columns={['bank_name','account_name','account_number','iban','swift','note','updated_at']} /><p className="border border-brass/40 bg-brass/5 p-4 text-xs leading-6">Payment intent and reservation records do not confirm that money was received. A verified payment-provider webhook is required before any live payment or wallet credit.</p></div> : null}
+
+            {section === 'content' ? <DataTable title="Journal and website posts" rows={rows.posts ?? []} columns={['title','slug','category','excerpt','author_name','published','published_at','created_at']} render={(item) => <button disabled={busy} className={softButton} onClick={() => updateStatus('posts', text(item.id), { published: !item.published, published_at: item.published ? null : new Date().toISOString(), updated_at: new Date().toISOString(), updated_by: user?.id }, item.published ? 'Post unpublished.' : 'Post published.')}>{item.published ? 'Unpublish' : 'Publish'}</button>} /> : null}
+
+            {section === 'team' ? <div className="grid gap-6"><DataTable title="Administrator accounts" rows={rows.admins ?? []} columns={['user_id','role','created_at']} /><p className="border border-border bg-card p-5 text-sm leading-6 text-ink-soft">Administrator membership is managed securely in Supabase. This panel does not let an administrator grant themselves elevated access or remove the owner account.</p><DataTable title="Admin notifications" rows={rows.notifications ?? []} columns={['user_id','title','message','read_at','created_at']} /></div> : null}
 
             {section === 'support' ? <section className="grid gap-5 lg:grid-cols-[minmax(16rem,0.7fr)_1.3fr]"><div className="border border-border bg-card"><h2 className="display border-b border-border px-5 py-4 text-xl">Support conversations</h2><div className="divide-y divide-border">{(rows.threads ?? []).map((thread) => <button key={thread.id} onClick={() => setSelectedThread(text(thread.id))} className={selectedThread === thread.id ? 'block w-full bg-brass/10 px-5 py-4 text-left' : 'block w-full px-5 py-4 text-left hover:bg-brass/5'}><b className="block text-xs">{text(thread.user_id)}</b><span className="mt-1 block text-[0.65rem] text-ink-soft">{text(thread.status)} · {date(thread.updated_at)}</span></button>)}{!(rows.threads ?? []).length ? <p className="p-5 text-sm text-ink-soft">No support conversations.</p> : null}</div></div><SupportConversation threadId={selectedThread} onSend={sendReply} reply={reply} setReply={setReply} busy={busy} /></section> : null}
 
