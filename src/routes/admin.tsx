@@ -177,8 +177,11 @@ function AdminPage() {
   }, [profileCustomerId, rows])
 
   const stats = useMemo(() => ({
-    properties: (rows.properties ?? []).length,
-    enquiries: (rows.enquiries ?? []).filter((row) => row.status === 'new').length,
+    properties: (rows.properties ?? []).filter((row) => row.status === 'published').length,
+    enquiries: (rows.enquiries ?? []).filter((row) => !row.status || row.status === 'new').length,
+    totalEnquiries: (rows.enquiries ?? []).length,
+    contactedEnquiries: (rows.enquiries ?? []).filter((row) => row.status === 'contacted').length,
+    closedEnquiries: (rows.enquiries ?? []).filter((row) => row.status === 'closed').length,
     customers: (rows.users ?? []).length,
     pending: (rows.topups ?? []).filter((row) => row.status === 'pending').length + (rows.withdrawals ?? []).filter((row) => row.status === 'pending').length,
   }), [rows])
@@ -351,10 +354,13 @@ function AdminPage() {
             </nav>
 
             {section === 'overview' ? <section>
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {[
                   ['Published properties', stats.properties],
                   ['New enquiries', stats.enquiries],
+                  ['All enquiries', stats.totalEnquiries],
+                  ['Contacted enquiries', stats.contactedEnquiries],
+                  ['Closed enquiries', stats.closedEnquiries],
                   ['Customer accounts', stats.customers],
                   ['Pending financial requests', stats.pending],
                 ].map(([label, value]) => <div key={label} className="border border-border bg-card p-6"><p className="eyebrow text-[0.5rem] text-ink-soft">{label}</p><p className="display mt-3 text-3xl">{value}</p></div>)}
