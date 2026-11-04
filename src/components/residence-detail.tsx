@@ -1,7 +1,6 @@
 import { Link, useNavigate } from '@tanstack/react-router'
-import { useConvexAuth, useMutation, useQuery } from 'convex/react'
-import { useState } from 'react'
-import { api } from '@/convex/_generated/api'
+import { useEffect, useState } from 'react'
+import { requireSupabase } from '@/lib/supabase-client'
 import { EnquiryForm } from './enquiry-form'
 import { FloorPlanSection } from './floor-plan'
 import { ListingsGate } from './listings-gate'
@@ -16,23 +15,88 @@ import {
   rateFor,
 } from '../lib/currency'
 
+type InvestmentPlan = {
+  code: string
+  name: string
+  minimum_amount: number
+  profit_percent: number
+  commission_percent: number
+}
+type InvestmentRequest = {
+  id: string
+  property_name: string
+  amount: number
+  status: string
+}
+
 export function ResidenceDetail({ slug }: { slug: ResidenceSlug }) {
   const priceFor = useResidencePrice()
   const offer = useOffer(slug)
-  const { isAuthenticated, isLoading } = useConvexAuth()
-  const rates = useQuery(api.currency.rates)
   const navigate = useNavigate()
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [investmentRanks, setInvestmentRanks] = useState<InvestmentPlan[]>([])
+  const [myInvestments, setMyInvestments] = useState<InvestmentRequest[]>([])
   const [depositCurrency, setDepositCurrency] = useState('AED')
   const [investAmount, setInvestAmount] = useState('')
   const [investState, setInvestState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
   const [investError, setInvestError] = useState<string | null>(null)
-  const requestInvestment = useMutation(api.investments.request)
-  const myInvestments = useQuery(api.investments.myInvestments)
-  const investmentRanks = useQuery(api.membership.plans)
-  const myLevel = useQuery(api.investments.myLevel)
   const [investRank, setInvestRank] = useState('level-1')
-  const depositRate = rateFor(depositCurrency, rates)
-  const selectedRank = investmentRanks?.find((rank) => rank.code === investRank) ?? null
+
+  useEffect(() => {
+    const client = requireSupabase()
+    let active = true
+    client.auth.getSession().then(({ data, error }) => {
+      if (!active) return
+      if (error) console.error('Could not check member session:', error.message)
+      setUserId(data.session?.user.id ?? null)
+      setIsAuthenticated(Boolean(data.session?.user))
+      setIsLoading(false)
+    }).catch((error) => {
+      if (!active) return
+      console.error('Could not check member session:', error)
+      setIsLoading(false)
+    })
+    const { data } = client.auth.onAuthStateChange((_event, session) => {
+      setUserId(session?.user.id ?? null)
+      setIsAuthenticated(Boolean(session?.user))
+      setIsLoading(false)
+    })
+    return () => {
+      active = false
+      data.subscription.unsubscribe()
+    }
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    const client = requireSupabase()
+    client.from('membership_plans')
+      .select('code,name,minimum_amount,profit_percent,commission_percent')
+      .eq('active', true)
+      .order('level', { ascending: true })
+      .then(({ data, error }) => {
+        if (!active) return
+        if (error) console.error('Could not load membership plans:', error.message)
+        else setInvestmentRanks((data ?? []) as InvestmentPlan[])
+      })
+    if (userId) {
+      client.from('investment_requests')
+        .select('id,property_name,amount,status')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .then(({ data, error }) => {
+          if (!active) return
+          if (error) console.error('Could not load investment requests:', error.message)
+          else setMyInvestments((data ?? []) as InvestmentRequest[])
+        })
+    } else {
+      setMyInvestments([])
+    }
+    return () => { active = false }
+  }, [userId])
+  const selectedRank = investmentRanks.find((rank) => rank.code === investRank) ?? investmentRanks[0] ?? null
   const investValue = Number(investAmount)
   const residence = RESIDENCES.find((item) => item.slug === slug)
   if (!residence) return null
@@ -188,7 +252,7 @@ export function ResidenceDetail({ slug }: { slug: ResidenceSlug }) {
                         className="flex flex-wrap items-baseline justify-between gap-2 border border-border bg-background px-3 py-2"
                       >
                         <span>
-                          {row.residence} · AED {row.amountAed.toLocaleString()}
+                          {row.property_name} · AED {Number(row.amount).toLocaleString()}
                         </span>
                         <span className="eyebrow text-[0.45rem] text-brass">
                           {row.status === 'funded'
@@ -204,26 +268,13 @@ export function ResidenceDetail({ slug }: { slug: ResidenceSlug }) {
                   </ul>
                 ) : null}
 
-                {myLevel ? (
-                  <div data-testid="invest-level" className="mt-4 border border-border bg-background px-3 py-2 text-sm">
-                    <p>
-                      Current level: <span className="text-brass">{myLevel.rank.name}</span> · invested
-                      AED {myLevel.totalInvestedAed.toLocaleString()}
-                    </p>
-                    <p className="mt-1 text-xs text-ink-soft">
-                      {myLevel.next
-                        ? `AED ${myLevel.toNextAed.toLocaleString()} more to reach ${myLevel.next.name}`
-                        : 'Top level reached'}
-                    </p>
-                  </div>
-                ) : null}
 
                 {selectedRank ? (
                   <p data-testid="invest-preview" className="mt-3 text-xs text-ink-soft">
-                    {selectedRank.name}: profit {selectedRank.profitPercent}% and commission{' '}
-                    {selectedRank.commissionPercent}% are paid into the wallet when administration
+                    {selectedRank.name}: profit {selectedRank.profit_percent}% and commission{' '}
+                    {selectedRank.commission_percent}% are paid into the wallet when administration
                     funds the investment.
-                    {investValue >= selectedRank.minAed
+                    {investValue >= Number(selectedRank.minimum_amount)
                       ? ` Estimated profit AED ${Math.round((investValue * selectedRank.profitPercent) / 100).toLocaleString()} and commission AED ${Math.round((investValue * selectedRank.commissionPercent) / 100).toLocaleString()}.`
                       : ` Minimum AED ${selectedRank.minAed.toLocaleString()}.`}
                   </p>
@@ -237,11 +288,26 @@ export function ResidenceDetail({ slug }: { slug: ResidenceSlug }) {
                   setInvestError(null)
                   setInvestState('sending')
                   try {
-                    await requestInvestment({
-                      residence: residence.name,
-                      rankCode: investRank,
-                      amountAed: Number(investAmount),
+                    if (!userId) throw new Error('Please sign in again to submit your investment request.')
+                    if (!selectedRank || Number(investAmount) < Number(selectedRank.minimum_amount)) {
+                      throw new Error('Please choose an active investment level and enter its minimum amount.')
+                    }
+                    const { error } = await requireSupabase().from('investment_requests').insert({
+                      user_id: userId,
+                      property_name: residence.name,
+                      plan_code: selectedRank.code,
+                      amount: Number(investAmount),
+                      expected_profit: Number(investAmount) * Number(selectedRank.profit_percent) / 100,
+                      expected_commission: Number(investAmount) * Number(selectedRank.commission_percent) / 100,
+                      status: 'pending',
                     })
+                    if (error) throw error
+                    setMyInvestments((rows) => [{
+                      id: crypto.randomUUID(),
+                      property_name: residence.name,
+                      amount: Number(investAmount),
+                      status: 'pending',
+                    }, ...rows])
                     setInvestAmount('')
                     setInvestState('sent')
                   } catch (err) {
@@ -262,7 +328,7 @@ export function ResidenceDetail({ slug }: { slug: ResidenceSlug }) {
                   >
                     {(investmentRanks ?? []).map((rank) => (
                       <option key={rank.code} value={rank.code}>
-                        {rank.name} · from AED {rank.minAed.toLocaleString()}
+                        {rank.name} · from AED {Number(rank.minimum_amount).toLocaleString()}
                       </option>
                     ))}
                   </select>
@@ -271,7 +337,7 @@ export function ResidenceDetail({ slug }: { slug: ResidenceSlug }) {
                   <span className="eyebrow text-[0.5rem] text-ink-soft">Amount in AED</span>
                   <input
                     type="number"
-                    min={selectedRank?.minAed ?? 50000}
+                    min={selectedRank ? Number(selectedRank.minimum_amount) : 50000}
                     step={1000}
                     required
                     value={investAmount}
