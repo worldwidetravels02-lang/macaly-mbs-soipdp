@@ -73,6 +73,7 @@ function AdminPage() {
   const [reply, setReply] = useState('')
   const [postDraft, setPostDraft] = useState({ title: '', slug: '', category: 'News', excerpt: '', content: '', cover_image_url: '', author_name: 'Msheireb Properties' })
   const [paymentDetailsDraft, setPaymentDetailsDraft] = useState({ bank_name: '', account_name: '', account_number: '', iban: '', swift: '', note: '', crypto: '[]' })
+  const [telegramUsername, setTelegramUsername] = useState('')
   const [fxDrafts, setFxDrafts] = useState<Record<string, string>>({})
   const [priceDrafts, setPriceDrafts] = useState<Record<string, string>>({})
   const [planDrafts, setPlanDrafts] = useState<Record<string, { name: string; minimum_amount: string; profit_percent: string; commission_percent: string }>>({})
@@ -112,6 +113,7 @@ function AdminPage() {
         admins: client.from('admin_members').select('*').order('created_at', { ascending: false }),
         accounts: client.from('account_states').select('*'),
         paymentDetails: client.from('payment_details').select('*').order('updated_at', { ascending: false }),
+        supportSettings: client.from('support_settings').select('*').eq('id', 'default').limit(1),
         memberProfiles: client.from('member_profiles').select('*').order('created_at', { ascending: false }).limit(200),
         notifications: client.from('notifications').select('*').order('created_at', { ascending: false }).limit(100),
         financialAudit: client.from('financial_audit_log').select('*').order('created_at', { ascending: false }).limit(200),
@@ -127,6 +129,7 @@ function AdminPage() {
       setFxDrafts(Object.fromEntries((next.fx ?? []).map((row) => [text(row.code), text(row.aed_per_unit)])))
       setPriceDrafts(Object.fromEntries((next.prices ?? []).map((row) => [text(row.id), text(row.price_label)])))
       setPlanDrafts(Object.fromEntries((next.plans ?? []).map((row) => [text(row.id), { name: text(row.name), minimum_amount: text(row.minimum_amount), profit_percent: text(row.profit_percent), commission_percent: text(row.commission_percent) }])))
+      setTelegramUsername(text(next.supportSettings?.[0]?.telegram_username))
       const paymentDetails = next.paymentDetails?.[0]
       if (paymentDetails) setPaymentDetailsDraft({ bank_name: text(paymentDetails.bank_name), account_name: text(paymentDetails.account_name), account_number: text(paymentDetails.account_number), iban: text(paymentDetails.iban), swift: text(paymentDetails.swift), note: text(paymentDetails.note), crypto: JSON.stringify(paymentDetails.crypto ?? [], null, 2) })
     } catch (cause) {
@@ -324,6 +327,16 @@ function AdminPage() {
     }, 'Journal post created as a draft.')
   }
 
+  const saveTelegramSupport = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const username = telegramUsername.trim().replace(/^@/, '')
+    if (username && !/^[A-Za-z0-9_]{5,32}$/.test(username)) { setError('Enter a valid Telegram username (5–32 letters, numbers or underscores), without the @ symbol.'); return }
+    await run(async () => {
+      const { error: saveError } = await requireSupabase().from('support_settings').upsert({ id: 'default', telegram_username: username || null, updated_by: user?.id, updated_at: new Date().toISOString() }, { onConflict: 'id' })
+      if (saveError) throw saveError
+    }, 'Telegram support contact saved.')
+  }
+
   const savePaymentDetails = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     await run(async () => {
@@ -427,7 +440,7 @@ function AdminPage() {
 
             {section === 'team' ? <div className="grid gap-6"><DataTable title="Administrator accounts" rows={rows.admins ?? []} columns={['user_id','role','created_at']} /><p className="border border-border bg-card p-5 text-sm leading-6 text-ink-soft">Administrator membership is managed securely in Supabase. This panel does not let an administrator grant themselves elevated access or remove the owner account.</p><form onSubmit={sendCustomerNotification} className="grid gap-3 border border-border bg-card p-6"><h2 className="display text-xl">Send customer notification</h2><p className="text-xs text-ink-soft">Enter the customer's account UUID from the Customers section. This sends an in-app notification to that customer only.</p><input required className={inputClass} placeholder="Customer account ID (UUID)" value={notificationDraft.user_id} onChange={(event) => setNotificationDraft({ ...notificationDraft, user_id: event.target.value })} /><input required maxLength={160} className={inputClass} placeholder="Notification title" value={notificationDraft.title} onChange={(event) => setNotificationDraft({ ...notificationDraft, title: event.target.value })} /><textarea required maxLength={4000} rows={4} className={inputClass} placeholder="Notification message" value={notificationDraft.body} onChange={(event) => setNotificationDraft({ ...notificationDraft, body: event.target.value })} /><button disabled={busy} className={buttonClass}>Send notification <ArrowRight /></button></form><DataTable title="Customer notifications" rows={rows.notifications ?? []} columns={['user_id','title','body','read_at','created_at']} /></div> : null}
 
-            {section === 'support' ? <section className="grid gap-5 lg:grid-cols-[minmax(16rem,0.7fr)_1.3fr]"><div className="border border-border bg-card"><h2 className="display border-b border-border px-5 py-4 text-xl">Support conversations</h2><div className="divide-y divide-border">{(rows.threads ?? []).map((thread) => <button key={thread.id} onClick={() => setSelectedThread(text(thread.id))} className={selectedThread === thread.id ? 'block w-full bg-brass/10 px-5 py-4 text-left' : 'block w-full px-5 py-4 text-left hover:bg-brass/5'}><b className="block text-xs">{text(thread.user_id)}</b><span className="mt-1 block text-[0.65rem] text-ink-soft">{text(thread.status)} · {date(thread.updated_at)}</span></button>)}{!(rows.threads ?? []).length ? <p className="p-5 text-sm text-ink-soft">No support conversations.</p> : null}</div></div><SupportConversation threadId={selectedThread} onSend={sendReply} reply={reply} setReply={setReply} busy={busy} /></section> : null}
+            {section === 'support' ? <div className="grid gap-5"><form onSubmit={saveTelegramSupport} className="grid gap-3 border border-border bg-card p-5"><h2 className="display text-xl">Telegram customer support</h2><p className="text-xs text-ink-soft">Customers will see a Telegram button on their support page. Enter the Telegram username without @. You can change it here at any time.</p><input className={inputClass} value={telegramUsername} onChange={(event) => setTelegramUsername(event.target.value)} placeholder="Telegram username (e.g. MsheirebSupport)" maxLength={32} /><button disabled={busy} className={buttonClass}>Save Telegram contact <ArrowRight /></button></form><section className="grid gap-5 lg:grid-cols-[minmax(16rem,0.7fr)_1.3fr]"><div className="border border-border bg-card"><h2 className="display border-b border-border px-5 py-4 text-xl">Support conversations</h2><div className="divide-y divide-border">{(rows.threads ?? []).map((thread) => <button key={thread.id} onClick={() => setSelectedThread(text(thread.id))} className={selectedThread === thread.id ? 'block w-full bg-brass/10 px-5 py-4 text-left' : 'block w-full px-5 py-4 text-left hover:bg-brass/5'}><b className="block text-xs">{text(thread.user_id)}</b><span className="mt-1 block text-[0.65rem] text-ink-soft">{text(thread.status)} · {date(thread.updated_at)}</span></button>)}{!(rows.threads ?? []).length ? <p className="p-5 text-sm text-ink-soft">No support conversations.</p> : null}</div></div><SupportConversation threadId={selectedThread} onSend={sendReply} reply={reply} setReply={setReply} busy={busy} /></section></div> : null}
 
             {section === 'settings' ? <div className="grid gap-6">
               <section className="grid gap-4 border border-border bg-card p-5"><div><h2 className="display text-xl">Currency exchange rates</h2><p className="mt-1 text-xs text-ink-soft">AED value of one unit of each currency. Enter rates supplied by your finance provider.</p></div>{(rows.fx ?? []).map((item) => <form key={item.code} onSubmit={(event) => { event.preventDefault(); void run(async () => { const value = Number(fxDrafts[text(item.code)]); if (!Number.isFinite(value) || value <= 0) throw new Error('Enter a rate greater than zero.'); const { error: saveError } = await requireSupabase().from('fx_rates').update({ aed_per_unit: value, updated_at: new Date().toISOString(), updated_by: user?.id }).eq('code', item.code); if (saveError) throw saveError }, `Updated ${text(item.code)} exchange rate.`) }} className="grid items-center gap-2 border-t border-border pt-3 sm:grid-cols-[1fr_1fr_auto]"><label className="text-sm font-medium">{text(item.code)} · {text(item.label)}</label><input required type="number" min="0.00000001" step="0.00000001" className={inputClass} value={fxDrafts[text(item.code)] ?? ''} onChange={(event) => setFxDrafts({ ...fxDrafts, [text(item.code)]: event.target.value })} /><button disabled={busy} className={softButton}>Save rate</button></form>)}</section>
