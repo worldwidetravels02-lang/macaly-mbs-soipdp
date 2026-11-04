@@ -25,5 +25,7 @@ jobs:
           cache: npm
       - name: Install dependencies and refresh lockfile in runner
         run: npm install
+      - name: Run automated tests
+        run: npm run test
       - name: Build application
         run: npm run build
