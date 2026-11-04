@@ -12,21 +12,22 @@ export function useResidencePrice() {
 
   useEffect(() => {
     let active = true
-    let request: ReturnType<ReturnType<typeof requireSupabase>['from']> | null = null
-    try {
-      request = requireSupabase().from('property_prices').select('slug,price_label') as typeof request
-    } catch (error) {
-      console.error('Could not connect to Supabase for property prices:', error)
-      return () => { active = false }
-    }
-    request.then(({ data, error }) => {
+    const loadPrices = async () => {
+      try {
+        const { data, error } = await requireSupabase()
+          .from('property_prices')
+          .select('slug,price_label')
         if (!active) return
         if (error) {
           console.error('Could not load published property prices:', error.message)
           return
         }
         setRows((data ?? []) as PropertyPrice[])
-      })
+      } catch (error) {
+        console.error('Could not connect to Supabase for property prices:', error)
+      }
+    }
+    void loadPrices()
     return () => { active = false }
   }, [])
 
