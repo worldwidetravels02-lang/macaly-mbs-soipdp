@@ -69,6 +69,11 @@ function AdminPage() {
   const [notificationDraft, setNotificationDraft] = useState({ user_id: '', title: '', body: '' })
   const [profitDraft, setProfitDraft] = useState({ user_id: '', amount: '', currency: 'AED', period_start: '', period_end: '', description: 'Monthly profit credited to customer wallet' })
   const [manualWalletDraft, setManualWalletDraft] = useState({ user_id: '', amount: '', currency: 'AED', description: 'Balance added by administrator' })
+  const [walletSearch, setWalletSearch] = useState('')
+  const [walletCurrencyFilter, setWalletCurrencyFilter] = useState('all')
+  const [walletDirectionFilter, setWalletDirectionFilter] = useState('all')
+  const [walletFromDate, setWalletFromDate] = useState('')
+  const [walletToDate, setWalletToDate] = useState('')
   const [selectedThread, setSelectedThread] = useState('')
   const [reply, setReply] = useState('')
   const [postDraft, setPostDraft] = useState({ title: '', slug: '', category: 'News', excerpt: '', content: '', cover_image_url: '', author_name: 'Msheireb Properties' })
@@ -145,6 +150,22 @@ function AdminPage() {
     const { data: listener } = client.auth.onAuthStateChange(() => { void load() })
     return () => listener.subscription.unsubscribe()
   }, [load])
+
+  const filteredWalletTransactions = useMemo(() => {
+    const query = walletSearch.trim().toLowerCase()
+    const customers = rows.users ?? []
+    return (rows.walletTransactions ?? []).filter((item) => {
+      const customer = customers.find((profile) => profile.id === item.user_id)
+      const matchesSearch = !query || [item.user_id, customer?.full_name, customer?.mobile, item.description, item.transaction_type]
+        .some((value) => text(value).toLowerCase().includes(query))
+      const matchesCurrency = walletCurrencyFilter === 'all' || text(item.currency) === walletCurrencyFilter
+      const matchesDirection = walletDirectionFilter === 'all' || text(item.direction).toLowerCase() === walletDirectionFilter
+      const created = item.created_at ? new Date(item.created_at).getTime() : 0
+      const afterFrom = !walletFromDate || created >= new Date(walletFromDate + 'T00:00:00').getTime()
+      const beforeTo = !walletToDate || created <= new Date(walletToDate + 'T23:59:59.999').getTime()
+      return matchesSearch && matchesCurrency && matchesDirection && afterFrom && beforeTo
+    })
+  }, [rows.walletTransactions, rows.users, walletSearch, walletCurrencyFilter, walletDirectionFilter, walletFromDate, walletToDate])
 
   const filteredCustomers = useMemo(() => {
     const query = customerSearch.trim().toLowerCase()
@@ -456,7 +477,18 @@ function AdminPage() {
                 <button disabled={busy || !manualWalletDraft.user_id || !manualWalletDraft.amount} className={buttonClass + ' mt-4'}>Add wallet balance <ArrowRight /></button>
               </form>
               <form onSubmit={creditProfit} className="border border-border bg-card p-6"><h2 className="display text-xl">Credit profit to customer wallet</h2><p className="mt-2 text-xs leading-6 text-ink-soft">This posts an internal wallet credit and audit record. It does not send a bank transfer.</p><div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3"><input required className={inputClass} placeholder="Customer user UUID" value={profitDraft.user_id} onChange={(e) => setProfitDraft({ ...profitDraft, user_id: e.target.value })} /><input required type="number" min="0.01" step="0.01" className={inputClass} placeholder="Amount" value={profitDraft.amount} onChange={(e) => setProfitDraft({ ...profitDraft, amount: e.target.value })} /><select className={inputClass} value={profitDraft.currency} onChange={(e) => setProfitDraft({ ...profitDraft, currency: e.target.value })}>{CURRENCIES.map((code) => <option key={code}>{code}</option>)}</select><input required type="date" className={inputClass} value={profitDraft.period_start} onChange={(e) => setProfitDraft({ ...profitDraft, period_start: e.target.value })} /><input required type="date" className={inputClass} value={profitDraft.period_end} onChange={(e) => setProfitDraft({ ...profitDraft, period_end: e.target.value })} /><input className={inputClass} value={profitDraft.description} onChange={(e) => setProfitDraft({ ...profitDraft, description: e.target.value })} /></div><button disabled={busy} className={buttonClass + ' mt-4'}>Credit internal wallet <ArrowRight /></button></form>
-              <DataTable title="Customer wallet transaction history" rows={rows.walletTransactions ?? []} columns={['user_id','transaction_type','direction','amount','currency','status','description','created_at']} />
+              <section className="border border-border bg-card p-5">
+                <h2 className="display text-lg">Filter wallet transactions</h2>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                  <input aria-label="Search wallet transactions" className={inputClass} placeholder="Customer name, ID or description" value={walletSearch} onChange={(event) => setWalletSearch(event.target.value)} />
+                  <select aria-label="Filter by currency" className={inputClass} value={walletCurrencyFilter} onChange={(event) => setWalletCurrencyFilter(event.target.value)}><option value="all">All currencies</option>{CURRENCIES.map((code) => <option key={code} value={code}>{code}</option>)}</select>
+                  <select aria-label="Filter by transaction direction" className={inputClass} value={walletDirectionFilter} onChange={(event) => setWalletDirectionFilter(event.target.value)}><option value="all">All transaction types</option><option value="credit">Credits</option><option value="debit">Debits</option></select>
+                  <input aria-label="From date" type="date" className={inputClass} value={walletFromDate} onChange={(event) => setWalletFromDate(event.target.value)} />
+                  <input aria-label="To date" type="date" className={inputClass} value={walletToDate} onChange={(event) => setWalletToDate(event.target.value)} />
+                </div>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3"><p className="text-xs text-ink-soft">{filteredWalletTransactions.length} matching transactions</p><button type="button" className={softButton} onClick={() => { setWalletSearch(''); setWalletCurrencyFilter('all'); setWalletDirectionFilter('all'); setWalletFromDate(''); setWalletToDate('') }}>Clear filters</button></div>
+              </section>
+              <DataTable title="Customer wallet transaction history" rows={filteredWalletTransactions} columns={['user_id','transaction_type','direction','amount','currency','status','description','created_at']} />
               <DataTable title="Recent profit credits" rows={rows.profits ?? []} columns={['user_id','amount','currency','period_start','period_end','status','created_at']} />
               <DataTable title="Financial audit history" rows={rows.financialAudit ?? []} columns={['created_at','actor_id','action','entity_type','entity_id','details']} />
               <DataTable title="Investment requests" rows={rows.investments ?? []} columns={['user_id','property_id','amount','currency','status','created_at']} />
