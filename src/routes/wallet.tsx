@@ -184,14 +184,19 @@ function WalletPage() {
           {notice ? <p role="status" className="border border-brass/40 bg-brass/5 px-4 py-3 text-sm text-ink-soft">{notice}</p> : null}
 
           {userId && !loading ? <>
-            <section className="grid gap-4 sm:grid-cols-3">
+            <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div className="border border-brass/40 bg-brass/5 p-6">
                 <p className="eyebrow text-[0.5rem] text-brass">Available posted balance</p>
                 <p data-testid="wallet-balance" className="display mt-3 text-3xl">{money(balance, currency)}</p>
                 <p className="mt-2 text-xs text-ink-soft">Calculated from posted ledger entries only.</p>
               </div>
               <div className="border border-border bg-card p-6">
-                <p className="eyebrow text-[0.5rem] text-ink-soft">Profit credits</p>
+                <p className="eyebrow text-[0.5rem] text-ink-soft">Credited profit total</p>
+                <p className="display mt-3 text-2xl">{money(profits.filter((row) => row.status === 'credited' && row.currency === currency).reduce((total, row) => total + (Number(row.amount) || 0), 0), currency)}</p>
+                <p className="mt-2 text-xs text-ink-soft">Posted profit payout records in {currency}.</p>
+              </div>
+              <div className="border border-border bg-card p-6">
+                <p className="eyebrow text-[0.5rem] text-ink-soft">Profit credit records</p>
                 <p className="display mt-3 text-2xl">{profits.filter((row) => row.status === 'credited' && row.currency === currency).length}</p>
                 <p className="mt-2 text-xs text-ink-soft">Credited payout records in {currency}.</p>
               </div>
