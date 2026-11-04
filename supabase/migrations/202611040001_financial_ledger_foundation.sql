@@ -116,7 +116,7 @@ using (user_id = (select auth.uid()) or (select private.is_admin()));
 
 create policy "Members submit pending topup requests"
 on public.topup_requests for insert to authenticated
-with check (user_id = (select auth.uid()) and status = 'pending');
+with check (user_id = (select auth.uid()) and status = 'pending' and reviewed_by is null and reviewed_at is null);
 
 create policy "Admins manage topup requests"
 on public.topup_requests for all to authenticated
