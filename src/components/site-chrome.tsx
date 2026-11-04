@@ -59,7 +59,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
     try {
       const savedLanguage = window.localStorage.getItem('msheireb-language')
       const savedCurrency = window.localStorage.getItem('msheireb-currency')
-      if (savedLanguage === 'EN' || savedLanguage === 'AR') setLanguage(savedLanguage)
+      if (savedLanguage === 'EN' || savedLanguage === 'AR') {\n        setLanguage(savedLanguage)\n        document.documentElement.lang = savedLanguage.toLowerCase()\n        document.documentElement.dir = savedLanguage === 'AR' ? 'rtl' : 'ltr'\n      }
       if (['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR'].includes(savedCurrency ?? '')) {
         setCurrency(savedCurrency!)
       }
