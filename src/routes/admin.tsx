@@ -60,6 +60,7 @@ function AdminPage() {
   const [promotionDraft, setPromotionDraft] = useState({ title: '', description: '', image_url: '', active: false })
   const [editingPromotionId, setEditingPromotionId] = useState('')
   const [customerSearch, setCustomerSearch] = useState('')
+  const [notificationDraft, setNotificationDraft] = useState({ user_id: '', title: '', body: '' })
   const [profitDraft, setProfitDraft] = useState({ user_id: '', amount: '', currency: 'AED', period_start: '', period_end: '', description: 'Monthly profit credited to customer wallet' })
   const [selectedThread, setSelectedThread] = useState('')
   const [reply, setReply] = useState('')
@@ -165,6 +166,20 @@ function AdminPage() {
       setEditingPropertyId('')
       setPropertyDraft({ name: '', slug: '', location: 'Dubai, UAE', description: '', price_label: 'Price on request', cover_image_url: '', status: 'draft' })
     }, editingPropertyId ? 'Property changes saved.' : 'Property saved.')
+  }
+
+  const sendCustomerNotification = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const userId = notificationDraft.user_id.trim()
+    const title = notificationDraft.title.trim()
+    const body = notificationDraft.body.trim()
+    if (!userId || !title || !body) { setError('Customer ID, title and message are required.'); return }
+    if (title.length > 160 || body.length > 4000) { setError('Title must be 160 characters or less and message 4,000 characters or less.'); return }
+    await run(async () => {
+      const { error: insertError } = await requireSupabase().from('notifications').insert({ user_id: userId, title, body })
+      if (insertError) throw insertError
+      setNotificationDraft({ user_id: '', title: '', body: '' })
+    }, 'Customer notification sent.')
   }
 
   const savePromotion = async (event: FormEvent<HTMLFormElement>) => {
@@ -327,7 +342,7 @@ function AdminPage() {
 
             {section === 'content' ? <div className="grid gap-6"><form onSubmit={savePost} className="grid gap-3 border border-border bg-card p-6"><h2 className="display text-xl">Create journal post</h2><div className="grid gap-3 sm:grid-cols-2"><input required className={inputClass} placeholder="Post title" value={postDraft.title} onChange={(e) => setPostDraft({ ...postDraft, title: e.target.value, slug: postDraft.slug || e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-') })} /><input required className={inputClass} placeholder="URL slug" value={postDraft.slug} onChange={(e) => setPostDraft({ ...postDraft, slug: e.target.value })} /><input required className={inputClass} placeholder="Category" value={postDraft.category} onChange={(e) => setPostDraft({ ...postDraft, category: e.target.value })} /><input className={inputClass} placeholder="Cover image URL" value={postDraft.cover_image_url} onChange={(e) => setPostDraft({ ...postDraft, cover_image_url: e.target.value })} /><input required className={inputClass} placeholder="Author name" value={postDraft.author_name} onChange={(e) => setPostDraft({ ...postDraft, author_name: e.target.value })} /></div><textarea required rows={2} className={inputClass} placeholder="Short excerpt" value={postDraft.excerpt} onChange={(e) => setPostDraft({ ...postDraft, excerpt: e.target.value })} /><textarea required rows={8} className={inputClass} placeholder="Full article content" value={postDraft.content} onChange={(e) => setPostDraft({ ...postDraft, content: e.target.value })} /><button disabled={busy} className={buttonClass}>Save draft <ArrowRight /></button></form><DataTable title="Journal and website posts" rows={rows.posts ?? []} columns={['title','slug','category','excerpt','author_name','published','published_at','created_at']} render={(item) => <button disabled={busy} className={softButton} onClick={() => updateStatus('posts', text(item.id), { published: !item.published, published_at: item.published ? null : new Date().toISOString(), updated_at: new Date().toISOString(), updated_by: user?.id }, item.published ? 'Post unpublished.' : 'Post published.')}>{item.published ? 'Unpublish' : 'Publish'}</button>} /></div> : null}
 
-            {section === 'team' ? <div className="grid gap-6"><DataTable title="Administrator accounts" rows={rows.admins ?? []} columns={['user_id','role','created_at']} /><p className="border border-border bg-card p-5 text-sm leading-6 text-ink-soft">Administrator membership is managed securely in Supabase. This panel does not let an administrator grant themselves elevated access or remove the owner account.</p><DataTable title="Admin notifications" rows={rows.notifications ?? []} columns={['user_id','title','message','read_at','created_at']} /></div> : null}
+            {section === 'team' ? <div className="grid gap-6"><DataTable title="Administrator accounts" rows={rows.admins ?? []} columns={['user_id','role','created_at']} /><p className="border border-border bg-card p-5 text-sm leading-6 text-ink-soft">Administrator membership is managed securely in Supabase. This panel does not let an administrator grant themselves elevated access or remove the owner account.</p><form onSubmit={sendCustomerNotification} className="grid gap-3 border border-border bg-card p-6"><h2 className="display text-xl">Send customer notification</h2><p className="text-xs text-ink-soft">Enter the customer's account UUID from the Customers section. This sends an in-app notification to that customer only.</p><input required className={inputClass} placeholder="Customer account ID (UUID)" value={notificationDraft.user_id} onChange={(event) => setNotificationDraft({ ...notificationDraft, user_id: event.target.value })} /><input required maxLength={160} className={inputClass} placeholder="Notification title" value={notificationDraft.title} onChange={(event) => setNotificationDraft({ ...notificationDraft, title: event.target.value })} /><textarea required maxLength={4000} rows={4} className={inputClass} placeholder="Notification message" value={notificationDraft.body} onChange={(event) => setNotificationDraft({ ...notificationDraft, body: event.target.value })} /><button disabled={busy} className={buttonClass}>Send notification <ArrowRight /></button></form><DataTable title="Customer notifications" rows={rows.notifications ?? []} columns={['user_id','title','body','read_at','created_at']} /></div> : null}
 
             {section === 'support' ? <section className="grid gap-5 lg:grid-cols-[minmax(16rem,0.7fr)_1.3fr]"><div className="border border-border bg-card"><h2 className="display border-b border-border px-5 py-4 text-xl">Support conversations</h2><div className="divide-y divide-border">{(rows.threads ?? []).map((thread) => <button key={thread.id} onClick={() => setSelectedThread(text(thread.id))} className={selectedThread === thread.id ? 'block w-full bg-brass/10 px-5 py-4 text-left' : 'block w-full px-5 py-4 text-left hover:bg-brass/5'}><b className="block text-xs">{text(thread.user_id)}</b><span className="mt-1 block text-[0.65rem] text-ink-soft">{text(thread.status)} · {date(thread.updated_at)}</span></button>)}{!(rows.threads ?? []).length ? <p className="p-5 text-sm text-ink-soft">No support conversations.</p> : null}</div></div><SupportConversation threadId={selectedThread} onSend={sendReply} reply={reply} setReply={setReply} busy={busy} /></section> : null}
 
