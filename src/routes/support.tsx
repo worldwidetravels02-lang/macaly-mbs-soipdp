@@ -157,7 +157,7 @@ function SupportPage() {
                     const isMember = message.sender_id === user.id
                     return <div key={message.id} className={isMember ? 'flex justify-end' : 'flex justify-start'}>
                       <div className={['max-w-[85%] px-4 py-3 text-sm leading-relaxed', isMember ? 'bg-primary text-primary-foreground' : 'border border-border bg-background'].join(' ')}>
-                        <p className="eyebrow text-[0.45rem] opacity-70">{isMember ? 'You' : 'Administration'} · {formatDate(message.created_at)}</p>
+                        <p className="eyebrow text-[0.45rem] opacity-70">{isMember ? 'You' : 'Administration'} · {formatDate(new Date(message.created_at).getTime())}</p>
                         <p className="mt-2 whitespace-pre-wrap">{message.message}</p>
                       </div>
                     </div>
