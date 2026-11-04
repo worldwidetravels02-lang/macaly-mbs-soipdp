@@ -1,13 +1,11 @@
 import { Link } from '@tanstack/react-router'
-import { useMutation, useQuery } from 'convex/react'
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import type { Id } from '@/convex/_generated/dataModel'
-import { api } from '@/convex/_generated/api'
 import { errorMessage } from '../lib/errors'
 import { formatDate } from '../lib/format'
 import { buildWxr } from '../lib/wxr'
 import { ArrowRight } from './site-chrome'
+import { requireSupabase } from '../lib/supabase-client'
 
 type Draft = {
   title: string
@@ -43,19 +41,26 @@ function slugify(input: string): string {
 
 /** Journal editor used inside the administration dashboard. */
 export function JournalEditor() {
-  const posts = useQuery(api.posts.listAll, {})
-  const createPost = useMutation(api.posts.create)
-  const updatePost = useMutation(api.posts.update)
-  const removePost = useMutation(api.posts.remove)
+  type Post = { id: string; title: string; slug: string; category: string; excerpt: string; content: string; cover_image_url: string | null; author_name: string; published: boolean; published_at: string | null; created_at: string; updated_at: string }
+  const [posts, setPosts] = useState<Post[] | undefined>(undefined)
+  const loadPosts = async () => {
+    const { data, error } = await requireSupabase().from('posts').select('*').order('created_at', { ascending: false })
+    if (error) throw error
+    setPosts((data ?? []) as Post[])
+  }
 
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT)
-  const [editingId, setEditingId] = useState<Id<'posts'> | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [slugTouched, setSlugTouched] = useState(false)
   const [formOpen, setFormOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [confirmId, setConfirmId] = useState<Id<'posts'> | null>(null)
+
+  useEffect(() => {
+    void loadPosts().catch((err) => setError(errorMessage(err, 'Could not load journal posts.')))
+  }, [])
 
   useEffect(() => {
     if (!notice) return
@@ -73,14 +78,14 @@ export function JournalEditor() {
   }
 
   const startEdit = (post: {
-    _id: Id<'posts'>
+    id: string
     title: string
     slug: string
     category: string
     excerpt: string
     content: string
-    coverImage: string | null
-    authorName: string
+    cover_image_url: string | null
+    author_name: string
     published: boolean
   }) => {
     setDraft({
@@ -88,12 +93,12 @@ export function JournalEditor() {
       slug: post.slug,
       category: post.category,
       excerpt: post.excerpt,
-      coverImage: post.coverImage ?? '',
-      authorName: post.authorName,
+      coverImage: post.cover_image_url ?? '',
+      authorName: post.author_name,
       content: post.content,
       published: post.published,
     })
-    setEditingId(post._id)
+    setEditingId(post.id)
     setSlugTouched(true)
     setFormOpen(true)
     setError(null)
@@ -135,10 +140,24 @@ export function JournalEditor() {
 
     try {
       if (editingId) {
-        await updatePost({ id: editingId, ...payload })
+        const { error: saveError } = await requireSupabase().from('posts').update({
+          title: payload.title, slug: payload.slug ?? slugify(draft.title), category: payload.category,
+          excerpt: payload.excerpt, content: payload.content, cover_image_url: payload.coverImage ?? null,
+          author_name: payload.authorName, published: payload.published,
+          published_at: payload.published ? new Date().toISOString() : null, updated_at: new Date().toISOString(),
+        }).eq('id', editingId)
+        if (saveError) throw saveError
+        await loadPosts()
         setNotice(draft.published ? 'Article updated and live in the journal.' : 'Draft updated.')
       } else {
-        await createPost(payload)
+        const { error: saveError } = await requireSupabase().from('posts').insert({
+          title: payload.title, slug: payload.slug ?? slugify(draft.title), category: payload.category,
+          excerpt: payload.excerpt, content: payload.content, cover_image_url: payload.coverImage ?? null,
+          author_name: payload.authorName, published: payload.published,
+          published_at: payload.published ? new Date().toISOString() : null,
+        })
+        if (saveError) throw saveError
+        await loadPosts()
         setNotice(draft.published ? 'Article published to the journal.' : 'Draft saved.')
       }
       closeForm()
@@ -154,7 +173,12 @@ export function JournalEditor() {
     setError(null)
 
     try {
-      const xml = buildWxr(posts, {
+      const xml = buildWxr(posts.map((post) => ({
+        _id: post.id, title: post.title, slug: post.slug, category: post.category, excerpt: post.excerpt,
+        content: post.content, coverImage: post.cover_image_url, authorName: post.author_name, published: post.published,
+        publishedAt: post.published_at ? new Date(post.published_at).getTime() : undefined,
+        createdAt: new Date(post.created_at).getTime(), updatedAt: new Date(post.updated_at).getTime(),
+      })), {
         title: 'Msheireb Properties Journal',
         url: window.location.origin,
         description: 'Journal articles exported from the administration area.',
@@ -176,9 +200,12 @@ export function JournalEditor() {
     }
   }
 
-  const remove = async (id: Id<'posts'>) => {    setError(null)
+  const remove = async (id: string) => {
+    setError(null)
     try {
-      await removePost({ id })
+      const { error: deleteError } = await requireSupabase().from('posts').delete().eq('id', id)
+      if (deleteError) throw deleteError
+      await loadPosts()
       setConfirmId(null)
       if (editingId === id) closeForm()
       setNotice('Article deleted.')
@@ -414,9 +441,9 @@ export function JournalEditor() {
                   <p className="mt-1 text-xs text-ink-soft">
                     /journal/{post.slug} · {post.category} ·{' '}
                     {post.published
-                      ? `Published ${formatDate(post.publishedAt ?? post.createdAt)}`
+                      ? `Published ${formatDate(post.published_at ?? post.created_at)}`
                       : 'Draft'}{' '}
-                    · updated {formatDate(post.updatedAt)}
+                    · updated {formatDate(post.updated_at)}
                   </p>
                 </div>
 
