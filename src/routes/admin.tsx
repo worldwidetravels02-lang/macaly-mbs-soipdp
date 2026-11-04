@@ -371,6 +371,7 @@ function AdminPage() {
                 ].map(([label, value]) => <div key={label} className="border border-border bg-card p-6"><p className="eyebrow text-[0.5rem] text-ink-soft">{label}</p><p className="display mt-3 text-3xl">{value}</p></div>)}
               </div>
               <div className="mt-6 border border-border bg-card p-6"><h2 className="display text-xl">Quick actions</h2><div className="mt-4 flex flex-wrap gap-3">{SECTIONS.filter((item) => item.id !== 'overview').map((item) => <button key={item.id} onClick={() => setSection(item.id)} className={softButton}>{item.label} <ArrowRight /></button>)}</div></div>
+              <div className="mt-6"><DataTable title="Latest customer enquiries" rows={(rows.enquiries ?? []).slice(0, 5).map((item) => { const relatedProperty = Array.isArray(item.properties) ? item.properties[0] : item.properties; return { ...item, property_name: relatedProperty?.name || 'General enquiry' } })} columns={['full_name','mobile','property_name','status','created_at']} render={(item) => <button className={softButton} onClick={() => setSection('enquiries')}>Open enquiries <ArrowRight /></button>} /></div>
             </section> : null}
 
             {section === 'properties' ? <section className="grid gap-6 xl:grid-cols-[minmax(18rem,0.8fr)_1.2fr]">
