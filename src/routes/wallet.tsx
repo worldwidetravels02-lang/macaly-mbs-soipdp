@@ -9,8 +9,6 @@ const meta = siteMetadata['/wallet']
 const currencies = ['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR'] as const
 type Currency = (typeof currencies)[number]
 type WalletRow = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; description?: string | null; transaction_type?: string; direction?: string }
-type RequestRow = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; admin_note?: string | null; payment_method?: string | null; payout_method?: string | null }
-type PaymentDetails = { bank_name: string | null; account_name: string | null; account_number: string | null; iban: string | null; swift: string | null; note: string | null }
 
 const fieldClass = 'mt-2 w-full border border-input bg-background px-4 py-3 text-[0.95rem] outline-none transition-colors placeholder:text-ink-soft/60 focus:border-brass disabled:opacity-60'
 
@@ -38,15 +36,9 @@ function WalletPage() {
   const [currency, setCurrency] = useState<Currency>('AED')
   const [balance, setBalance] = useState(0)
   const [transactions, setTransactions] = useState<WalletRow[]>([])
-  const [topups, setTopups] = useState<RequestRow[]>([])
-  const [withdrawals, setWithdrawals] = useState<RequestRow[]>([])
   const [profits, setProfits] = useState<RequestRow[]>([])
-  const [paymentDetails, setPaymentDetails] = useState<PaymentDetails | null>(null)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
-  const [topup, setTopup] = useState({ amount: '', reference: '' })
-  const [withdrawal, setWithdrawal] = useState({ amount: '', method: 'Bank transfer', details: '' })
-  const [sending, setSending] = useState(false)
 
   const loadWallet = useCallback(async () => {
     setLoading(true)
@@ -61,16 +53,13 @@ function WalletPage() {
         return
       }
       setUserId(authData.user.id)
-      const [profileResult, balanceResult, transactionResult, topupResult, withdrawalResult, profitResult, paymentDetailsResult] = await Promise.all([
+      const [profileResult, balanceResult, transactionResult, profitResult] = await Promise.all([
         client.from('profiles').select('preferred_currency').eq('id', authData.user.id).maybeSingle(),
         client.from('wallet_balances').select('balance').eq('user_id', authData.user.id).eq('currency', currency).maybeSingle(),
         client.from('wallet_transactions').select('id,amount,currency,status,created_at,description,transaction_type,direction').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(30),
-        client.from('topup_requests').select('id,amount,currency,status,created_at,admin_note,payment_method').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(20),
-        client.from('withdrawal_requests').select('id,amount,currency,status,created_at,admin_note,payout_method').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(20),
         client.from('profit_payouts').select('id,amount,currency,status,created_at').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(20),
-        client.from('payment_details').select('bank_name,account_name,account_number,iban,swift,note').order('updated_at', { ascending: false }).limit(1).maybeSingle(),
       ])
-      for (const result of [profileResult, balanceResult, transactionResult, topupResult, withdrawalResult, profitResult, paymentDetailsResult]) {
+      for (const result of [profileResult, balanceResult, transactionResult, profitResult]) {
         if (result.error) throw result.error
       }
       const savedCurrency = profileResult.data?.preferred_currency
@@ -80,10 +69,7 @@ function WalletPage() {
       }
       setBalance(Number(balanceResult.data?.balance ?? 0))
       setTransactions((transactionResult.data ?? []) as WalletRow[])
-      setTopups((topupResult.data ?? []) as RequestRow[])
-      setWithdrawals((withdrawalResult.data ?? []) as RequestRow[])
       setProfits((profitResult.data ?? []) as RequestRow[])
-      setPaymentDetails(paymentDetailsResult.data as PaymentDetails | null)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not load your wallet.')
     } finally {
@@ -111,50 +97,6 @@ function WalletPage() {
       }
     }
     setCurrency(nextCurrency)
-  }
-
-  async function submitTopup(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setError('')
-    setNotice('')
-    const amount = Number(topup.amount)
-    if (!userId || !Number.isFinite(amount) || amount <= 0) return setError('Enter a valid amount greater than zero.')
-    setSending(true)
-    try {
-      const { error: insertError } = await requireSupabase().from('topup_requests').insert({
-        user_id: userId, amount, currency, payment_method: 'Bank transfer',
-        payment_reference: topup.reference.trim() || null, status: 'pending',
-      })
-      if (insertError) throw insertError
-      setTopup({ amount: '', reference: '' })
-      setNotice('Your top-up request was submitted for administrator review. Your wallet balance has not changed.')
-      await loadWallet()
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not submit your top-up request.')
-    } finally { setSending(false) }
-  }
-
-  async function submitWithdrawal(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setError('')
-    setNotice('')
-    const amount = Number(withdrawal.amount)
-    if (!userId || !Number.isFinite(amount) || amount <= 0) return setError('Enter a valid amount greater than zero.')
-    if (amount > balance) return setError('The requested amount is higher than your available posted wallet balance.')
-    if (!withdrawal.details.trim()) return setError('Enter the payout details needed for administrator review.')
-    setSending(true)
-    try {
-      const { error: insertError } = await requireSupabase().from('withdrawal_requests').insert({
-        user_id: userId, amount, currency, payout_method: withdrawal.method,
-        payout_details: { instructions: withdrawal.details.trim() }, status: 'pending',
-      })
-      if (insertError) throw insertError
-      setWithdrawal({ amount: '', method: withdrawal.method, details: '' })
-      setNotice('Your withdrawal request was submitted for review. This is not a bank transfer or payout confirmation.')
-      await loadWallet()
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not submit your withdrawal request.')
-    } finally { setSending(false) }
   }
 
   return (
@@ -204,47 +146,9 @@ function WalletPage() {
                 <p className="display mt-3 text-2xl">{profits.filter((row) => row.status === 'credited' && row.currency === currency).length}</p>
                 <p className="mt-2 text-xs text-ink-soft">Credited payout records in {currency}.</p>
               </div>
-              <div className="border border-border bg-card p-6">
-                <p className="eyebrow text-[0.5rem] text-ink-soft">Pending requests</p>
-                <p className="display mt-3 text-2xl">{topups.filter((row) => row.currency === currency && row.status === 'pending').length + withdrawals.filter((row) => row.currency === currency && row.status === 'pending').length}</p>
-                <p className="mt-2 text-xs text-ink-soft">Top-ups and withdrawals awaiting review in {currency}.</p>
-              </div>
-            </section>
-
-            <section className="border border-border bg-card p-6">
-              <p className="eyebrow text-brass">Bank transfer details</p>
-              <h2 className="display mt-2 text-2xl">Where to send your payment</h2>
-              {paymentDetails && [paymentDetails.bank_name, paymentDetails.account_name, paymentDetails.account_number, paymentDetails.iban, paymentDetails.swift].some((value) => value?.trim()) ? <>
-                <dl className="mt-5 grid gap-4 sm:grid-cols-2">
-                  {([['Bank name', paymentDetails.bank_name], ['Account name', paymentDetails.account_name], ['Account number', paymentDetails.account_number], ['IBAN', paymentDetails.iban], ['SWIFT / BIC', paymentDetails.swift]] as const).filter(([, value]) => value?.trim()).map(([label, value]) => <div key={label}><dt className="eyebrow text-[0.5rem] text-ink-soft">{label}</dt><dd className="mt-1 break-all text-sm font-medium">{value}</dd></div>)}
-                </dl>
-                {paymentDetails.note?.trim() ? <p className="mt-4 border-t border-border pt-4 text-sm leading-6 text-ink-soft">{paymentDetails.note}</p> : null}
-                <p className="mt-4 text-xs leading-5 text-ink-soft">Please transfer the funds first, then submit your amount and payment reference below. Your wallet is credited only after an administrator verifies the transfer.</p>
-              </> : <p className="mt-4 text-sm leading-6 text-ink-soft">Bank transfer instructions have not been added yet. Please contact customer support before sending money.</p>}
             </section>
 
             <section className="grid gap-6 lg:grid-cols-2">
-              <form onSubmit={submitTopup} className="grid gap-4 border border-border bg-card p-6">
-                <div><p className="eyebrow text-brass">Add funds</p><h2 className="display mt-2 text-2xl">Request a top-up</h2><p className="mt-2 text-sm text-ink-soft">A top-up is credited only after an administrator verifies and approves it.</p></div>
-                <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Amount ({currency})</span><input className={fieldClass} type="number" min="0.01" step="0.01" required value={topup.amount} onChange={(event) => setTopup({ ...topup, amount: event.target.value })} /></label>
-                <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Payment method</span><div className={fieldClass + ' text-sm'}>Bank transfer only</div></label>
-                <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Payment reference (optional)</span><input className={fieldClass} value={topup.reference} onChange={(event) => setTopup({ ...topup, reference: event.target.value })} /></label>
-                <button disabled={sending} className="eyebrow justify-self-start bg-primary px-6 py-4 text-[0.58rem] text-primary-foreground disabled:opacity-50">{sending ? 'Submitting…' : 'Submit top-up request'}</button>
-              </form>
-
-              <form onSubmit={submitWithdrawal} className="grid gap-4 border border-border bg-card p-6">
-                <div><p className="eyebrow text-brass">Withdraw funds</p><h2 className="display mt-2 text-2xl">Request a withdrawal</h2><p className="mt-2 text-sm text-ink-soft">Requests are reviewed by administration. Approval does not mean money has been transferred.</p></div>
-                <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Amount ({currency})</span><input className={fieldClass} type="number" min="0.01" step="0.01" max={balance} required value={withdrawal.amount} onChange={(event) => setWithdrawal({ ...withdrawal, amount: event.target.value })} /></label>
-                <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Payout method</span><select className={fieldClass} value={withdrawal.method} onChange={(event) => setWithdrawal({ ...withdrawal, method: event.target.value })}><option>Bank transfer</option><option>Other</option></select></label>
-                <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Payout details</span><textarea className={fieldClass} rows={3} required value={withdrawal.details} onChange={(event) => setWithdrawal({ ...withdrawal, details: event.target.value })} placeholder="Enter the details administration needs to review your request." /></label>
-                <button disabled={sending || balance <= 0} className="eyebrow justify-self-start bg-primary px-6 py-4 text-[0.58rem] text-primary-foreground disabled:opacity-50">{sending ? 'Submitting…' : 'Submit withdrawal request'}</button>
-              </form>
-            </section>
-
-
-            <section className="grid gap-6 lg:grid-cols-2">
-              <History title="Top-up requests" rows={topups.filter((row) => row.currency === currency)} />
-              <History title="Withdrawal requests" rows={withdrawals.filter((row) => row.currency === currency)} />
               <History title="Profit credits" rows={profits.filter((row) => row.currency === currency)} />
               <div className="border border-border bg-card">
                 <h2 className="display border-b border-border px-6 py-4 text-lg">Wallet activity</h2>
@@ -260,6 +164,3 @@ function WalletPage() {
   )
 }
 
-function History({ title, rows }: { title: string; rows: RequestRow[] }) {
-  return <section className="border border-border bg-card"><h2 className="display border-b border-border px-6 py-4 text-lg">{title}</h2>{rows.length === 0 ? <p className="px-6 py-6 text-sm text-ink-soft">No records yet.</p> : <ul className="divide-y divide-border">{rows.map((row) => <li key={row.id} className="flex items-center justify-between gap-4 px-6 py-4"><div><p className="text-sm">{money(row.amount, row.currency)}</p><p className="mt-1 text-xs text-ink-soft">{date(row.created_at)}{row.payment_method || row.payout_method ? ` · ${row.payment_method || row.payout_method}` : ''}{row.admin_note ? ` · ${row.admin_note}` : ''}</p></div><span className={`eyebrow rounded-full border px-3 py-2 text-[0.5rem] ${['credited', 'paid', 'approved'].includes(row.status) ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700' : ['rejected', 'cancelled', 'failed'].includes(row.status) ? 'border-destructive/30 bg-destructive/10 text-destructive' : 'border-brass/30 bg-brass/5 text-ink-soft'}`}>{row.status.replace(/_/g, ' ')}</span></li>)}</ul>}</section>
-}
