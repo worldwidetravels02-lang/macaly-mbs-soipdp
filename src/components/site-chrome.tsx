@@ -166,7 +166,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
                 data-testid="header-login"
                 className="eyebrow auth-link text-[0.6rem] opacity-80 transition-opacity hover:opacity-100"
               >
-                Login
+                {translateSiteLabel('Login', language)}
               </Link>
               <Link
                 to="/register"
@@ -189,7 +189,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
                 : 'bg-on-deep text-deep hover:bg-brass hover:text-deep',
             ].join(' ')}
           >
-            Book a visit
+            {translateSiteLabel('Book a visit', language)}
             <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>
@@ -276,7 +276,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
               onClick={() => setMenuOpen(false)}
               className="eyebrow flex items-center justify-between bg-primary px-5 py-4 text-[0.6rem] text-primary-foreground"
             >
-              Book a visit
+              {translateSiteLabel('Book a visit', language)}
               <ArrowRight />
             </Link>
             <Link
@@ -293,7 +293,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
               data-testid="mobile-signup"
               className="eyebrow flex items-center justify-between border border-brass px-5 py-4 text-[0.6rem] text-brass"
             >
-              Create account
+              {translateSiteLabel('Create account', language)}
               <ArrowRight />
             </Link>
           </div>
