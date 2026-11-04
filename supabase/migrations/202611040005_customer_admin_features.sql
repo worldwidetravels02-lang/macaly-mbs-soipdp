@@ -286,8 +286,11 @@ grant select on public.membership_plans, public.property_prices, public.fx_rates
 grant select on public.member_profiles, public.member_tasks, public.payment_details,
   public.crypto_payments, public.investment_requests, public.verifications,
   public.account_states, public.payments, public.reservation_deposits to authenticated;
-grant insert, update on public.member_profiles to authenticated;
-grant update on public.member_tasks to authenticated;
+revoke insert, update on public.member_profiles from authenticated;
+grant insert (user_id, address, interest) on public.member_profiles to authenticated;
+grant update (address, interest) on public.member_profiles to authenticated;
+revoke update on public.member_tasks from authenticated;
+grant update (status, submitted_at) on public.member_tasks to authenticated;
 grant insert on public.crypto_payments, public.investment_requests, public.verifications,
   public.payments, public.reservation_deposits to authenticated;
 grant select, insert, update, delete on public.payment_details, public.membership_plans,
