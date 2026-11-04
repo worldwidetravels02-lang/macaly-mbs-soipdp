@@ -5,9 +5,8 @@
  *   VITE_SUPABASE_URL
  *   VITE_SUPABASE_ANON_KEY
  *
- * This lightweight helper intentionally does not replace the existing
- * Convex authentication/provider yet. Authentication migration is a
- * separate step and must be tested before Convex is removed.
+ * Authentication and data access are handled by Supabase. This helper
+ * uses only the public browser-safe anon/publishable key.
  */
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined
