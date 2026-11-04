@@ -1,9 +1,13 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { TIERS } from '@/convex/tiers'
+const TIERS = [
+  { level: 1, name: 'Member · Explorer', summary: 'A simple starting point for discovering our residences.', propertyAllowance: 'Explore', minTopUpAed: 0, benefits: ['Browse published residences', 'Save your account details', 'Send enquiries to our team'] },
+  { level: 2, name: 'Member · Private', summary: 'A more personal way to arrange a property conversation.', propertyAllowance: 'Discover', minTopUpAed: 0, benefits: ['Request a private viewing', 'Receive project updates', 'Contact member services'] },
+  { level: 3, name: 'Member · Signature', summary: 'Priority assistance as additional services become available.', propertyAllowance: 'Connect', minTopUpAed: 0, benefits: ['Personal enquiry support', 'Project announcements', 'Member account access'] },
+  { level: 4, name: 'Member · Premier', summary: 'An enhanced relationship with the Msheireb Properties team.', propertyAllowance: 'Experience', minTopUpAed: 0, benefits: ['Dedicated enquiry follow-up', 'Residence collection updates', 'Member account access'] },
+] as const
 import { Reveal } from '../components/reveal'
 import { ArrowRight, PageIntro, SiteFooter, SiteHeader } from '../components/site-chrome'
 import { IMAGES } from '../data/site'
-import { formatAed } from '../lib/format'
 import { canonicalUrl } from '../lib/canonical-url'
 import siteMetadata from '../metadata.json'
 
@@ -30,8 +34,8 @@ function MembershipPage() {
       <main id="main">
         <PageIntro
           eyebrow="Membership"
-          title="Four levels, earned by what you invest."
-          intro="Every registered member starts at Level 1 with an AED 200 sign-in bonus. Approved wallet top-ups move you through the levels, and each level adds access rather than noise."
+          title="A more considered way to discover Dubai."
+          intro="Create a member account to save your details, explore the residence collection and contact our team. Membership benefits and account services will be introduced as they become available."
           image={IMAGES.tower}
           imageAlt="Msheireb Properties tower at dusk"
         />
@@ -46,11 +50,11 @@ function MembershipPage() {
                     <h2 className="display mt-3 text-2xl">{tier.name.split('·')[1]?.trim() ?? tier.name}</h2>
                     <p className="mt-3 text-sm leading-relaxed text-ink-soft">{tier.summary}</p>
                     <p data-testid={`membership-projects-${tier.level}`} className="eyebrow mt-5 text-[0.5rem] text-brass">
-                      {tier.propertyAllowance} projects unlocked
+                      Member access
                     </p>
-                    <p className="eyebrow mt-3 text-[0.5rem] text-ink-soft">Approved top-ups from</p>
+                    <p className="eyebrow mt-3 text-[0.5rem] text-ink-soft">Membership status</p>
                     <p className="display mt-1 text-xl">
-                      {tier.minTopUpAed === 0 ? 'AED 0' : formatAed(tier.minTopUpAed)}
+                      Registration
                     </p>
                     <ul className="mt-5 space-y-3 border-t border-border pt-5 text-sm text-ink-soft">
                       {tier.benefits.map((benefit) => (
@@ -72,10 +76,10 @@ function MembershipPage() {
               </p>
               <div className="flex flex-col gap-3 sm:flex-row lg:col-span-5 lg:justify-end">
                 <Link
-                  to="/wallet"
+                  to="/dashboard"
                   className="eyebrow inline-flex items-center justify-between gap-8 bg-primary px-6 py-4 text-[0.6rem] text-primary-foreground transition-colors hover:bg-ink/85"
                 >
-                  Open my wallet
+                  Member dashboard
                   <ArrowRight />
                 </Link>
                 <Link
