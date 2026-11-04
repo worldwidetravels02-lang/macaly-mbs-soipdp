@@ -140,6 +140,7 @@ function SupportPage() {
             <div data-testid="support-signed-out" className="border border-border bg-card p-8 sm:p-12">
               <p className="eyebrow text-brass">Customer service</p>
               <h1 className="display mt-4 text-[clamp(1.9rem,3.4vw,2.8rem)]">Sign in to open the chat.</h1>
+              {telegramUsername ? <a href={`https://t.me/${encodeURIComponent(telegramUsername.replace(/^@/, ''))}`} target="_blank" rel="noopener noreferrer" data-testid="telegram-support-link" className="mt-5 inline-flex w-fit items-center gap-3 border border-brass bg-brass/10 px-5 py-3 text-sm font-medium text-foreground transition-colors hover:bg-brass/20">Chat with us on Telegram <ArrowRight /></a> : null}
               <p className="mt-4 max-w-md text-sm leading-relaxed text-ink-soft">Members can message the administration team about an account, payment request or property.</p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Link to="/login" className="eyebrow inline-flex items-center justify-between gap-8 bg-primary px-6 py-4 text-[0.6rem] text-primary-foreground">Login <ArrowRight /></Link>
