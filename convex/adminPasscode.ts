@@ -5,9 +5,6 @@ import type { MutationCtx, QueryCtx } from "./_generated/server"
 import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server"
 import { internal } from "./_generated/api"
 
-/** Default administration passcode, used until an administrator changes it. */
-const DEFAULT_PASSCODE = "11223344"
-
 const SETTINGS_KEY = "admin-passcode"
 const OWNER_EMAIL = "admin01@gmail.com"
 
@@ -35,7 +32,12 @@ async function storedHash(ctx: QueryCtx | MutationCtx): Promise<string> {
     .query("adminSettings")
     .withIndex("by_key", (q) => q.eq("key", SETTINGS_KEY))
     .unique()
-  return row?.passcodeHash ?? sha256Hex(DEFAULT_PASSCODE)
+  if (row) return row.passcodeHash
+  const bootstrapSecret = process.env.ADMIN_SETUP_SECRET
+  if (!bootstrapSecret || bootstrapSecret.length < 20) {
+    throw new ConvexError("Administrator setup is not configured. Set ADMIN_SETUP_SECRET in the Convex deployment environment.")
+  }
+  return await sha256Hex(bootstrapSecret)
 }
 
 /** Checks the administration passcode. Only administrators can call this. */
@@ -76,8 +78,6 @@ export const activateAdmin = mutation({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .unique()
     if (existing) return null
-    const user = await ctx.db.get(userId)
-    const email = (user?.email ?? "").trim().toLowerCase()
     if (!email) throw new ConvexError("Add an email to this account first")
     await ctx.db.insert("admins", {
       userId,
@@ -203,7 +203,7 @@ export const setPasscode = mutation({
   },
 })
 
-/** Whether a custom passcode has replaced the default one. */
+/** Whether a private custom passcode has been saved in the database. */
 export const status = query({
   args: {},
   returns: v.object({ custom: v.boolean() }),
