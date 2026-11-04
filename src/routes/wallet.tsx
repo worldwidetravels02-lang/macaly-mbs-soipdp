@@ -117,6 +117,21 @@ function WalletPage() {
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not submit your request.') }
     finally { setRequestBusy(false) }
   }
+  async function markNotificationsRead() {
+    if (!userId || notifications.every((item) => item.read_at)) return
+    setError('')
+    try {
+      const { error: updateError } = await requireSupabase().from('notifications')
+        .update({ read_at: new Date().toISOString() })
+        .eq('user_id', userId)
+        .is('read_at', null)
+      if (updateError) throw updateError
+      await loadWallet()
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not mark notifications as read.')
+    }
+  }
+
   async function changeCurrency(nextCurrency: Currency) {
     setError('')
     if (userId) {
@@ -199,7 +214,10 @@ function WalletPage() {
             {notifications.length > 0 ? <section className="border border-border bg-card">
               <div className="flex items-center justify-between border-b border-border px-6 py-4">
                 <h2 className="display text-lg">Wallet notifications</h2>
-                <span className="text-xs text-ink-soft">{notifications.filter((item) => !item.read_at).length} unread</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-ink-soft">{notifications.filter((item) => !item.read_at).length} unread</span>
+                  {notifications.some((item) => !item.read_at) ? <button type="button" onClick={() => { void markNotificationsRead() }} className="text-xs text-brass underline underline-offset-4">Mark all as read</button> : null}
+                </div>
               </div>
               <ul className="divide-y divide-border">
                 {notifications.map((item) => <li key={item.id} className="px-6 py-4">
