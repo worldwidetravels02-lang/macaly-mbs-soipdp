@@ -12,7 +12,6 @@ import { useOffer } from '../lib/offers'
 import {
   CURRENCIES,
   RESERVATION_DEPOSIT_AED,
-  rateFor,
 } from '../lib/currency'
 
 type InvestmentPlan = {
@@ -275,8 +274,8 @@ export function ResidenceDetail({ slug }: { slug: ResidenceSlug }) {
                     {selectedRank.commission_percent}% are paid into the wallet when administration
                     funds the investment.
                     {investValue >= Number(selectedRank.minimum_amount)
-                      ? ` Estimated profit AED ${Math.round((investValue * selectedRank.profitPercent) / 100).toLocaleString()} and commission AED ${Math.round((investValue * selectedRank.commissionPercent) / 100).toLocaleString()}.`
-                      : ` Minimum AED ${selectedRank.minAed.toLocaleString()}.`}
+                      ? ` Estimated profit AED ${Math.round((investValue * selectedRank.profit_percent) / 100).toLocaleString()} and commission AED ${Math.round((investValue * selectedRank.commission_percent) / 100).toLocaleString()}.`
+                      : ` Minimum AED ${Number(selectedRank.minimum_amount).toLocaleString()}.`}
                   </p>
                 ) : null}
               </div>
