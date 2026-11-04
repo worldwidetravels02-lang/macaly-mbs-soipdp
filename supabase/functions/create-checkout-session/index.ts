@@ -37,7 +37,8 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authorization } },
       auth: { persistSession: false, autoRefreshToken: false },
     })
-    const { data: { user }, error: userError } = await userClient.auth.getUser()
+    const accessToken = authorization.slice("Bearer ".length)
+    const { data: { user }, error: userError } = await userClient.auth.getUser(accessToken)
     if (userError || !user) return json({ error: "Sign in to continue" }, 401)
 
     const admin = createClient(supabaseUrl, serviceKey, {
@@ -70,10 +71,14 @@ Deno.serve(async (req) => {
 
     let propertyId: string | null = null
     if (kind === "deposit") {
-      const { data: property, error: propertyError } = await admin.from("properties")
-        .select("id,name,slug").or(`slug.eq.${residence.replace(/[,.()"]/g, "")},name.eq.${residence.replace(/[,.()"]/g, "")}`)
-        .limit(1).maybeSingle()
+      let { data: property, error: propertyError } = await admin.from("properties")
+        .select("id,name,slug").eq("slug", residence).maybeSingle()
       if (propertyError) throw propertyError
+      if (!property) {
+        const byName = await admin.from("properties").select("id,name,slug").eq("name", residence).maybeSingle()
+        if (byName.error) throw byName.error
+        property = byName.data
+      }
       if (!property) return json({ error: "The selected residence could not be found" }, 400)
       propertyId = property.id
     }
