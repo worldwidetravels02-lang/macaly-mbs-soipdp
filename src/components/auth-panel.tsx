@@ -2,7 +2,7 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { ArrowRight } from './site-chrome'
 import { signInWithEmail, signUpWithEmail } from '@/lib/supabase-auth'
-import { requireSupabase } from '@/lib/supabase-client'
+import { requireSupabase, supabase } from '@/lib/supabase-client'
 
 type View = 'signin' | 'signup' | 'forgot' | 'reset'
 
@@ -63,7 +63,8 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
   const [loginMethod, setLoginMethod] = useState<'mobile' | 'email'>('email')
 
   useEffect(() => {
-    const { data } = requireSupabase().auth.onAuthStateChange((event) => {
+    if (!supabase) return
+    const { data } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') setView('reset')
     })
     return () => data.subscription.unsubscribe()
