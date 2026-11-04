@@ -59,7 +59,11 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
     try {
       const savedLanguage = window.localStorage.getItem('msheireb-language')
       const savedCurrency = window.localStorage.getItem('msheireb-currency')
-      if (savedLanguage === 'EN' || savedLanguage === 'AR') {\n        setLanguage(savedLanguage)\n        document.documentElement.lang = savedLanguage.toLowerCase()\n        document.documentElement.dir = savedLanguage === 'AR' ? 'rtl' : 'ltr'\n      }
+      if (savedLanguage === 'EN' || savedLanguage === 'AR') {
+        setLanguage(savedLanguage)
+        document.documentElement.lang = savedLanguage.toLowerCase()
+        document.documentElement.dir = savedLanguage === 'AR' ? 'rtl' : 'ltr'
+      }
       if (['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR'].includes(savedCurrency ?? '')) {
         setCurrency(savedCurrency!)
       }
@@ -71,6 +75,8 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
   const changeLanguage = (value: string) => {
     if (value !== 'EN' && value !== 'AR') return
     setLanguage(value)
+    document.documentElement.lang = value.toLowerCase()
+    document.documentElement.dir = value === 'AR' ? 'rtl' : 'ltr'
     try { window.localStorage.setItem('msheireb-language', value) } catch { /* optional */ }
   }
 
@@ -205,14 +211,14 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
           <div className="mb-5 flex gap-3">
             <label className="flex flex-1 flex-col gap-2">
               <span className="eyebrow text-[0.5rem] text-brass">Language</span>
-              <select aria-label="Language" value={language} onChange={(event) => setLanguage(event.target.value)} className="border border-border bg-background px-3 py-3 text-sm">
+              <select aria-label="Language" value={language} onChange={(event) => changeLanguage(event.target.value)} className="border border-border bg-background px-3 py-3 text-sm">
                 <option value="EN">English</option>
                 <option value="AR">العربية</option>
               </select>
             </label>
             <label className="flex flex-1 flex-col gap-2">
               <span className="eyebrow text-[0.5rem] text-brass">Currency</span>
-              <select aria-label="Currency" value={currency} onChange={(event) => setCurrency(event.target.value)} className="border border-border bg-background px-3 py-3 text-sm">
+              <select aria-label="Currency" value={currency} onChange={(event) => changeCurrency(event.target.value)} className="border border-border bg-background px-3 py-3 text-sm">
                 {['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR'].map((code) => <option key={code} value={code}>{code}</option>)}
               </select>
             </label>
