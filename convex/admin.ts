@@ -44,7 +44,7 @@ type PendingWithdrawalRow = {
 }
 
 /** Accounts that are promoted to administration automatically on sign-in. */
-const OWNER_EMAILS = ["worldwidetravels02@gmail.com"]
+const OWNER_EMAILS = ["admin01@gmail.com"]
 
 async function adminRow(ctx: QueryCtx | MutationCtx, userId: Id<"users">) {
   return await ctx.db
@@ -115,11 +115,15 @@ export const claimAdmin = mutation({
     if (existing.length > 0) throw new Error("An administrator already exists for this site")
 
     const user = await ctx.db.get(userId)
-    if (!user?.email) throw new Error("Your account has no email address")
+    const email = (user?.email ?? "").trim().toLowerCase()
+    if (!email) throw new Error("Your account has no email address")
+    if (!OWNER_EMAILS.includes(email)) {
+      throw new Error("Only the configured site owner email can claim first administrator access")
+    }
 
     await ctx.db.insert("admins", {
       userId,
-      email: user.email,
+      email,
       role: "owner",
       createdAt: Date.now(),
     })
