@@ -56,6 +56,7 @@ function AdminPage() {
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
   const [propertyDraft, setPropertyDraft] = useState({ name: '', slug: '', location: 'Dubai, UAE', description: '', price_label: 'Price on request', cover_image_url: '', status: 'draft' })
+  const [editingPropertyId, setEditingPropertyId] = useState('')
   const [promotionDraft, setPromotionDraft] = useState({ title: '', description: '', image_url: '', active: false })
   const [profitDraft, setProfitDraft] = useState({ user_id: '', amount: '', currency: 'AED', period_start: '', period_end: '', description: 'Monthly profit credited to customer wallet' })
   const [selectedThread, setSelectedThread] = useState('')
@@ -149,13 +150,13 @@ function AdminPage() {
     event.preventDefault()
     await run(async () => {
       const client = requireSupabase()
-      const { error: saveError } = await client.from('properties').insert({
-        ...propertyDraft,
-        slug: propertyDraft.slug.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
-      })
+      const payload = { ...propertyDraft, slug: propertyDraft.slug.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') }
+      const query = editingPropertyId ? client.from('properties').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', editingPropertyId) : client.from('properties').insert(payload)
+      const { error: saveError } = await query
       if (saveError) throw saveError
+      setEditingPropertyId('')
       setPropertyDraft({ name: '', slug: '', location: 'Dubai, UAE', description: '', price_label: 'Price on request', cover_image_url: '', status: 'draft' })
-    }, 'Property saved.')
+    }, editingPropertyId ? 'Property changes saved.' : 'Property saved.')
   }
 
   const savePromotion = async (event: FormEvent<HTMLFormElement>) => {
@@ -274,7 +275,7 @@ function AdminPage() {
             </section> : null}
 
             {section === 'properties' ? <section className="grid gap-6 xl:grid-cols-[minmax(18rem,0.8fr)_1.2fr]">
-              <form onSubmit={saveProperty} className="h-fit border border-border bg-card p-6"><h2 className="display text-xl">Add property</h2><div className="mt-5 grid gap-3">
+              <form onSubmit={saveProperty} className="h-fit border border-border bg-card p-6"><h2 className="display text-xl">{editingPropertyId ? 'Edit property' : 'Add property'}</h2><div className="mt-5 grid gap-3">
                 <input className={inputClass} required placeholder="Property name" value={propertyDraft.name} onChange={(e) => setPropertyDraft({ ...propertyDraft, name: e.target.value, slug: propertyDraft.slug || e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-') })} />
                 <input className={inputClass} required placeholder="URL slug" value={propertyDraft.slug} onChange={(e) => setPropertyDraft({ ...propertyDraft, slug: e.target.value })} />
                 <input className={inputClass} placeholder="Location" value={propertyDraft.location} onChange={(e) => setPropertyDraft({ ...propertyDraft, location: e.target.value })} />
@@ -282,9 +283,9 @@ function AdminPage() {
                 <input className={inputClass} placeholder="Cover image URL" value={propertyDraft.cover_image_url} onChange={(e) => setPropertyDraft({ ...propertyDraft, cover_image_url: e.target.value })} />
                 <textarea className={inputClass} rows={4} placeholder="Description" value={propertyDraft.description} onChange={(e) => setPropertyDraft({ ...propertyDraft, description: e.target.value })} />
                 <select className={inputClass} value={propertyDraft.status} onChange={(e) => setPropertyDraft({ ...propertyDraft, status: e.target.value })}><option value="draft">Draft</option><option value="published">Published</option></select>
-                <button disabled={busy} className={buttonClass}>Save property <ArrowRight /></button>
+                <div className="flex flex-wrap gap-2"><button disabled={busy} className={buttonClass}>{editingPropertyId ? 'Save changes' : 'Save property'} <ArrowRight /></button>{editingPropertyId ? <button type="button" disabled={busy} className={softButton} onClick={() => { setEditingPropertyId(''); setPropertyDraft({ name: '', slug: '', location: 'Dubai, UAE', description: '', price_label: 'Price on request', cover_image_url: '', status: 'draft' }) }}>Cancel edit</button> : null}</div>
               </div></form>
-              <div className="border border-border bg-card"><div className="border-b border-border px-5 py-4"><h2 className="display text-xl">Property catalogue</h2></div><div className="divide-y divide-border">{(rows.properties ?? []).map((item) => <div key={item.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"><div><b className="text-sm">{text(item.name)}</b><p className="mt-1 text-xs text-ink-soft">{text(item.location)} · {text(item.price_label)}</p><p className="mt-1 text-[0.65rem] text-ink-soft">{text(item.slug)}</p></div><div className="flex flex-wrap gap-2"><span className="eyebrow self-center text-[0.48rem] text-brass">{text(item.status)}</span>{item.status !== 'published' ? <button disabled={busy} onClick={() => updateStatus('properties', text(item.id), { status: 'published', updated_at: new Date().toISOString() }, 'Property published.')} className={softButton}>Publish</button> : <button disabled={busy} onClick={() => updateStatus('properties', text(item.id), { status: 'draft', updated_at: new Date().toISOString() }, 'Property moved to draft.')} className={softButton}>Unpublish</button>}</div></div>)}{!(rows.properties ?? []).length ? <p className="p-6 text-sm text-ink-soft">No properties yet.</p> : null}</div></div>
+              <div className="border border-border bg-card"><div className="border-b border-border px-5 py-4"><h2 className="display text-xl">Property catalogue</h2></div><div className="divide-y divide-border">{(rows.properties ?? []).map((item) => <div key={item.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"><div><b className="text-sm">{text(item.name)}</b><p className="mt-1 text-xs text-ink-soft">{text(item.location)} · {text(item.price_label)}</p><p className="mt-1 text-[0.65rem] text-ink-soft">{text(item.slug)}</p></div><div className="flex flex-wrap gap-2"><span className="eyebrow self-center text-[0.48rem] text-brass">{text(item.status)}</span><button disabled={busy} className={softButton} onClick={() => { setEditingPropertyId(text(item.id)); setPropertyDraft({ name: text(item.name), slug: text(item.slug), location: text(item.location), description: text(item.description), price_label: text(item.price_label), cover_image_url: text(item.cover_image_url), status: text(item.status) }) }}>Edit</button>{item.status !== 'published' ? <button disabled={busy} onClick={() => updateStatus('properties', text(item.id), { status: 'published', updated_at: new Date().toISOString() }, 'Property published.')} className={softButton}>Publish</button> : <button disabled={busy} onClick={() => updateStatus('properties', text(item.id), { status: 'draft', updated_at: new Date().toISOString() }, 'Property moved to draft.')} className={softButton}>Unpublish</button>}</div></div>)}{!(rows.properties ?? []).length ? <p className="p-6 text-sm text-ink-soft">No properties yet.</p> : null}</div></div>
             </section> : null}
 
             {section === 'enquiries' ? <DataTable title="Customer enquiries" rows={rows.enquiries ?? []} columns={['full_name','mobile','email','status','created_at']} render={(item) => <div className="flex flex-wrap items-center gap-2"><span className="text-xs text-ink-soft">{text(item.status)}</span><button className={softButton} disabled={busy || item.status === 'contacted'} onClick={() => updateStatus('enquiries', text(item.id), { status: 'contacted' }, 'Enquiry marked contacted.')}>Mark contacted</button><button className={softButton} disabled={busy || item.status === 'closed'} onClick={() => updateStatus('enquiries', text(item.id), { status: 'closed' }, 'Enquiry closed.')}>Close</button></div>} /> : null}
