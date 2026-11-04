@@ -1,12 +1,11 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { EmbeddedCheckout, EmbeddedCheckoutProvider } from '@stripe/react-stripe-js'
 import { loadStripe, type Stripe } from '@stripe/stripe-js'
-import { useAction } from 'convex/react'
 import { useCallback, useEffect, useState } from 'react'
-import { api } from '@/convex/_generated/api'
 import { SiteHeader } from '../components/site-chrome'
 import { CURRENCIES, formatMoney } from '../lib/currency'
 import { errorMessage } from '../lib/errors'
+import { requireSupabase } from '../lib/supabase-client'
 
 type CheckoutSearch = {
   kind: 'topup' | 'deposit'
@@ -42,7 +41,6 @@ function getStripe() {
 
 function CheckoutPage() {
   const { kind, amount, currency, residence } = Route.useSearch()
-  const createCheckoutSession = useAction(api.stripe.createCheckoutSession)
   const [mounted, setMounted] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -52,19 +50,19 @@ function CheckoutPage() {
 
   const fetchClientSecret = useCallback(async () => {
     try {
-      const result = await createCheckoutSession({
-        kind,
-        amountAed: amount,
-        currency,
-        residence,
-      })
+      const { data, error: checkoutError } = await requireSupabase().functions.invoke<{ clientSecret: string }>(
+        'create-checkout-session',
+        { body: { kind, amountAed: amount, currency, residence } },
+      )
+      if (checkoutError) throw checkoutError
+      if (!data?.clientSecret) throw new Error('The payment service did not return a checkout session.')
       setError(null)
-      return result.clientSecret
+      return data.clientSecret
     } catch (err) {
       setError(errorMessage(err, 'Could not start the payment'))
       throw err
     }
-  }, [createCheckoutSession, kind, amount, currency, residence])
+  }, [kind, amount, currency, residence])
 
   const label = CURRENCIES.find((entry) => entry.code === currency)?.label ?? currency
 
