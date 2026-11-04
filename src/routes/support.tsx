@@ -39,9 +39,13 @@ function SupportPage() {
   const [loadingMessages, setLoadingMessages] = useState(false)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [telegramUsername, setTelegramUsername] = useState('')
 
   useEffect(() => {
     const supabase = requireSupabase()
+    supabase.from('support_settings').select('telegram_username').eq('id', 'default').maybeSingle().then(({ data }) => {
+      setTelegramUsername(data?.telegram_username ?? '')
+    })
     supabase.auth.getSession().then(({ data, error: sessionError }) => {
       if (sessionError) setError(sessionError.message)
       setUser(data.session?.user ?? null)
@@ -149,6 +153,7 @@ function SupportPage() {
                 <h1 className="display mt-3 text-[clamp(1.9rem,3.4vw,2.8rem)]">Chat with our team</h1>
                 <p className="mt-3 max-w-lg text-sm leading-relaxed text-ink-soft">Your messages are saved to your account and can be answered by administration.</p>
               </header>
+              {telegramUsername ? <a href={`https://t.me/${encodeURIComponent(telegramUsername.replace(/^@/, ''))}`} target="_blank" rel="noopener noreferrer" data-testid="telegram-support-link" className="inline-flex w-fit items-center gap-3 border border-brass bg-brass/10 px-5 py-3 text-sm font-medium text-foreground transition-colors hover:bg-brass/20">Chat with us on Telegram <ArrowRight /></a> : null}
               <section className="flex min-h-[22rem] flex-col border border-border bg-card">
                 <div data-testid="support-messages" className="flex-1 space-y-4 p-5 sm:p-6">
                   {loadingMessages ? <p className="text-sm text-ink-soft">Loading your conversation…</p> : messages.length === 0 ? (
