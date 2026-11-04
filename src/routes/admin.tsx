@@ -60,6 +60,8 @@ function AdminPage() {
   const [profitDraft, setProfitDraft] = useState({ user_id: '', amount: '', currency: 'AED', period_start: '', period_end: '', description: 'Monthly profit credited to customer wallet' })
   const [selectedThread, setSelectedThread] = useState('')
   const [reply, setReply] = useState('')
+  const [postDraft, setPostDraft] = useState({ title: '', slug: '', category: 'News', excerpt: '', content: '', cover_image_url: '', author_name: 'Msheireb Properties' })
+  const [paymentDetailsDraft, setPaymentDetailsDraft] = useState({ bank_name: '', account_name: '', account_number: '', iban: '', swift: '', note: '', crypto: '[]' })
 
   const load = useCallback(async () => {
     setChecking(true)
@@ -107,6 +109,8 @@ function AdminPage() {
         next[names[index]] = (result.data ?? []) as Row[]
       })
       setRows(next)
+      const paymentDetails = next.paymentDetails?.[0]
+      if (paymentDetails) setPaymentDetailsDraft({ bank_name: text(paymentDetails.bank_name), account_name: text(paymentDetails.account_name), account_number: text(paymentDetails.account_number), iban: text(paymentDetails.iban), swift: text(paymentDetails.swift), note: text(paymentDetails.note), crypto: JSON.stringify(paymentDetails.crypto ?? [], null, 2) })
     } catch (cause) {
       setError(errorMessage(cause, 'Could not load administration data.'))
     } finally {
@@ -202,6 +206,30 @@ function AdminPage() {
     }, 'Reply sent.')
   }
 
+  const savePost = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    await run(async () => {
+      const payload = { ...postDraft, slug: postDraft.slug.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''), updated_by: user?.id }
+      const { error: saveError } = await requireSupabase().from('posts').insert(payload)
+      if (saveError) throw saveError
+      setPostDraft({ title: '', slug: '', category: 'News', excerpt: '', content: '', cover_image_url: '', author_name: 'Msheireb Properties' })
+    }, 'Journal post created as a draft.')
+  }
+
+  const savePaymentDetails = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    await run(async () => {
+      let crypto: unknown
+      try { crypto = JSON.parse(paymentDetailsDraft.crypto || '[]') } catch { throw new Error('Crypto payment instructions must be valid JSON.') }
+      if (!Array.isArray(crypto)) throw new Error('Crypto payment instructions must be a JSON array.')
+      const payload = { bank_name: paymentDetailsDraft.bank_name, account_name: paymentDetailsDraft.account_name, account_number: paymentDetailsDraft.account_number, iban: paymentDetailsDraft.iban, swift: paymentDetailsDraft.swift, note: paymentDetailsDraft.note, crypto, updated_by: user?.id, updated_at: new Date().toISOString() }
+      const existing = rows.paymentDetails?.[0]
+      const query = existing?.id ? requireSupabase().from('payment_details').update(payload).eq('id', existing.id) : requireSupabase().from('payment_details').insert(payload)
+      const { error: saveError } = await query
+      if (saveError) throw saveError
+    }, 'Payment instructions saved.')
+  }
+
   const signOut = async () => {
     await requireSupabase().auth.signOut()
     setUser(null); setAuthorized(false)
@@ -276,9 +304,9 @@ function AdminPage() {
 
             {section === 'tasks' ? <div className="grid gap-6"><DataTable title="Customer tasks" rows={rows.tasks ?? []} columns={['user_id','title','detail','target_level','status','created_at']} render={(item) => item.status === 'submitted' ? <div className="flex gap-2"><button disabled={busy} className={softButton} onClick={() => updateStatus('member_tasks', text(item.id), { status: 'approved', reviewed_at: new Date().toISOString(), reviewed_by: user?.id, review_note: 'Approved' }, 'Task approved.')}>Approve</button><button disabled={busy} className={softButton} onClick={() => updateStatus('member_tasks', text(item.id), { status: 'rejected', reviewed_at: new Date().toISOString(), reviewed_by: user?.id, review_note: 'Please review and resubmit' }, 'Task returned for correction.')}>Return</button></div> : null} /><DataTable title="Membership plans and levels" rows={rows.plans ?? []} columns={['level','code','name','minimum_amount','profit_percent','commission_percent','active']} render={(item) => <button disabled={busy} className={softButton} onClick={() => updateStatus('membership_plans', text(item.id), { active: !item.active, updated_at: new Date().toISOString(), updated_by: user?.id }, item.active ? 'Membership plan disabled.' : 'Membership plan enabled.')}>{item.active ? 'Disable' : 'Enable'}</button>} /><DataTable title="Extended member profiles" rows={rows.memberProfiles ?? []} columns={['user_id','address','referral_code','interest','membership_level','created_at']} /></div> : null}
 
-            {section === 'payments' ? <div className="grid gap-6"><DataTable title="Payment intents (test-mode records only)" rows={rows.payments ?? []} columns={['user_id','kind','amount','amount_charged','currency','provider','mode','status','created_at']} /><DataTable title="Reservation deposits" rows={rows.reservationDeposits ?? []} columns={['user_id','property_name','amount','amount_charged','currency','mode','created_at']} /><DataTable title="Payment instructions" rows={rows.paymentDetails ?? []} columns={['bank_name','account_name','account_number','iban','swift','note','updated_at']} /><p className="border border-brass/40 bg-brass/5 p-4 text-xs leading-6">Payment intent and reservation records do not confirm that money was received. A verified payment-provider webhook is required before any live payment or wallet credit.</p></div> : null}
+            {section === 'payments' ? <div className="grid gap-6"><form onSubmit={savePaymentDetails} className="grid gap-3 border border-border bg-card p-6"><h2 className="display text-xl">Payment instructions</h2><p className="text-xs text-ink-soft">These details are shown to signed-in customers as manual payment instructions. Never enter private API keys here.</p><div className="grid gap-3 sm:grid-cols-2"><input className={inputClass} placeholder="Bank name" value={paymentDetailsDraft.bank_name} onChange={(e) => setPaymentDetailsDraft({ ...paymentDetailsDraft, bank_name: e.target.value })} /><input className={inputClass} placeholder="Account name" value={paymentDetailsDraft.account_name} onChange={(e) => setPaymentDetailsDraft({ ...paymentDetailsDraft, account_name: e.target.value })} /><input className={inputClass} placeholder="Account number" value={paymentDetailsDraft.account_number} onChange={(e) => setPaymentDetailsDraft({ ...paymentDetailsDraft, account_number: e.target.value })} /><input className={inputClass} placeholder="IBAN" value={paymentDetailsDraft.iban} onChange={(e) => setPaymentDetailsDraft({ ...paymentDetailsDraft, iban: e.target.value })} /><input className={inputClass} placeholder="SWIFT / BIC" value={paymentDetailsDraft.swift} onChange={(e) => setPaymentDetailsDraft({ ...paymentDetailsDraft, swift: e.target.value })} /><input className={inputClass} placeholder="Payment note" value={paymentDetailsDraft.note} onChange={(e) => setPaymentDetailsDraft({ ...paymentDetailsDraft, note: e.target.value })} /></div><label className="text-xs text-ink-soft">Crypto instructions (JSON array)</label><textarea rows={4} className={inputClass} value={paymentDetailsDraft.crypto} onChange={(e) => setPaymentDetailsDraft({ ...paymentDetailsDraft, crypto: e.target.value })} /><button disabled={busy} className={buttonClass}>Save payment instructions <ArrowRight /></button></form><DataTable title="Payment intents (test-mode records only)" rows={rows.payments ?? []} columns={['user_id','kind','amount','amount_charged','currency','provider','mode','status','created_at']} /><DataTable title="Reservation deposits" rows={rows.reservationDeposits ?? []} columns={['user_id','property_name','amount','amount_charged','currency','mode','created_at']} /><DataTable title="Payment instructions" rows={rows.paymentDetails ?? []} columns={['bank_name','account_name','account_number','iban','swift','note','updated_at']} /><p className="border border-brass/40 bg-brass/5 p-4 text-xs leading-6">Payment intent and reservation records do not confirm that money was received. A verified payment-provider webhook is required before any live payment or wallet credit.</p></div> : null}
 
-            {section === 'content' ? <DataTable title="Journal and website posts" rows={rows.posts ?? []} columns={['title','slug','category','excerpt','author_name','published','published_at','created_at']} render={(item) => <button disabled={busy} className={softButton} onClick={() => updateStatus('posts', text(item.id), { published: !item.published, published_at: item.published ? null : new Date().toISOString(), updated_at: new Date().toISOString(), updated_by: user?.id }, item.published ? 'Post unpublished.' : 'Post published.')}>{item.published ? 'Unpublish' : 'Publish'}</button>} /> : null}
+            {section === 'content' ? <div className="grid gap-6"><form onSubmit={savePost} className="grid gap-3 border border-border bg-card p-6"><h2 className="display text-xl">Create journal post</h2><div className="grid gap-3 sm:grid-cols-2"><input required className={inputClass} placeholder="Post title" value={postDraft.title} onChange={(e) => setPostDraft({ ...postDraft, title: e.target.value, slug: postDraft.slug || e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-') })} /><input required className={inputClass} placeholder="URL slug" value={postDraft.slug} onChange={(e) => setPostDraft({ ...postDraft, slug: e.target.value })} /><input required className={inputClass} placeholder="Category" value={postDraft.category} onChange={(e) => setPostDraft({ ...postDraft, category: e.target.value })} /><input className={inputClass} placeholder="Cover image URL" value={postDraft.cover_image_url} onChange={(e) => setPostDraft({ ...postDraft, cover_image_url: e.target.value })} /><input required className={inputClass} placeholder="Author name" value={postDraft.author_name} onChange={(e) => setPostDraft({ ...postDraft, author_name: e.target.value })} /></div><textarea required rows={2} className={inputClass} placeholder="Short excerpt" value={postDraft.excerpt} onChange={(e) => setPostDraft({ ...postDraft, excerpt: e.target.value })} /><textarea required rows={8} className={inputClass} placeholder="Full article content" value={postDraft.content} onChange={(e) => setPostDraft({ ...postDraft, content: e.target.value })} /><button disabled={busy} className={buttonClass}>Save draft <ArrowRight /></button></form><DataTable title="Journal and website posts" rows={rows.posts ?? []} columns={['title','slug','category','excerpt','author_name','published','published_at','created_at']} render={(item) => <button disabled={busy} className={softButton} onClick={() => updateStatus('posts', text(item.id), { published: !item.published, published_at: item.published ? null : new Date().toISOString(), updated_at: new Date().toISOString(), updated_by: user?.id }, item.published ? 'Post unpublished.' : 'Post published.')}>{item.published ? 'Unpublish' : 'Publish'}</button>} /></div> : null}
 
             {section === 'team' ? <div className="grid gap-6"><DataTable title="Administrator accounts" rows={rows.admins ?? []} columns={['user_id','role','created_at']} /><p className="border border-border bg-card p-5 text-sm leading-6 text-ink-soft">Administrator membership is managed securely in Supabase. This panel does not let an administrator grant themselves elevated access or remove the owner account.</p><DataTable title="Admin notifications" rows={rows.notifications ?? []} columns={['user_id','title','message','read_at','created_at']} /></div> : null}
 
