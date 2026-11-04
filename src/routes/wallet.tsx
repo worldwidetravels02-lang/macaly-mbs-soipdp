@@ -9,7 +9,7 @@ const meta = siteMetadata['/wallet']
 const currencies = ['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR'] as const
 type Currency = (typeof currencies)[number]
 type WalletRow = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; description?: string | null; transaction_type?: string; direction?: string }
-type RequestRow = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; admin_note?: string | null }
+type RequestRow = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; admin_note?: string | null; payment_method?: string | null; payout_method?: string | null }
 
 const fieldClass = 'mt-2 w-full border border-input bg-background px-4 py-3 text-[0.95rem] outline-none transition-colors placeholder:text-ink-soft/60 focus:border-brass disabled:opacity-60'
 
@@ -63,8 +63,8 @@ function WalletPage() {
         client.from('profiles').select('preferred_currency').eq('id', authData.user.id).maybeSingle(),
         client.from('wallet_balances').select('balance').eq('user_id', authData.user.id).eq('currency', currency).maybeSingle(),
         client.from('wallet_transactions').select('id,amount,currency,status,created_at,description,transaction_type,direction').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(30),
-        client.from('topup_requests').select('id,amount,currency,status,created_at,admin_note').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(20),
-        client.from('withdrawal_requests').select('id,amount,currency,status,created_at,admin_note').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(20),
+        client.from('topup_requests').select('id,amount,currency,status,created_at,admin_note,payment_method').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(20),
+        client.from('withdrawal_requests').select('id,amount,currency,status,created_at,admin_note,payout_method').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(20),
         client.from('profit_payouts').select('id,amount,currency,status,created_at').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(20),
       ])
       for (const result of [profileResult, balanceResult, transactionResult, topupResult, withdrawalResult, profitResult]) {
@@ -224,5 +224,5 @@ function WalletPage() {
 }
 
 function History({ title, rows }: { title: string; rows: RequestRow[] }) {
-  return <section className="border border-border bg-card"><h2 className="display border-b border-border px-6 py-4 text-lg">{title}</h2>{rows.length === 0 ? <p className="px-6 py-6 text-sm text-ink-soft">No records yet.</p> : <ul className="divide-y divide-border">{rows.map((row) => <li key={row.id} className="flex items-center justify-between gap-4 px-6 py-4"><div><p className="text-sm">{money(row.amount, row.currency)}</p><p className="mt-1 text-xs text-ink-soft">{date(row.created_at)}{row.admin_note ? ` · ${row.admin_note}` : ''}</p></div><span className="eyebrow text-[0.5rem] text-ink-soft">{row.status}</span></li>)}</ul>}</section>
+  return <section className="border border-border bg-card"><h2 className="display border-b border-border px-6 py-4 text-lg">{title}</h2>{rows.length === 0 ? <p className="px-6 py-6 text-sm text-ink-soft">No records yet.</p> : <ul className="divide-y divide-border">{rows.map((row) => <li key={row.id} className="flex items-center justify-between gap-4 px-6 py-4"><div><p className="text-sm">{money(row.amount, row.currency)}</p><p className="mt-1 text-xs text-ink-soft">{date(row.created_at)}{row.payment_method || row.payout_method ? ` · ${row.payment_method || row.payout_method}` : ''}{row.admin_note ? ` · ${row.admin_note}` : ''}</p></div><span className="eyebrow text-[0.5rem] text-ink-soft">{row.status}</span></li>)}</ul>}</section>
 }
