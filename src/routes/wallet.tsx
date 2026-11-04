@@ -47,6 +47,7 @@ function WalletPage() {
   const [withdrawalAmount, setWithdrawalAmount] = useState('')
   const [requestBusy, setRequestBusy] = useState(false)
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
 
   const loadWallet = useCallback(async () => {
     setLoading(true)
@@ -103,7 +104,7 @@ function WalletPage() {
     const amount = Number(rawAmount)
     if (!Number.isFinite(amount) || amount <= 0 || amount > 100000000) { setError('Enter a valid amount.'); return }
     if (kind === 'withdrawal' && amount > balance) { setError('Your withdrawal request cannot exceed your available posted balance.'); return }
-    setRequestBusy(true); setError('')
+    setRequestBusy(true); setError(''); setNotice('')
     try {
       const client = requireSupabase()
       const { data: authData, error: authError } = await client.auth.getUser()
@@ -112,7 +113,13 @@ function WalletPage() {
       const table = kind === 'deposit' ? 'topup_requests' : 'withdrawal_requests'
       const { error: insertError } = await client.from(table).insert({ user_id: authData.user.id, amount, currency, status: 'pending' })
       if (insertError) throw insertError
-      if (kind === 'deposit') setDepositAmount(''); else setWithdrawalAmount('')
+      if (kind === 'deposit') {
+        setDepositAmount('')
+        setNotice('Your deposit request was submitted. Please contact customer support for the next instructions.')
+      } else {
+        setWithdrawalAmount('')
+        setNotice('Your withdrawal request was submitted and is awaiting administrator review.')
+      }
       await loadWallet()
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not submit your request.') }
     finally { setRequestBusy(false) }
@@ -175,6 +182,7 @@ function WalletPage() {
             </section>
           ) : null}
           {error ? <p role="alert" data-testid="wallet-error" className="border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</p> : null}
+          {notice ? <p role="status" data-testid="wallet-notice" className="border border-brass/40 bg-brass/5 px-4 py-3 text-sm">{notice}</p> : null}
 
           {userId && !loading ? <>
             <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
