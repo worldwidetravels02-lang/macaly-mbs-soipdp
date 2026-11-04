@@ -1,0 +1,29 @@
+name: Build check
+
+on:
+  push:
+    branches:
+      - migration/supabase-auth
+  pull_request:
+    branches:
+      - migration/supabase-auth
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies and refresh lockfile in runner
+        run: npm install
+      - name: Build application
+        run: npm run build
