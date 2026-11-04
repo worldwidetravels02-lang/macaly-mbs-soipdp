@@ -94,6 +94,21 @@ function WalletPage() {
     return () => listener.subscription.unsubscribe()
   }, [loadWallet])
 
+  async function changeCurrency(nextCurrency: Currency) {
+    setError('')
+    if (userId) {
+      try {
+        const { error: updateError } = await requireSupabase().from('profiles')
+          .update({ preferred_currency: nextCurrency }).eq('id', userId)
+        if (updateError) throw updateError
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : 'Could not save your preferred currency.')
+        return
+      }
+    }
+    setCurrency(nextCurrency)
+  }
+
   async function submitTopup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError('')
@@ -151,7 +166,7 @@ function WalletPage() {
             </div>
             <label className="block min-w-36">
               <span className="eyebrow text-[0.5rem] text-ink-soft">Display currency</span>
-              <select className={fieldClass} value={currency} onChange={(event) => setCurrency(event.target.value as Currency)}>
+              <select className={fieldClass} value={currency} onChange={(event) => { void changeCurrency(event.target.value as Currency) }}>
                 {currencies.map((item) => <option key={item} value={item}>{item}</option>)}
               </select>
             </label>
