@@ -164,6 +164,9 @@ function AdminPage() {
       const afterFrom = !walletFromDate || created >= new Date(walletFromDate + 'T00:00:00').getTime()
       const beforeTo = !walletToDate || created <= new Date(walletToDate + 'T23:59:59.999').getTime()
       return matchesSearch && matchesCurrency && matchesDirection && afterFrom && beforeTo
+    }).map((item) => {
+      const customer = customers.find((profile) => profile.id === item.user_id)
+      return { ...item, customer_name: text(customer?.full_name) || text(customer?.mobile) || 'Unknown customer' }
     })
   }, [rows.walletTransactions, rows.users, walletSearch, walletCurrencyFilter, walletDirectionFilter, walletFromDate, walletToDate])
 
@@ -488,7 +491,7 @@ function AdminPage() {
                 </div>
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-3"><p className="text-xs text-ink-soft">{filteredWalletTransactions.length} matching transactions</p><button type="button" className={softButton} onClick={() => { setWalletSearch(''); setWalletCurrencyFilter('all'); setWalletDirectionFilter('all'); setWalletFromDate(''); setWalletToDate('') }}>Clear filters</button></div>
               </section>
-              <DataTable title="Customer wallet transaction history" rows={filteredWalletTransactions} columns={['user_id','transaction_type','direction','amount','currency','status','description','created_at']} />
+              <DataTable title="Customer wallet transaction history" rows={filteredWalletTransactions} columns={['customer_name','user_id','transaction_type','direction','amount','currency','status','description','created_at']} />
               <DataTable title="Recent profit credits" rows={rows.profits ?? []} columns={['user_id','amount','currency','period_start','period_end','status','created_at']} />
               <DataTable title="Financial audit history" rows={rows.financialAudit ?? []} columns={['created_at','actor_id','action','entity_type','entity_id','details']} />
               <DataTable title="Investment requests" rows={rows.investments ?? []} columns={['user_id','property_id','amount','currency','status','created_at']} />
