@@ -106,8 +106,8 @@ function CheckoutPage() {
           </div>
 
           <p className="mt-6 text-xs leading-relaxed text-ink-soft">
-            The amount is charged in {currency}. The wallet is credited in AED at the exchange rate
-            shown at checkout: {formatMoney(amount, 'AED')} in total.
+            Your card is charged in {currency}. The wallet credit is calculated in AED using the
+            current exchange rate configured by the administrator.
           </p>
         </div>
       </main>
