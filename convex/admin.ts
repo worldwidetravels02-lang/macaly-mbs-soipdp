@@ -43,9 +43,6 @@ type PendingWithdrawalRow = {
   createdAt: number
 }
 
-/** Accounts that are promoted to administration automatically on sign-in. */
-const OWNER_EMAILS = ["admin01@gmail.com"]
-
 async function adminRow(ctx: QueryCtx | MutationCtx, userId: Id<"users">) {
   return await ctx.db
     .query("admins")
@@ -77,57 +74,19 @@ export const status = query({
   },
 })
 
-/** Promotes the site owner account to administration on first visit. */
+/** Automatic promotion by email is deliberately disabled. */
 export const ensureAdmin = mutation({
   args: {},
   returns: v.null(),
-  handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx)
-    if (!userId) return null
-
-    const user = await ctx.db.get(userId)
-    const email = (user?.email ?? "").toLowerCase()
-    if (!OWNER_EMAILS.includes(email)) return null
-
-    const existing = await adminRow(ctx, userId)
-    if (existing) return null
-
-    const admins = await ctx.db.query("admins").collect()
-    await ctx.db.insert("admins", {
-      userId,
-      email,
-      role: admins.length === 0 ? "owner" : "admin",
-      createdAt: Date.now(),
-    })
-    return null
-  },
+  handler: async () => null,
 })
 
-/** First administrator setup: only possible while no administrator exists. */
+/** Public self-claim is disabled; first admin must use the protected setup action. */
 export const claimAdmin = mutation({
   args: {},
   returns: v.null(),
-  handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx)
-    if (!userId) throw new Error("You need to be signed in")
-
-    const existing = await ctx.db.query("admins").collect()
-    if (existing.length > 0) throw new Error("An administrator already exists for this site")
-
-    const user = await ctx.db.get(userId)
-    const email = (user?.email ?? "").trim().toLowerCase()
-    if (!email) throw new Error("Your account has no email address")
-    if (!OWNER_EMAILS.includes(email)) {
-      throw new Error("Only the configured site owner email can claim first administrator access")
-    }
-
-    await ctx.db.insert("admins", {
-      userId,
-      email,
-      role: "owner",
-      createdAt: Date.now(),
-    })
-    return null
+  handler: async () => {
+    throw new Error("Use the protected owner administrator setup flow")
   },
 })
 
