@@ -1,4 +1,4 @@
-import { Link, useNavigate } from '@tanstack/react-router'
+import { Link } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { requireSupabase } from '@/lib/supabase-client'
 import { EnquiryForm } from './enquiry-form'
@@ -10,8 +10,6 @@ import { RESIDENCES, RESIDENCE_PATHS, type ResidenceSlug } from '../data/site'
 import { useResidencePrice } from '../lib/prices'
 import { useOffer } from '../lib/offers'
 import {
-  CURRENCIES,
-  RESERVATION_DEPOSIT_AED,
 } from '../lib/currency'
 
 type InvestmentPlan = {
@@ -31,13 +29,11 @@ type InvestmentRequest = {
 export function ResidenceDetail({ slug }: { slug: ResidenceSlug }) {
   const priceFor = useResidencePrice()
   const offer = useOffer(slug)
-  const navigate = useNavigate()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
   const [investmentRanks, setInvestmentRanks] = useState<InvestmentPlan[]>([])
   const [myInvestments, setMyInvestments] = useState<InvestmentRequest[]>([])
-  const [depositCurrency, setDepositCurrency] = useState('AED')
   const [investAmount, setInvestAmount] = useState('')
   const [investState, setInvestState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
   const [investError, setInvestError] = useState<string | null>(null)
@@ -184,55 +180,7 @@ export function ResidenceDetail({ slug }: { slug: ResidenceSlug }) {
         </section>
 
         <section className="border-b border-border bg-bone/40">
-          <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-5 py-8 sm:px-8 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="eyebrow text-[0.5rem] text-brass">Reserve</p>
-              <h2 className="display mt-2 text-xl">Hold this residence with a deposit</h2>
-              <p className="mt-2 max-w-md text-sm leading-relaxed text-ink-soft">
-                A reservation deposit of AED {RESERVATION_DEPOSIT_AED.toLocaleString()} is held
-                against your chosen residence and credited to your investment. Pay by card in AED, USD
-                or INR.
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-              <label className="block">
-                <span className="eyebrow text-[0.5rem] text-ink-soft">Pay in</span>
-                <select
-                  value={depositCurrency}
-                  onChange={(event) => setDepositCurrency(event.target.value)}
-                  data-testid="deposit-currency"
-                  className="mt-2 w-full border border-input bg-background px-4 py-3 text-[0.95rem] outline-none focus:border-brass sm:w-56"
-                >
-                  {CURRENCIES.map((currency) => (
-                    <option key={currency.code} value={currency.code}>
-                      {currency.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <button
-                type="button"
-                data-testid="deposit-submit"
-                onClick={() =>
-                  navigate({
-                    to: '/checkout',
-                    search: {
-                      kind: 'deposit',
-                      amount: RESERVATION_DEPOSIT_AED,
-                      currency: depositCurrency,
-                      residence: residence.name,
-                    },
-                  })
-                }
-                className="eyebrow inline-flex items-center justify-between gap-8 bg-primary px-6 py-4 text-[0.6rem] text-primary-foreground transition-colors hover:bg-ink/85"
-              >
-                Pay deposit
-                <ArrowRight />
-              </button>
-            </div>
-
+          <div className="mx-auto w-full max-w-7xl px-5 py-8 sm:px-8">
             <div className="mt-8 border-t border-border pt-6 lg:flex lg:items-end lg:justify-between lg:gap-8">
               <div className="lg:max-w-md">
                 <p className="eyebrow text-[0.5rem] text-brass">Start investing</p>
