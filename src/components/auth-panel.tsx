@@ -1,8 +1,9 @@
+import { useAuthActions } from '@convex-dev/auth/react'
 import { Link, useNavigate } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useConvex, useMutation } from 'convex/react'
+import { useState } from 'react'
+import { api } from '@/convex/_generated/api'
 import { ArrowRight } from './site-chrome'
-import { signInWithEmail, signUpWithEmail } from '@/lib/supabase-auth'
-import { requireSupabase, supabase } from '@/lib/supabase-client'
 
 type View = 'signin' | 'signup' | 'forgot' | 'reset'
 
@@ -46,7 +47,10 @@ function mapError(err: unknown, view: View) {
 }
 
 export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
+  const { signIn } = useAuthActions()
+  const convex = useConvex()
   const navigate = useNavigate()
+  const saveProfile = useMutation(api.members.saveProfile)
 
   const [view, setView] = useState<View>(mode === 'register' ? 'signup' : 'signin')
   const [busy, setBusy] = useState(false)
@@ -60,15 +64,7 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [code, setCode] = useState('')
-  const [loginMethod, setLoginMethod] = useState<'mobile' | 'email'>('email')
-
-  useEffect(() => {
-    if (!supabase) return
-    const { data } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') setView('reset')
-    })
-    return () => data.subscription.unsubscribe()
-  }, [])
+  const [loginMethod, setLoginMethod] = useState<'mobile' | 'email'>('mobile')
 
   const clearError = () => {
     if (error) setError(null)
@@ -87,20 +83,54 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
 
     setBusy(true)
     try {
-      if (view === 'signin') {
-        if (loginMethod !== 'email') {
-          throw new Error('Please choose Email address to sign in. Mobile-number sign-in will be added after secure phone lookup is configured.')
+      let signInEmail = email.trim()
+      if (view === 'signin' && loginMethod === 'email') {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(signInEmail)) {
+          setBusy(false)
+          return setError('Please enter the email address on your account.')
         }
-        await signInWithEmail(email, password)
-      } else {
-        const result = await signUpWithEmail(email, password, {
-          full_name: fullName,
-          mobile: mobile.trim().startsWith('+') ? mobile.trim() : `${dialCode} ${mobile.trim()}`,
+      } else if (view === 'signin') {
+        const digits = mobile.replace(/\D/g, '')
+        if (digits.length < 7) {
+          setBusy(false)
+          return setError('Please enter the mobile number on your account.')
+        }
+        const fullMobile = mobile.trim().startsWith('+')
+          ? mobile.trim()
+          : `${dialCode} ${mobile.trim()}`
+        const found = await convex.query(api.members.loginEmailForMobile, {
+          mobile: fullMobile,
         })
-        if (!result.session) {
-          setError('Account created. Check your email to confirm it, then sign in.')
-          setView('signin')
-          return
+        if (!found) {
+          setBusy(false)
+          return setError('No account found for that mobile number.')
+        }
+        signInEmail = found
+      }
+
+      const formData = new FormData()
+      formData.set('email', signInEmail)
+      formData.set('password', password)
+      formData.set('flow', view === 'signup' ? 'signUp' : 'signIn')
+      if (view === 'signup') formData.set('name', fullName.trim())
+
+      await signIn('password', formData)
+
+      if (view === 'signup') {
+        const payload = {
+          fullName: fullName.trim(),
+          mobile: mobile.trim(),
+          referralCode: referralCode.trim() || undefined,
+        }
+        // The session can take a moment to reach the backend, so retry briefly.
+        for (let attempt = 0; attempt < 8; attempt += 1) {
+          try {
+            await saveProfile(payload)
+            break
+          } catch (profileError) {
+            if (attempt === 7) console.error('Could not save member profile', profileError)
+            await new Promise((resolve) => setTimeout(resolve, 250))
+          }
         }
       }
 
@@ -117,12 +147,11 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
     setError(null)
     setBusy(true)
     try {
-      const { error: resetError } = await requireSupabase().auth.resetPasswordForEmail(email.trim().toLowerCase(), {
-        redirectTo: `${window.location.origin}/login`,
-      })
-      if (resetError) throw resetError
-      setError('Password reset link sent. Check your email and follow the link to choose a new password.')
-
+      const formData = new FormData()
+      formData.set('email', email.trim())
+      formData.set('flow', 'reset')
+      await signIn('password', formData)
+      setView('reset')
     } catch (err) {
       setError(mapError(err, 'forgot'))
     } finally {
@@ -136,10 +165,13 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
     if (password.length < 8) return setError('Your new password needs at least 8 characters.')
     setBusy(true)
     try {
-      const { error: updateError } = await requireSupabase().auth.updateUser({ password })
-      if (updateError) throw updateError
+      const formData = new FormData()
+      formData.set('email', email.trim())
+      formData.set('code', code.trim())
+      formData.set('newPassword', password)
+      formData.set('flow', 'reset-verification')
+      await signIn('password', formData)
       await navigate({ to: '/dashboard' })
-
     } catch (err) {
       setError(mapError(err, 'reset'))
     } finally {
@@ -160,9 +192,9 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
     view === 'signup'
       ? 'Register to save residences, receive private previews and manage your booking.'
       : view === 'forgot'
-        ? 'We will email you a secure link to set a new password.'
+        ? 'We will email you a six digit code to set a new password.'
         : view === 'reset'
-          ? `Follow the password reset link from your email, then return here.`
+          ? `Enter the code we sent to ${email} and choose a new password.`
           : 'Sign in with the mobile number and password on your account.'
 
   return (
@@ -497,6 +529,23 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
 
       {view === 'reset' ? (
         <form className="mt-8 grid gap-4" onSubmit={handleReset} data-testid="reset-form">
+          <label className="block">
+            <span className="eyebrow text-[0.5rem] text-ink-soft">Reset code</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              required
+              value={code}
+              onChange={(event) => {
+                setCode(event.target.value)
+                clearError()
+              }}
+              disabled={busy}
+              placeholder="Six digit code"
+              data-testid="reset-code"
+              className={inputClass}
+            />
+          </label>
           <label className="block">
             <span className="eyebrow text-[0.5rem] text-ink-soft">New password</span>
             <input
