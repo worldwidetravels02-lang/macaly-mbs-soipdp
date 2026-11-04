@@ -175,7 +175,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
                 className="eyebrow group inline-flex items-center gap-2 border border-current/35 px-5 py-3 text-[0.58rem] transition-colors hover:border-brass hover:text-brass"
               >
                 <span className="cta-sheen inline-flex items-center gap-2">
-                  Sign up
+                  {translateSiteLabel('Sign up', language)}
                   <ArrowRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-1" />
                 </span>
               </Link>
@@ -222,14 +222,14 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
         >
           <div className="mb-5 flex gap-3">
             <label className="flex flex-1 flex-col gap-2">
-              <span className="eyebrow text-[0.5rem] text-brass">Language</span>
+              <span className="eyebrow text-[0.5rem] text-brass">{translateSiteLabel('Language', language)}</span>
               <select aria-label="Language" value={language} onChange={(event) => changeLanguage(event.target.value)} className="border border-border bg-background px-3 py-3 text-sm">
                 <option value="EN">English</option>
                 <option value="AR">العربية</option>
               </select>
             </label>
             <label className="flex flex-1 flex-col gap-2">
-              <span className="eyebrow text-[0.5rem] text-brass">Currency</span>
+              <span className="eyebrow text-[0.5rem] text-brass">{translateSiteLabel('Currency', language)}</span>
               <select aria-label="Currency" value={currency} onChange={(event) => changeCurrency(event.target.value)} className="border border-border bg-background px-3 py-3 text-sm">
                 {['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR'].map((code) => <option key={code} value={code}>{code}</option>)}
               </select>
@@ -285,7 +285,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
               onClick={() => setMenuOpen(false)}
               className="eyebrow flex items-center justify-between border border-border px-5 py-4 text-[0.6rem]"
             >
-              Login
+              {translateSiteLabel('Login', language)}
               <ArrowRight />
             </Link>
             <Link
