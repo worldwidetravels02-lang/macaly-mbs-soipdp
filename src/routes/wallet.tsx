@@ -39,6 +39,7 @@ function WalletPage() {
   const [currency, setCurrency] = useState<Currency>('AED')
   const [balance, setBalance] = useState(0)
   const [transactions, setTransactions] = useState<WalletRow[]>([])
+  const [transactionLimit, setTransactionLimit] = useState(30)
   const [profits, setProfits] = useState<ProfitRow[]>([])
   const [topups, setTopups] = useState<RequestRow[]>([])
   const [withdrawals, setWithdrawals] = useState<RequestRow[]>([])
@@ -67,7 +68,7 @@ function WalletPage() {
       const [profileResult, balanceResult, transactionResult, profitResult, topupResult, withdrawalResult, notificationResult] = await Promise.all([
         client.from('profiles').select('preferred_currency').eq('id', authData.user.id).maybeSingle(),
         client.from('wallet_balances').select('balance').eq('user_id', authData.user.id).eq('currency', currency).maybeSingle(),
-        client.from('wallet_transactions').select('id,amount,currency,status,created_at,description,transaction_type,direction').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(30),
+        client.from('wallet_transactions').select('id,amount,currency,status,created_at,description,transaction_type,direction').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(transactionLimit),
         client.from('profit_payouts').select('id,amount,currency,status,created_at,admin_note').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(20),
         client.from('topup_requests').select('id,amount,currency,status,created_at,admin_note').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(30),
         client.from('withdrawal_requests').select('id,amount,currency,status,created_at,admin_note,payout_method,payout_details').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(30),
@@ -92,7 +93,7 @@ function WalletPage() {
     } finally {
       setLoading(false)
     }
-  }, [currency])
+  }, [currency, transactionLimit])
 
   useEffect(() => {
     void loadWallet()
@@ -254,7 +255,7 @@ function WalletPage() {
               <History title="Profit credits" rows={profits.filter((row) => row.currency === currency)} />
               <div className="border border-border bg-card">
                 <h2 className="display border-b border-border px-6 py-4 text-lg">Wallet activity</h2>
-                {transactions.filter((row) => row.currency === currency).length === 0 ? <p className="px-6 py-6 text-sm text-ink-soft">No posted wallet activity yet.</p> : <><ul data-testid="wallet-transactions" className="divide-y divide-border">{transactions.filter((row) => row.currency === currency).map((row) => { const direction = row.direction?.toLowerCase(); const sign = direction === 'debit' ? '−' : direction === 'credit' ? '+' : ''; const amountTone = direction === 'debit' ? 'text-destructive' : direction === 'credit' ? 'text-emerald-700' : 'text-foreground'; return <li key={row.id} className="flex items-center justify-between gap-4 px-6 py-4"><div className="min-w-0"><p className="truncate text-sm">{row.description || row.transaction_type?.replace(/_/g, ' ') || 'Wallet transaction'}</p><p className="mt-1 text-xs text-ink-soft">{date(row.created_at)} · {row.status.replace(/_/g, ' ')}</p></div><p className={`display shrink-0 text-lg ${amountTone}`}>{sign}{money(row.amount, currency)}</p></li> })}</ul><p className="border-t border-border px-6 py-3 text-xs text-ink-soft">Showing up to the latest 30 wallet transactions.</p></>}
+                {transactions.filter((row) => row.currency === currency).length === 0 ? <p className="px-6 py-6 text-sm text-ink-soft">No posted wallet activity yet.</p> : <><ul data-testid="wallet-transactions" className="divide-y divide-border">{transactions.filter((row) => row.currency === currency).map((row) => { const direction = row.direction?.toLowerCase(); const sign = direction === 'debit' ? '−' : direction === 'credit' ? '+' : ''; const amountTone = direction === 'debit' ? 'text-destructive' : direction === 'credit' ? 'text-emerald-700' : 'text-foreground'; return <li key={row.id} className="flex items-center justify-between gap-4 px-6 py-4"><div className="min-w-0"><p className="truncate text-sm">{row.description || row.transaction_type?.replace(/_/g, ' ') || 'Wallet transaction'}</p><p className="mt-1 text-xs text-ink-soft">{date(row.created_at)} · {row.status.replace(/_/g, ' ')}</p></div><p className={`display shrink-0 text-lg ${amountTone}`}>{sign}{money(row.amount, currency)}</p></li> })}</ul><div className="border-t border-border px-6 py-3"><p className="text-xs text-ink-soft">Showing {transactions.length} wallet transactions.</p>{transactions.length === transactionLimit ? <button type="button" onClick={() => setTransactionLimit((current) => current + 30)} className="mt-3 text-xs text-brass underline underline-offset-4">Load 30 more transactions</button> : null}</div></>}
               </div>
             </section>
             <p className="text-xs leading-relaxed text-ink-soft">Wallet entries and profit credits shown here are internal platform records. They are not proof of a bank transfer, regulated investment return, or external payment settlement.</p>
