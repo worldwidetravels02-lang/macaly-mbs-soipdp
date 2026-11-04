@@ -39,7 +39,7 @@ async function loadBackup() {
     'support_threads', 'support_messages', 'notifications', 'wallet_transactions',
     'topup_requests', 'withdrawal_requests', 'investments', 'profit_payouts',
     'financial_audit_log', 'member_profiles', 'member_tasks', 'payment_details',
-    'crypto_payments', 'membership_plans', 'investment_requests', 'verifications',
+    'membership_plans', 'investment_requests', 'verifications',
     'account_states', 'property_prices', 'fx_rates', 'posts', 'payments',
     'reservation_deposits', 'support_settings',
   ] as const
@@ -93,7 +93,6 @@ async function loadBackup() {
   addOrders('withdrawal_requests', data.withdrawal_requests ?? [], 'Withdrawal')
   addOrders('investments', data.investments ?? [], 'Investment')
   addOrders('investment_requests', data.investment_requests ?? [], 'Investment request')
-  addOrders('crypto_payments', data.crypto_payments ?? [], 'Crypto payment')
   addOrders('payments', data.payments ?? [], 'Card payment')
   addOrders('reservation_deposits', data.reservation_deposits ?? [], 'Reservation deposit')
 
