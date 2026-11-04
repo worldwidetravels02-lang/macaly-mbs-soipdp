@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { ArrowRight, SiteFooter, SiteHeader } from '../components/site-chrome'
 import { requireSupabase } from '../lib/supabase-client'
@@ -32,7 +32,6 @@ export const Route = createFileRoute('/wallet')({
 })
 
 function WalletPage() {
-  const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
   const [currency, setCurrency] = useState<Currency>('AED')
@@ -43,7 +42,7 @@ function WalletPage() {
   const [profits, setProfits] = useState<RequestRow[]>([])
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
-  const [topup, setTopup] = useState({ amount: '', method: 'Bank transfer', reference: '' })
+  const [topup, setTopup] = useState({ amount: '', reference: '' })
   const [withdrawal, setWithdrawal] = useState({ amount: '', method: 'Bank transfer', details: '' })
   const [sending, setSending] = useState(false)
 
@@ -116,18 +115,14 @@ function WalletPage() {
     setNotice('')
     const amount = Number(topup.amount)
     if (!userId || !Number.isFinite(amount) || amount <= 0) return setError('Enter a valid amount greater than zero.')
-    if (topup.method === 'Card payment') {
-      void navigate({ to: '/checkout', search: { kind: 'topup', amount, currency } })
-      return
-    }
     setSending(true)
     try {
       const { error: insertError } = await requireSupabase().from('topup_requests').insert({
-        user_id: userId, amount, currency, payment_method: topup.method,
+        user_id: userId, amount, currency, payment_method: 'Bank transfer',
         payment_reference: topup.reference.trim() || null, status: 'pending',
       })
       if (insertError) throw insertError
-      setTopup({ amount: '', method: topup.method, reference: '' })
+      setTopup({ amount: '', reference: '' })
       setNotice('Your top-up request was submitted for administrator review. Your wallet balance has not changed.')
       await loadWallet()
     } catch (cause) {
@@ -216,7 +211,7 @@ function WalletPage() {
               <form onSubmit={submitTopup} className="grid gap-4 border border-border bg-card p-6">
                 <div><p className="eyebrow text-brass">Add funds</p><h2 className="display mt-2 text-2xl">Request a top-up</h2><p className="mt-2 text-sm text-ink-soft">A top-up is credited only after an administrator verifies and approves it.</p></div>
                 <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Amount ({currency})</span><input className={fieldClass} type="number" min="0.01" step="0.01" required value={topup.amount} onChange={(event) => setTopup({ ...topup, amount: event.target.value })} /></label>
-                <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Payment method</span><select className={fieldClass} value={topup.method} onChange={(event) => setTopup({ ...topup, method: event.target.value })}><option>Bank transfer</option><option>Card payment</option><option>Other</option></select></label>
+                <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Payment method</span><div className={fieldClass + ' text-sm'}>Bank transfer only</div></label>
                 <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Payment reference (optional)</span><input className={fieldClass} value={topup.reference} onChange={(event) => setTopup({ ...topup, reference: event.target.value })} /></label>
                 <button disabled={sending} className="eyebrow justify-self-start bg-primary px-6 py-4 text-[0.58rem] text-primary-foreground disabled:opacity-50">{sending ? 'Submitting…' : 'Submit top-up request'}</button>
               </form>
