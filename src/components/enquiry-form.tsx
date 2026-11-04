@@ -44,7 +44,7 @@ export function EnquiryForm({
           message: [
             `Interested in: ${form.residence.trim() || 'General enquiry'}`,
             form.message.trim(),
-          ].filter(Boolean).join('\\n\\n'),
+          ].filter(Boolean).join('\n\n'),
           source,
         }),
       })
