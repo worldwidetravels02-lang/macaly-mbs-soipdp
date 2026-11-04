@@ -1,74 +1,221 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { AuthLoading, Authenticated, Unauthenticated, useMutation, useQuery } from 'convex/react'
-import { useEffect, useState } from 'react'
-import { api } from '@/convex/_generated/api'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { ArrowRight, SiteFooter, SiteHeader } from '../components/site-chrome'
-import { errorMessage } from '../lib/errors'
-import { formatAed, formatDate } from '../lib/format'
+import { requireSupabase } from '../lib/supabase-client'
 import { canonicalUrl } from '../lib/canonical-url'
 import siteMetadata from '../metadata.json'
 
 const meta = siteMetadata['/wallet']
+const currencies = ['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR'] as const
+type Currency = (typeof currencies)[number]
+type WalletRow = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; description?: string | null; transaction_type?: string; direction?: string }
+type RequestRow = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; admin_note?: string | null }
+
+const fieldClass = 'mt-2 w-full border border-input bg-background px-4 py-3 text-[0.95rem] outline-none transition-colors placeholder:text-ink-soft/60 focus:border-brass disabled:opacity-60'
+
+function money(value: number | string, currency: Currency) {
+  return new Intl.NumberFormat('en', { style: 'currency', currency, maximumFractionDigits: 2 }).format(Number(value || 0))
+}
+function date(value: string) {
+  return new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
+}
 
 export const Route = createFileRoute('/wallet')({
   head: () => {
     const canonical = canonicalUrl('/wallet')
     return {
-      meta: [
-        { title: meta.title },
-        { name: 'description', content: meta.description },
-      ],
+      meta: [{ title: meta.title }, { name: 'description', content: meta.description }],
       links: canonical ? [{ rel: 'canonical', href: canonical }] : [],
     }
   },
   component: WalletPage,
 })
 
-const fieldClass =
-  'mt-2 w-full border border-input bg-background px-4 py-3 text-[0.95rem] outline-none transition-colors placeholder:text-ink-soft/60 focus:border-brass disabled:opacity-60'
-
 function WalletPage() {
+  const [loading, setLoading] = useState(true)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [currency, setCurrency] = useState<Currency>('AED')
+  const [balance, setBalance] = useState(0)
+  const [transactions, setTransactions] = useState<WalletRow[]>([])
+  const [topups, setTopups] = useState<RequestRow[]>([])
+  const [withdrawals, setWithdrawals] = useState<RequestRow[]>([])
+  const [profits, setProfits] = useState<RequestRow[]>([])
+  const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
+  const [topup, setTopup] = useState({ amount: '', method: 'Bank transfer', reference: '' })
+  const [withdrawal, setWithdrawal] = useState({ amount: '', method: 'Bank transfer', details: '' })
+  const [sending, setSending] = useState(false)
+
+  const loadWallet = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const client = requireSupabase()
+      const { data: authData, error: authError } = await client.auth.getUser()
+      if (authError) throw authError
+      if (!authData.user) {
+        setUserId(null)
+        setLoading(false)
+        return
+      }
+      setUserId(authData.user.id)
+      const [profileResult, balanceResult, transactionResult, topupResult, withdrawalResult, profitResult] = await Promise.all([
+        client.from('profiles').select('preferred_currency').eq('id', authData.user.id).maybeSingle(),
+        client.from('wallet_balances').select('balance').eq('user_id', authData.user.id).eq('currency', currency).maybeSingle(),
+        client.from('wallet_transactions').select('id,amount,currency,status,created_at,description,transaction_type,direction').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(30),
+        client.from('topup_requests').select('id,amount,currency,status,created_at,admin_note').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(20),
+        client.from('withdrawal_requests').select('id,amount,currency,status,created_at,admin_note').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(20),
+        client.from('profit_payouts').select('id,amount,currency,status,created_at').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(20),
+      ])
+      for (const result of [profileResult, balanceResult, transactionResult, topupResult, withdrawalResult, profitResult]) {
+        if (result.error) throw result.error
+      }
+      const savedCurrency = profileResult.data?.preferred_currency
+      if (savedCurrency && currencies.includes(savedCurrency as Currency) && savedCurrency !== currency) {
+        setCurrency(savedCurrency as Currency)
+        return
+      }
+      setBalance(Number(balanceResult.data?.balance ?? 0))
+      setTransactions((transactionResult.data ?? []) as WalletRow[])
+      setTopups((topupResult.data ?? []) as RequestRow[])
+      setWithdrawals((withdrawalResult.data ?? []) as RequestRow[])
+      setProfits((profitResult.data ?? []) as RequestRow[])
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not load your wallet.')
+    } finally {
+      setLoading(false)
+    }
+  }, [currency])
+
+  useEffect(() => {
+    void loadWallet()
+    const client = requireSupabase()
+    const { data: listener } = client.auth.onAuthStateChange(() => { void loadWallet() })
+    return () => listener.subscription.unsubscribe()
+  }, [loadWallet])
+
+  async function submitTopup(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setError('')
+    setNotice('')
+    const amount = Number(topup.amount)
+    if (!userId || !Number.isFinite(amount) || amount <= 0) return setError('Enter a valid amount greater than zero.')
+    setSending(true)
+    try {
+      const { error: insertError } = await requireSupabase().from('topup_requests').insert({
+        user_id: userId, amount, currency, payment_method: topup.method,
+        payment_reference: topup.reference.trim() || null, status: 'pending',
+      })
+      if (insertError) throw insertError
+      setTopup({ amount: '', method: topup.method, reference: '' })
+      setNotice('Your top-up request was submitted for administrator review. Your wallet balance has not changed.')
+      await loadWallet()
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not submit your top-up request.')
+    } finally { setSending(false) }
+  }
+
+  async function submitWithdrawal(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setError('')
+    setNotice('')
+    const amount = Number(withdrawal.amount)
+    if (!userId || !Number.isFinite(amount) || amount <= 0) return setError('Enter a valid amount greater than zero.')
+    if (amount > balance) return setError('The requested amount is higher than your available posted wallet balance.')
+    if (!withdrawal.details.trim()) return setError('Enter the payout details needed for administrator review.')
+    setSending(true)
+    try {
+      const { error: insertError } = await requireSupabase().from('withdrawal_requests').insert({
+        user_id: userId, amount, currency, payout_method: withdrawal.method,
+        payout_details: { instructions: withdrawal.details.trim() }, status: 'pending',
+      })
+      if (insertError) throw insertError
+      setWithdrawal({ amount: '', method: withdrawal.method, details: '' })
+      setNotice('Your withdrawal request was submitted for review. This is not a bank transfer or payout confirmation.')
+      await loadWallet()
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not submit your withdrawal request.')
+    } finally { setSending(false) }
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <SiteHeader />
       <main id="main" className="pb-20 pt-28 sm:pt-36">
-        <div className="mx-auto w-full max-w-6xl px-5 sm:px-8">
-          <AuthLoading>
-            <div data-testid="wallet-loading" className="border border-border bg-card p-10 text-center text-sm text-ink-soft">
-              Checking your session…
+        <div className="mx-auto grid w-full max-w-6xl gap-8 px-5 sm:px-8">
+          <header className="flex flex-col gap-5 border-b border-border pb-8 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="eyebrow text-brass">Member account</p>
+              <h1 className="display mt-3 text-[clamp(1.8rem,4vw,2.6rem)]">Your wallet</h1>
+              <p className="mt-2 text-sm text-ink-soft">Secure wallet records and payment requests.</p>
             </div>
-          </AuthLoading>
+            <label className="block min-w-36">
+              <span className="eyebrow text-[0.5rem] text-ink-soft">Display currency</span>
+              <select className={fieldClass} value={currency} onChange={(event) => setCurrency(event.target.value as Currency)}>
+                {currencies.map((item) => <option key={item} value={item}>{item}</option>)}
+              </select>
+            </label>
+          </header>
 
-          <Unauthenticated>
-            <div data-testid="wallet-signed-out" className="border border-border bg-card p-8 sm:p-12">
-              <p className="eyebrow text-brass">Investment wallet</p>
-              <h1 className="display mt-4 text-[clamp(1.9rem,3.4vw,2.8rem)]">Sign in to open your wallet.</h1>
-              <p className="mt-4 max-w-md text-[0.98rem] leading-relaxed text-ink-soft">
-                Members receive an AED 200 sign-in bonus, track their balance in AED and can request
-                top-ups or withdrawals at any time.
-              </p>
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <Link
-                  to="/login"
-                  className="eyebrow inline-flex items-center justify-between gap-8 bg-primary px-6 py-4 text-[0.6rem] text-primary-foreground transition-colors hover:bg-ink/85"
-                >
-                  Login
-                  <ArrowRight />
-                </Link>
-                <Link
-                  to="/register"
-                  className="eyebrow inline-flex items-center justify-between gap-8 border border-border px-6 py-4 text-[0.6rem] transition-colors hover:border-brass"
-                >
-                  Create an account
-                  <ArrowRight />
-                </Link>
+          {loading ? <div data-testid="wallet-loading" className="border border-border bg-card p-8 text-center text-sm text-ink-soft">Loading your wallet…</div> : null}
+          {!loading && !userId ? (
+            <section data-testid="wallet-signed-out" className="border border-border bg-card p-8 sm:p-12">
+              <p className="eyebrow text-brass">Member wallet</p>
+              <h2 className="display mt-3 text-2xl">Sign in to view your wallet.</h2>
+              <Link to="/login" className="eyebrow mt-6 inline-flex items-center gap-3 bg-primary px-6 py-4 text-[0.6rem] text-primary-foreground">Login <ArrowRight /></Link>
+            </section>
+          ) : null}
+          {error ? <p role="alert" data-testid="wallet-error" className="border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</p> : null}
+          {notice ? <p role="status" className="border border-brass/40 bg-brass/5 px-4 py-3 text-sm text-ink-soft">{notice}</p> : null}
+
+          {userId && !loading ? <>
+            <section className="grid gap-4 sm:grid-cols-3">
+              <div className="border border-brass/40 bg-brass/5 p-6">
+                <p className="eyebrow text-[0.5rem] text-brass">Available posted balance</p>
+                <p data-testid="wallet-balance" className="display mt-3 text-3xl">{money(balance, currency)}</p>
+                <p className="mt-2 text-xs text-ink-soft">Calculated from posted ledger entries only.</p>
               </div>
-            </div>
-          </Unauthenticated>
+              <div className="border border-border bg-card p-6">
+                <p className="eyebrow text-[0.5rem] text-ink-soft">Profit credits</p>
+                <p className="display mt-3 text-2xl">{profits.filter((row) => row.status === 'credited' && row.currency === currency).length}</p>
+                <p className="mt-2 text-xs text-ink-soft">Credited payout records in {currency}.</p>
+              </div>
+              <div className="border border-border bg-card p-6">
+                <p className="eyebrow text-[0.5rem] text-ink-soft">Pending requests</p>
+                <p className="display mt-3 text-2xl">{topups.filter((row) => row.status === 'pending').length + withdrawals.filter((row) => row.status === 'pending').length}</p>
+                <p className="mt-2 text-xs text-ink-soft">Top-ups and withdrawals awaiting review.</p>
+              </div>
+            </section>
 
-          <Authenticated>
-            <WalletPanel />
-          </Authenticated>
+            <section className="grid gap-6 lg:grid-cols-2">
+              <form onSubmit={submitTopup} className="grid gap-4 border border-border bg-card p-6">
+                <div><p className="eyebrow text-brass">Add funds</p><h2 className="display mt-2 text-2xl">Request a top-up</h2><p className="mt-2 text-sm text-ink-soft">A top-up is credited only after an administrator verifies and approves it.</p></div>
+                <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Amount ({currency})</span><input className={fieldClass} type="number" min="0.01" step="0.01" required value={topup.amount} onChange={(event) => setTopup({ ...topup, amount: event.target.value })} /></label>
+                <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Payment method</span><select className={fieldClass} value={topup.method} onChange={(event) => setTopup({ ...topup, method: event.target.value })}><option>Bank transfer</option><option>Card payment</option><option>Other</option></select></label>
+                <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Payment reference (optional)</span><input className={fieldClass} value={topup.reference} onChange={(event) => setTopup({ ...topup, reference: event.target.value })} /></label>
+                <button disabled={sending} className="eyebrow justify-self-start bg-primary px-6 py-4 text-[0.58rem] text-primary-foreground disabled:opacity-50">{sending ? 'Submitting…' : 'Submit top-up request'}</button>
+              </form>
+
+              <form onSubmit={submitWithdrawal} className="grid gap-4 border border-border bg-card p-6">
+                <div><p className="eyebrow text-brass">Withdraw funds</p><h2 className="display mt-2 text-2xl">Request a withdrawal</h2><p className="mt-2 text-sm text-ink-soft">Requests are reviewed by administration. Approval does not mean money has been transferred.</p></div>
+                <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Amount ({currency})</span><input className={fieldClass} type="number" min="0.01" step="0.01" max={balance} required value={withdrawal.amount} onChange={(event) => setWithdrawal({ ...withdrawal, amount: event.target.value })} /></label>
+                <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Payout method</span><select className={fieldClass} value={withdrawal.method} onChange={(event) => setWithdrawal({ ...withdrawal, method: event.target.value })}><option>Bank transfer</option><option>Other</option></select></label>
+                <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Payout details</span><textarea className={fieldClass} rows={3} required value={withdrawal.details} onChange={(event) => setWithdrawal({ ...withdrawal, details: event.target.value })} placeholder="Enter the details administration needs to review your request." /></label>
+                <button disabled={sending || balance <= 0} className="eyebrow justify-self-start bg-primary px-6 py-4 text-[0.58rem] text-primary-foreground disabled:opacity-50">{sending ? 'Submitting…' : 'Submit withdrawal request'}</button>
+              </form>
+            </section>
+
+            <section className="grid gap-6 lg:grid-cols-2">
+              <History title="Top-up requests" rows={topups.filter((row) => row.currency === currency)} />
+              <History title="Withdrawal requests" rows={withdrawals.filter((row) => row.currency === currency)} />
+              <History title="Profit credits" rows={profits.filter((row) => row.currency === currency)} />
+              <div className="border border-border bg-card">
+                <h2 className="display border-b border-border px-6 py-4 text-lg">Wallet activity</h2>
+                {transactions.filter((row) => row.currency === currency).length === 0 ? <p className="px-6 py-6 text-sm text-ink-soft">No posted wallet activity yet.</p> : <ul data-testid="wallet-transactions" className="divide-y divide-border">{transactions.filter((row) => row.currency === currency).map((row) => <li key={row.id} className="flex items-center justify-between gap-4 px-6 py-4"><div><p className="text-sm">{row.description || row.transaction_type || 'Wallet transaction'}</p><p className="mt-1 text-xs text-ink-soft">{date(row.created_at)} · {row.status}</p></div><p className="display text-lg">{row.direction === 'debit' ? '−' : '+'}{money(row.amount, currency)}</p></li>)}</ul>}
+              </div>
+            </section>
+            <p className="text-xs leading-relaxed text-ink-soft">Wallet entries and profit credits shown here are internal platform records. They are not proof of a bank transfer, regulated investment return, or external payment settlement. Crypto payments and identity-document review are not enabled on this Supabase wallet screen yet.</p>
+          </> : null}
         </div>
       </main>
       <SiteFooter />
@@ -76,670 +223,6 @@ function WalletPage() {
   )
 }
 
-function WalletPanel() {
-  const ensureWallet = useMutation(api.wallet.ensureWallet)
-  const wallet = useQuery(api.wallet.myWallet)
-  const verification = useQuery(api.verifications.myVerification)
-  const standing = useQuery(api.accountState.myState)
-  const generateUploadUrl = useMutation(api.verifications.generateUploadUrl)
-  const paymentDetails = useQuery(api.cryptoPayments.details)
-  const submitCrypto = useMutation(api.cryptoPayments.submit)
-  const myCryptoPayments = useQuery(api.cryptoPayments.mine)
-  const submitVerification = useMutation(api.verifications.submitVerification)
-  const profitPayouts = useQuery(api.profitPayouts.myPayouts)
-
-  const [error, setError] = useState<string | null>(null)
-  const [verifyDraft, setVerifyDraft] = useState({ type: 'Emirates ID', note: '' })
-  const [verifyFile, setVerifyFile] = useState<File | null>(null)
-  const [verifyState, setVerifyState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
-  const [verifyNotice, setVerifyNotice] = useState<string | null>(null)
-  const [cryptoDraft, setCryptoDraft] = useState({ amount: '', coin: '', txHash: '', note: '' })
-  const [cryptoFile, setCryptoFile] = useState<File | null>(null)
-  const [cryptoState, setCryptoState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
-  const [cryptoError, setCryptoError] = useState<string | null>(null)
-
-  useEffect(() => {
-    ensureWallet().catch((err) => console.error('Could not prepare wallet', err))
-  }, [ensureWallet])
-
-  if (wallet === undefined) {
-    return (
-      <div data-testid="wallet-loading" className="border border-border bg-card p-10 text-center text-sm text-ink-soft">
-        Loading your wallet…
-      </div>
-    )
-  }
-
-  if (wallet === null) {
-    return (
-      <div data-testid="wallet-signed-out" className="border border-border bg-card p-8 text-sm text-ink-soft">
-        Sign in to view your wallet.
-      </div>
-    )
-  }
-
-  const verified = verification?.status === 'approved'
-
-  const submitVerificationDocument = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    setError(null)
-    setVerifyNotice(null)
-    if (!verifyFile) {
-      setError('Attach a photo or PDF of your government document')
-      return
-    }
-    setVerifyState('sending')
-    try {
-      const uploadUrl = await generateUploadUrl()
-      const response = await fetch(uploadUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': verifyFile.type || 'application/octet-stream' },
-        body: verifyFile,
-      })
-      if (!response.ok) throw new Error('The document could not be uploaded')
-      const { storageId } = (await response.json()) as { storageId: string }
-      await submitVerification({
-        documentId: storageId as never,
-        documentName: verifyFile.name,
-        documentType: verifyDraft.type,
-        note: verifyDraft.note || undefined,
-      })
-      setVerifyFile(null)
-      setVerifyDraft({ type: verifyDraft.type, note: '' })
-      setVerifyState('sent')
-      setVerifyNotice('Document received. Administration reviews identity checks before payments.')
-    } catch (err) {
-      setError(errorMessage(err, 'Could not submit your document'))
-      setVerifyState('error')
-    }
-  }
-
-  return (
-    <div data-testid="wallet-panel" data-state="ready" className="grid gap-8">
-      <header className="flex flex-col gap-6 border-b border-border pb-8 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="eyebrow text-brass">Investment wallet</p>
-          <p className="display mt-3 text-[clamp(1.8rem,4vw,2.6rem)]">Your investment wallet</p>
-          <p className="mt-2 text-sm text-ink-soft">
-            Holdings, profit and records for this account.
-          </p>
-        </div>
-
-        <dl className="grid grid-cols-2 gap-6 sm:grid-cols-3">
-          <div>
-            <dt className="eyebrow text-[0.5rem] text-ink-soft">Membership</dt>
-            <dd data-testid="wallet-tier" className="display mt-2 text-lg">{wallet.tier.name}</dd>
-          </div>
-          <div>
-            <dt className="eyebrow text-[0.5rem] text-ink-soft">Top-ups approved</dt>
-            <dd className="display mt-2 text-lg">{formatAed(wallet.totalTopUpAed)}</dd>
-          </div>
-          <div>
-            <dt className="eyebrow text-[0.5rem] text-ink-soft">Withdrawn</dt>
-            <dd className="display mt-2 text-lg">{formatAed(wallet.totalWithdrawnAed)}</dd>
-          </div>
-        </dl>
-      </header>
-
-      <div data-testid="wallet-bonus" className="flex flex-col gap-3 border border-brass/40 bg-brass/5 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="eyebrow text-[0.5rem] text-brass">Sign-in bonus</p>
-          <p className="mt-2 text-sm text-ink-soft">
-            {formatAed(wallet.signInBonusAed)} credited when you joined
-            {wallet.bonusAed > 0 ? ` · ${formatAed(wallet.bonusAed)} received` : ''}
-          </p>
-        </div>
-        <div data-testid="wallet-level-progress" className="w-full sm:max-w-xs">
-          <p className="eyebrow text-[0.5rem] text-ink-soft">Your level</p>
-          <p data-testid="wallet-level" className="display mt-1 text-lg">
-            Level {wallet.tier.level}
-          </p>
-          <p data-testid="wallet-next-level" className="mt-2 text-sm text-ink-soft">
-            {wallet.nextTier
-              ? `Levels are set by administration. ${wallet.nextTier.name} is the next step.`
-              : 'Top membership level reached.'}
-          </p>
-        </div>
-      </div>
-
-      {standing && standing.status !== 'active' ? (
-        <p
-          role="status"
-          data-testid="wallet-standing"
-          className={[
-            'border px-5 py-4 text-sm',
-            standing.status === 'blocked'
-              ? 'border-destructive/40 bg-destructive/5 text-destructive'
-              : 'border-brass/50 bg-brass/5 text-ink-soft',
-          ].join(' ')}
-        >
-          {standing.status === 'blocked'
-            ? 'Your account is blocked by administration. Payments are closed.'
-            : 'Your assets are frozen by administration. Payments and withdrawals are paused.'}
-          {standing.reason ? ` ${standing.reason}` : ''}
-        </p>
-      ) : null}
-
-      <section
-        data-testid="verify-panel"
-        data-state={verification === undefined ? 'loading' : 'ready'}
-        className="border border-border bg-card"
-      >
-        <div className="flex flex-col gap-4 border-b border-border px-6 py-5 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="eyebrow text-brass">Identity verification</p>
-            <h2 className="display mt-3 text-2xl">Government proof of identity</h2>
-            <p className="mt-2 max-w-xl text-sm leading-relaxed text-ink-soft">
-              Every member uploads one government document before the first payment. Administration
-              checks it, and payments open once it is approved.
-            </p>
-          </div>
-          <span
-            data-testid="verify-status"
-            className={[
-              'eyebrow shrink-0 px-3 py-2 text-[0.5rem]',
-              verified
-                ? 'bg-brass text-deep'
-                : verification?.status === 'pending'
-                  ? 'border border-brass/50 text-brass'
-                  : verification?.status === 'rejected'
-                    ? 'border border-destructive/40 text-destructive'
-                    : 'border border-border text-ink-soft',
-            ].join(' ')}
-          >
-            {verification === undefined
-              ? 'Checking'
-              : verified
-                ? 'Approved'
-                : verification?.status === 'pending'
-                  ? 'Awaiting approval'
-                  : verification?.status === 'rejected'
-                    ? 'Not approved'
-                    : 'Not submitted'}
-          </span>
-        </div>
-
-        <div className="grid gap-5 p-6">
-          {verification?.reviewNote ? (
-            <p data-testid="verify-review-note" className="border border-border bg-bone/60 px-4 py-3 text-sm text-ink-soft">
-              Administration note: {verification.reviewNote}
-            </p>
-          ) : null}
-
-          {verified ? (
-            <p data-testid="verify-approved-note" className="text-sm text-ink-soft">
-              Your identity is approved. Payments, top-ups and withdrawals are open.
-            </p>
-          ) : verification?.status === 'pending' ? (
-            <p data-testid="verify-pending-note" className="text-sm text-ink-soft">
-              {verification.documentType} submitted. Administration is reviewing it; payments unlock
-              on approval.
-            </p>
-          ) : (
-            <form onSubmit={submitVerificationDocument} data-testid="verify-form" className="grid gap-4">
-              <p data-testid="verify-required" className="text-sm text-ink-soft">
-                {verification?.status === 'rejected'
-                  ? 'Your previous document was not approved. Upload a clearer copy to try again.'
-                  : 'Upload a passport, Emirates ID or residency visa. Payments stay locked until approval.'}
-              </p>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className="block">
-                  <span className="eyebrow text-[0.5rem] text-ink-soft">Document type</span>
-                  <select
-                    value={verifyDraft.type}
-                    onChange={(event) => setVerifyDraft({ ...verifyDraft, type: event.target.value })}
-                    disabled={verifyState === 'sending'}
-                    data-testid="verify-type"
-                    className={fieldClass}
-                  >
-                    <option>Emirates ID</option>
-                    <option>Passport</option>
-                    <option>Residency visa</option>
-                    <option>Driving licence</option>
-                  </select>
-                </label>
-                <label className="block">
-                  <span className="eyebrow text-[0.5rem] text-ink-soft">Document file</span>
-                  <input
-                    type="file"
-                    accept="image/*,application/pdf"
-                    onChange={(event) => setVerifyFile(event.target.files?.[0] ?? null)}
-                    disabled={verifyState === 'sending'}
-                    data-testid="verify-file"
-                    className="mt-2 w-full border border-input bg-background px-3 py-2.5 text-sm outline-none file:mr-3 file:border-0 file:bg-bone file:px-3 file:py-1.5 file:text-xs focus:border-brass"
-                  />
-                </label>
-              </div>
-              <label className="block">
-                <span className="eyebrow text-[0.5rem] text-ink-soft">Note for administration (optional)</span>
-                <input
-                  type="text"
-                  value={verifyDraft.note}
-                  onChange={(event) => setVerifyDraft({ ...verifyDraft, note: event.target.value })}
-                  disabled={verifyState === 'sending'}
-                  placeholder="Anything we should know"
-                  data-testid="verify-note"
-                  className={fieldClass}
-                />
-              </label>
-              <button
-                type="submit"
-                disabled={verifyState === 'sending'}
-                data-testid="verify-submit"
-                className="eyebrow inline-flex items-center justify-between gap-8 justify-self-start bg-primary px-6 py-3.5 text-[0.58rem] text-primary-foreground transition-colors hover:bg-ink/85 disabled:opacity-60"
-              >
-                {verifyState === 'sending' ? 'Uploading' : 'Submit for approval'}
-              </button>
-            </form>
-          )}
-
-          {verifyNotice ? (
-            <p data-testid="verify-success" className="border border-brass/40 bg-brass/5 px-4 py-3 text-sm text-ink-soft">
-              {verifyNotice}
-            </p>
-          ) : null}
-        </div>
-      </section>
-
-      {error ? (
-        <p role="alert" data-testid="wallet-error" className="border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-          {error}
-        </p>
-      ) : null}
-
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] lg:items-start">
-        <section data-testid="wallet-properties" className="border border-border bg-card">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-6 py-5">
-            <div>
-              <h2 className="display text-xl">Your properties</h2>
-              <p className="mt-1 text-xs text-ink-soft">
-                Residences held in your portfolio, with what you have placed in each.
-              </p>
-            </div>
-            <Link to="/residences" className="eyebrow link-underline inline-flex items-center gap-2 text-[0.5rem]">
-              All residences
-              <ArrowRight className="h-3 w-3" />
-            </Link>
-          </div>
-          {wallet.properties.length === 0 ? (
-            <div className="px-6 py-8">
-              <p data-testid="wallet-properties-empty" className="text-sm text-ink-soft">
-                No property holdings yet. Choose a residence to reserve and your holding appears here.
-              </p>
-              <Link
-                to="/residences"
-                className="eyebrow mt-5 inline-flex items-center gap-3 bg-primary px-6 py-4 text-[0.6rem] text-primary-foreground transition-colors hover:bg-ink/85"
-              >
-                Browse residences
-                <ArrowRight />
-              </Link>
-            </div>
-          ) : (
-            <ul data-testid="wallet-property-list" className="divide-y divide-border">
-              {wallet.properties.map((row) => (
-                <li key={row.residence} className="flex items-start justify-between gap-4 px-6 py-4">
-                  <div>
-                    <p className="display text-lg">{row.residence}</p>
-                    <p className="mt-1 text-xs text-ink-soft">
-                      {row.deposits} {row.deposits === 1 ? 'deposit' : 'deposits'} recorded
-                    </p>
-                  </div>
-                  <p className="display text-lg">{formatAed(row.totalAed)}</p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        <aside data-testid="wallet-menu" className="border border-border bg-card lg:sticky lg:top-24">
-          <div className="border-b border-border px-6 py-5">
-            <p className="eyebrow text-brass">Your account</p>
-            <p className="display mt-3 text-xl">{wallet.tier.name}</p>
-            <p className="mt-1 text-sm text-ink-soft">Member account</p>
-          </div>
-          <nav aria-label="Wallet options">
-            <ul className="divide-y divide-border">
-              {[
-                { label: 'Membership levels', href: '#wallet-membership', internal: false },
-                { label: 'Monthly profit', href: '#wallet-profit', internal: false },
-                { label: 'Deposit history', href: '#wallet-deposit-history', internal: false },
-                { label: 'Withdrawal history', href: '#wallet-withdrawal-history', internal: false },
-                { label: 'Wallet activity', href: '#wallet-activity', internal: false },
-              ].map((item) => (
-                <li key={item.label}>
-                  <a
-                    href={item.href}
-                    data-testid={`wallet-menu-${item.href.replace('#wallet-', '')}`}
-                    className="flex items-center justify-between gap-3 px-6 py-4 text-sm transition-colors hover:text-brass"
-                  >
-                    {item.label}
-                    <ArrowRight className="h-3 w-3" />
-                  </a>
-                </li>
-              ))}
-              <li>
-                <Link
-                  to="/support"
-                  data-testid="wallet-menu-support"
-                  className="flex items-center justify-between gap-3 px-6 py-4 text-sm transition-colors hover:text-brass"
-                >
-                  Talk to your concierge
-                  <ArrowRight className="h-3 w-3" />
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="/account"
-                  data-testid="wallet-menu-account"
-                  className="flex items-center justify-between gap-3 px-6 py-4 text-sm transition-colors hover:text-brass"
-                >
-                  Account details
-                  <ArrowRight className="h-3 w-3" />
-                </Link>
-              </li>
-            </ul>
-          </nav>
-        </aside>
-      </div>
-
-      <div className="grid gap-6">
-        <form
-          data-testid="crypto-form"
-          data-state={cryptoState === 'sending' ? 'loading' : cryptoState === 'error' ? 'error' : 'ready'}
-          className="grid gap-4 border border-border bg-card p-6"
-          onSubmit={async (event) => {
-            event.preventDefault()
-            setCryptoError(null)
-            if (!cryptoFile) {
-              setCryptoError('Attach a screenshot or PDF of your payment slip')
-              return
-            }
-            const wallet_ = paymentDetails?.crypto.find((row) => row.coin === cryptoDraft.coin)
-            if (!wallet_) {
-              setCryptoError('Choose the coin you paid with')
-              return
-            }
-            setCryptoState('sending')
-            try {
-              const uploadUrl = await generateUploadUrl()
-              const response = await fetch(uploadUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': cryptoFile.type || 'application/octet-stream' },
-                body: cryptoFile,
-              })
-              if (!response.ok) throw new Error('The payment slip could not be uploaded')
-              const { storageId } = (await response.json()) as { storageId: string }
-              await submitCrypto({
-                kind: 'topup',
-                amountAed: Number(cryptoDraft.amount),
-                coin: wallet_.coin,
-                network: wallet_.network,
-                address: wallet_.address,
-                txHash: cryptoDraft.txHash || undefined,
-                proofId: storageId as never,
-                proofName: cryptoFile.name,
-                note: cryptoDraft.note || undefined,
-              })
-              setCryptoDraft({ amount: '', coin: cryptoDraft.coin, txHash: '', note: '' })
-              setCryptoFile(null)
-              setCryptoState('sent')
-            } catch (err) {
-              setCryptoError(errorMessage(err, 'Could not send the payment slip'))
-              setCryptoState('error')
-            }
-          }}
-        >
-          <div>
-            <p className="eyebrow text-brass">Crypto payment</p>
-            <h2 className="display mt-3 text-2xl">Pay by crypto</h2>
-            <p className="mt-2 text-sm leading-relaxed text-ink-soft">
-              Send the amount to the administration wallet below, then upload your payment slip.
-              Administration approves it before the wallet is credited.
-            </p>
-          </div>
-
-          {paymentDetails && paymentDetails.crypto.length > 0 ? (
-            <ul data-testid="crypto-addresses" className="grid gap-2">
-              {paymentDetails.crypto.map((row) => (
-                <li key={`${row.coin}-${row.network}`} className="border border-border bg-bone/40 px-4 py-3 text-sm">
-                  <p className="eyebrow text-[0.45rem] text-ink-soft">
-                    {row.coin} · {row.network}
-                  </p>
-                  <p className="mt-1 break-all font-mono text-xs">{row.address}</p>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="border border-border bg-bone/40 px-4 py-3 text-sm text-ink-soft">
-              Administration has not published a crypto wallet yet. Ask in customer service.
-            </p>
-          )}
-
-          <label className="block">
-            <span className="eyebrow text-[0.5rem] text-ink-soft">Coin paid</span>
-            <select
-              value={cryptoDraft.coin}
-              onChange={(event) => setCryptoDraft({ ...cryptoDraft, coin: event.target.value })}
-              disabled={cryptoState === 'sending'}
-              data-testid="crypto-coin"
-              className={fieldClass}
-            >
-              <option value="">Choose a coin</option>
-              {(paymentDetails?.crypto ?? []).map((row) => (
-                <option key={`${row.coin}-${row.network}`} value={row.coin}>
-                  {row.coin} · {row.network}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="block">
-              <span className="eyebrow text-[0.5rem] text-ink-soft">Amount in AED</span>
-              <input
-                type="number"
-                min={1}
-                required
-                value={cryptoDraft.amount}
-                onChange={(event) => setCryptoDraft({ ...cryptoDraft, amount: event.target.value })}
-                disabled={cryptoState === 'sending'}
-                placeholder="5000"
-                data-testid="crypto-amount"
-                className={fieldClass}
-              />
-            </label>
-            <label className="block">
-              <span className="eyebrow text-[0.5rem] text-ink-soft">Transaction hash</span>
-              <input
-                type="text"
-                value={cryptoDraft.txHash}
-                onChange={(event) => setCryptoDraft({ ...cryptoDraft, txHash: event.target.value })}
-                disabled={cryptoState === 'sending'}
-                placeholder="Optional"
-                data-testid="crypto-txhash"
-                className={fieldClass}
-              />
-            </label>
-          </div>
-
-          <label className="block">
-            <span className="eyebrow text-[0.5rem] text-ink-soft">Payment slip</span>
-            <input
-              type="file"
-              accept="image/*,application/pdf"
-              onChange={(event) => setCryptoFile(event.target.files?.[0] ?? null)}
-              disabled={cryptoState === 'sending'}
-              data-testid="crypto-slip"
-              className="mt-2 w-full border border-input bg-background px-4 py-3 text-sm outline-none file:mr-4 file:border-0 file:bg-ink file:px-3 file:py-1.5 file:text-xs file:text-background focus:border-brass"
-            />
-          </label>
-
-          <button
-            type="submit"
-            disabled={cryptoState === 'sending'}
-            data-testid="crypto-submit"
-            className="eyebrow inline-flex items-center justify-between gap-8 bg-primary px-6 py-4 text-[0.6rem] text-primary-foreground transition-colors hover:bg-ink/85 disabled:opacity-60"
-          >
-            {cryptoState === 'sending' ? 'Uploading…' : 'Upload payment slip'}
-            <ArrowRight />
-          </button>
-
-          {cryptoError ? (
-            <p role="alert" data-testid="crypto-error" className="border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-              {cryptoError}
-            </p>
-          ) : null}
-          {cryptoState === 'sent' ? (
-            <p data-testid="crypto-success" className="border border-brass/40 bg-brass/5 px-4 py-3 text-sm text-ink-soft">
-              Slip received. Administration reviews it before the wallet is credited.
-            </p>
-          ) : null}
-
-          {myCryptoPayments && myCryptoPayments.length > 0 ? (
-            <ul data-testid="crypto-list" className="divide-y divide-border border-t border-border pt-2">
-              {myCryptoPayments.map((row) => (
-                <li key={row.id} className="flex items-center justify-between gap-4 py-2 text-sm">
-                  <span>
-                    {row.coin} · {formatAed(row.amountAed)}
-                    <span className="ml-2 text-xs text-ink-soft">{formatDate(row.createdAt)}</span>
-                  </span>
-                  <span className="eyebrow text-[0.45rem] text-ink-soft">{row.status}</span>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </form>
-
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        <section id="wallet-membership" data-testid="wallet-membership" className="border border-border bg-card p-6">
-          <p className="eyebrow text-brass">Membership</p>
-          <p className="display mt-3 text-2xl">
-            {wallet.tier.name}
-          </p>
-          <p className="mt-2 text-sm text-ink-soft">
-            {wallet.nextTier
-              ? `Levels are set by administration. Next step: ${wallet.nextTier.name}`
-              : 'Top membership level reached'}
-          </p>
-          <Link to="/membership" className="eyebrow link-underline mt-4 inline-flex items-center gap-2 text-[0.5rem]">
-            Membership levels
-            <ArrowRight className="h-3 w-3" />
-          </Link>
-        </section>
-
-        <section id="wallet-deposit-history" data-testid="wallet-deposit-history" className="border border-border bg-card">
-          <h2 className="display border-b border-border px-6 py-4 text-lg">Deposit history</h2>
-          {wallet.topUps.length === 0 ? (
-            <p className="px-6 py-5 text-sm text-ink-soft">No deposits yet.</p>
-          ) : (
-            <ul className="divide-y divide-border">
-              {wallet.topUps.map((row) => (
-                <li key={row.id} className="flex items-start justify-between gap-4 px-6 py-3 text-sm">
-                  <div>
-                    <p>{formatAed(row.amountAed)}</p>
-                    <p className="mt-1 text-xs text-ink-soft">
-                      {formatDate(row.createdAt)} · {row.method}
-                    </p>
-                  </div>
-                  <span className="eyebrow text-[0.45rem] text-ink-soft">{row.status}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        <section id="wallet-withdrawal-history" data-testid="wallet-withdrawal-history" className="border border-border bg-card">
-          <h2 className="display border-b border-border px-6 py-4 text-lg">Withdrawal history</h2>
-          {wallet.withdrawals.length === 0 ? (
-            <p className="px-6 py-5 text-sm text-ink-soft">No withdrawals yet.</p>
-          ) : (
-            <ul className="divide-y divide-border">
-              {wallet.withdrawals.map((row) => (
-                <li key={row.id} className="flex items-start justify-between gap-4 px-6 py-3 text-sm">
-                  <div>
-                    <p>{formatAed(row.amountAed)}</p>
-                    <p className="mt-1 text-xs text-ink-soft">
-                      {formatDate(row.createdAt)} · {row.iban}
-                    </p>
-                  </div>
-                  <span className="eyebrow text-[0.45rem] text-ink-soft">{row.status}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      </div>
-
-      <section id="wallet-profit" data-testid="wallet-profit-history" className="border border-border bg-card">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-6 py-5">
-          <div>
-            <h2 className="display text-xl">Monthly profit</h2>
-            <p className="mt-1 text-xs text-ink-soft">
-              Credited automatically on the first of each month at your membership level percentage.
-            </p>
-          </div>
-          <span className="eyebrow text-[0.5rem] text-brass">
-            {profitPayouts ? `${formatAed(profitPayouts.totalAed)} paid` : 'Loading'}
-          </span>
-        </div>
-        {profitPayouts === undefined ? (
-          <p className="px-6 py-6 text-sm text-ink-soft">Loading profit payouts…</p>
-        ) : profitPayouts.rows.length === 0 ? (
-          <p data-testid="wallet-profit-empty" className="px-6 py-6 text-sm text-ink-soft">
-            No profit payouts yet. Your first payout arrives after your first full month.
-          </p>
-        ) : (
-          <ul data-testid="wallet-profit-rows" className="divide-y divide-border">
-            {profitPayouts.rows.map((row) => (
-              <li key={row.id} className="flex items-center justify-between gap-4 px-6 py-4">
-                <div>
-                  <p className="text-sm">{row.periodKey} · {row.planName} {row.percent}%</p>
-                  <p className="mt-1 text-xs text-ink-soft">
-                    {formatDate(row.createdAt)} · {formatAed(row.basisAed)} base
-                  </p>
-                </div>
-                <p className="display text-lg">+{formatAed(row.amountAed)}</p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section id="wallet-activity" className="border border-border bg-card">
-        <div className="flex items-center justify-between gap-4 border-b border-border px-6 py-5">
-          <h2 className="display text-xl">Wallet activity</h2>
-          <Link to="/membership" className="eyebrow link-underline text-[0.52rem]">
-            Membership levels
-            <ArrowRight className="h-3 w-3" />
-          </Link>
-        </div>
-        {wallet.transactions.length === 0 ? (
-          <p className="px-6 py-8 text-sm text-ink-soft">No wallet activity yet.</p>
-        ) : (
-          <ul data-testid="wallet-transactions" className="divide-y divide-border">
-            {wallet.transactions.map((row) => (
-              <li key={row.id} className="flex items-center justify-between gap-4 px-6 py-4">
-                <div>
-                  <p className="text-sm">
-                    {row.type === 'bonus' ? 'Sign-in bonus' : row.type === 'topup' ? 'Top-up' : row.type === 'withdrawal' ? 'Withdrawal' : row.type === 'profit' ? 'Monthly profit' : 'Adjustment'}
-                  </p>
-                  <p className="mt-1 text-xs text-ink-soft">
-                    {formatDate(row.createdAt)}
-                    {row.note ? ` · ${row.note}` : ''}
-                  </p>
-                </div>
-                <p className={row.type === 'withdrawal' ? 'display text-lg text-ink-soft' : 'display text-lg'}>
-                  {row.type === 'withdrawal' ? '−' : '+'}
-                  {formatAed(row.amountAed)}
-                </p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-    </div>
-  )
+function History({ title, rows }: { title: string; rows: RequestRow[] }) {
+  return <section className="border border-border bg-card"><h2 className="display border-b border-border px-6 py-4 text-lg">{title}</h2>{rows.length === 0 ? <p className="px-6 py-6 text-sm text-ink-soft">No records yet.</p> : <ul className="divide-y divide-border">{rows.map((row) => <li key={row.id} className="flex items-center justify-between gap-4 px-6 py-4"><div><p className="text-sm">{money(row.amount, row.currency)}</p><p className="mt-1 text-xs text-ink-soft">{date(row.created_at)}{row.admin_note ? ` · ${row.admin_note}` : ''}</p></div><span className="eyebrow text-[0.5rem] text-ink-soft">{row.status}</span></li>)}</ul>}</section>
 }
