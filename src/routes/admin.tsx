@@ -58,6 +58,7 @@ function AdminPage() {
   const [propertyDraft, setPropertyDraft] = useState({ name: '', slug: '', location: 'Dubai, UAE', description: '', price_label: 'Price on request', cover_image_url: '', status: 'draft' })
   const [editingPropertyId, setEditingPropertyId] = useState('')
   const [promotionDraft, setPromotionDraft] = useState({ title: '', description: '', image_url: '', active: false })
+  const [editingPromotionId, setEditingPromotionId] = useState('')
   const [profitDraft, setProfitDraft] = useState({ user_id: '', amount: '', currency: 'AED', period_start: '', period_end: '', description: 'Monthly profit credited to customer wallet' })
   const [selectedThread, setSelectedThread] = useState('')
   const [reply, setReply] = useState('')
@@ -162,10 +163,14 @@ function AdminPage() {
   const savePromotion = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     await run(async () => {
-      const { error: saveError } = await requireSupabase().from('promotions').insert(promotionDraft)
+      const query = editingPromotionId
+        ? requireSupabase().from('promotions').update({ ...promotionDraft, updated_at: new Date().toISOString() }).eq('id', editingPromotionId)
+        : requireSupabase().from('promotions').insert(promotionDraft)
+      const { error: saveError } = await query
       if (saveError) throw saveError
+      setEditingPromotionId('')
       setPromotionDraft({ title: '', description: '', image_url: '', active: false })
-    }, 'Promotion created.')
+    }, editingPromotionId ? 'Promotion changes saved.' : 'Promotion created.')
   }
 
   const reviewTopup = (id: string, approve: boolean) => run(async () => {
@@ -291,8 +296,8 @@ function AdminPage() {
             {section === 'enquiries' ? <DataTable title="Customer enquiries" rows={rows.enquiries ?? []} columns={['full_name','mobile','email','status','created_at']} render={(item) => <div className="flex flex-wrap items-center gap-2"><span className="text-xs text-ink-soft">{text(item.status)}</span><button className={softButton} disabled={busy || item.status === 'contacted'} onClick={() => updateStatus('enquiries', text(item.id), { status: 'contacted' }, 'Enquiry marked contacted.')}>Mark contacted</button><button className={softButton} disabled={busy || item.status === 'closed'} onClick={() => updateStatus('enquiries', text(item.id), { status: 'closed' }, 'Enquiry closed.')}>Close</button></div>} /> : null}
             {section === 'users' ? <DataTable title="Registered customers" rows={rows.users ?? []} columns={['full_name','mobile','preferred_currency','preferred_language','created_at']} render={(item) => { const state = (rows.accounts ?? []).find((entry) => entry.user_id === item.id)?.status ?? 'active'; return <div className="flex flex-wrap items-center gap-2"><span>{state}</span>{state !== 'active' ? <button disabled={busy} className={softButton} onClick={() => setAccountState(text(item.id), 'active')}>Unfreeze / activate</button> : <button disabled={busy} className={softButton} onClick={() => setAccountState(text(item.id), 'frozen')}>Freeze</button>}<button disabled={busy} className={softButton} onClick={() => setAccountState(text(item.id), 'blocked')}>Block</button></div> }} /> : null}
             {section === 'promotions' ? <section className="grid gap-6 xl:grid-cols-[minmax(18rem,0.8fr)_1.2fr]">
-              <form onSubmit={savePromotion} className="h-fit border border-border bg-card p-6"><h2 className="display text-xl">Create promotion</h2><div className="mt-5 grid gap-3"><input required className={inputClass} placeholder="Promotion title" value={promotionDraft.title} onChange={(e) => setPromotionDraft({ ...promotionDraft, title: e.target.value })} /><textarea className={inputClass} rows={4} placeholder="Description" value={promotionDraft.description} onChange={(e) => setPromotionDraft({ ...promotionDraft, description: e.target.value })} /><input className={inputClass} placeholder="Image URL" value={promotionDraft.image_url} onChange={(e) => setPromotionDraft({ ...promotionDraft, image_url: e.target.value })} /><label className="flex items-center gap-3 text-sm"><input type="checkbox" checked={promotionDraft.active} onChange={(e) => setPromotionDraft({ ...promotionDraft, active: e.target.checked })} /> Active immediately</label><button disabled={busy} className={buttonClass}>Create promotion <ArrowRight /></button></div></form>
-              <DataTable title="Promotions" rows={rows.promotions ?? []} columns={['title','description','active','starts_at','ends_at']} render={(item) => <button disabled={busy} className={softButton} onClick={() => updateStatus('promotions', text(item.id), { active: !item.active, updated_at: new Date().toISOString() }, item.active ? 'Promotion paused.' : 'Promotion activated.')}>{item.active ? 'Pause' : 'Activate'}</button>} />
+              <form onSubmit={savePromotion} className="h-fit border border-border bg-card p-6"><h2 className="display text-xl">{editingPromotionId ? 'Edit promotion' : 'Create promotion'}</h2><div className="mt-5 grid gap-3"><input required className={inputClass} placeholder="Promotion title" value={promotionDraft.title} onChange={(e) => setPromotionDraft({ ...promotionDraft, title: e.target.value })} /><textarea className={inputClass} rows={4} placeholder="Description" value={promotionDraft.description} onChange={(e) => setPromotionDraft({ ...promotionDraft, description: e.target.value })} /><input className={inputClass} placeholder="Image URL" value={promotionDraft.image_url} onChange={(e) => setPromotionDraft({ ...promotionDraft, image_url: e.target.value })} /><label className="flex items-center gap-3 text-sm"><input type="checkbox" checked={promotionDraft.active} onChange={(e) => setPromotionDraft({ ...promotionDraft, active: e.target.checked })} /> Active immediately</label><div className="flex flex-wrap gap-2"><button disabled={busy} className={buttonClass}>{editingPromotionId ? 'Save changes' : 'Create promotion'} <ArrowRight /></button>{editingPromotionId ? <button type="button" disabled={busy} className={softButton} onClick={() => { setEditingPromotionId(''); setPromotionDraft({ title: '', description: '', image_url: '', active: false }) }}>Cancel edit</button> : null}</div></div></form>
+              <DataTable title="Promotions" rows={rows.promotions ?? []} columns={['title','description','active','starts_at','ends_at']} render={(item) => <div className="flex flex-wrap gap-2"><button disabled={busy} className={softButton} onClick={() => { setEditingPromotionId(text(item.id)); setPromotionDraft({ title: text(item.title), description: text(item.description), image_url: text(item.image_url), active: Boolean(item.active) }) }}>Edit</button><button disabled={busy} className={softButton} onClick={() => updateStatus('promotions', text(item.id), { active: !item.active, updated_at: new Date().toISOString() }, item.active ? 'Promotion paused.' : 'Promotion activated.')}>{item.active ? 'Pause' : 'Activate'}</button></div>} />
             </section> : null}
 
             {section === 'finance' ? <div className="grid gap-6">
