@@ -3,6 +3,9 @@
 -- manually review requests after confirming receipt outside this application.
 -- This migration is additive and safe whether the legacy provider functions exist or not.
 
+-- Keep payment instructions administrator-only; customers must contact support for deposit guidance.
+drop policy if exists "Authenticated members read payment details" on public.payment_details;
+
 -- Remove any legacy crypto submission/review/ledger-credit workflow.
 drop function if exists public.admin_review_crypto_payment(uuid, boolean, text);
 drop table if exists public.crypto_payments;
