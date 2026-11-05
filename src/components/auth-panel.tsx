@@ -73,7 +73,7 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
           },
         })
         if (authError) throw authError
-        const { error: signOutError } = await supabase.auth.signOut()
+        const { error: signOutError } = await supabase.auth.signOut({ scope: 'local' })
         if (signOutError) throw signOutError
         setPassword('')
         setConfirmPassword('')
