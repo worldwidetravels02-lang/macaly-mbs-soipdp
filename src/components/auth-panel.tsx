@@ -61,7 +61,7 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
     try {
       const supabase = requireSupabase()
       if (view === 'signup') {
-        const { data, error: authError } = await supabase.auth.signUp({
+        const { error: authError } = await supabase.auth.signUp({
           email: email.trim().toLowerCase(),
           password,
           options: {
@@ -73,12 +73,13 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
           },
         })
         if (authError) throw authError
-        if (!data.session) {
-          setNotice('Your account has been created. Check your email and confirm your address before signing in.')
-          setView('signin')
-          return
-        }
-        await navigate({ to: '/dashboard' })
+        const { error: signOutError } = await supabase.auth.signOut()
+        if (signOutError) throw signOutError
+        setPassword('')
+        setConfirmPassword('')
+        setNotice('Registration successful. Please log in.')
+        setView('signin')
+        return
       } else {
         const { error: authError } = await supabase.auth.signInWithPassword({
           email: email.trim().toLowerCase(),
