@@ -79,7 +79,7 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
           options: {
             data: {
               full_name: fullName.trim(),
-              mobile: `${phoneCountryCode} ${mobile.replace(/\\D/g, '')}`,
+              mobile: `${phoneCountryCode} ${mobile.replace(/\D/g, '')}`,
               referral_code: referralCode.trim() || null,
             },
           },
@@ -101,7 +101,7 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
           if (authError) throw authError
         } else {
           const { data, error: invokeError } = await supabase.functions.invoke('phone-password-login', {
-            body: { mobile: `${phoneCountryCode} ${loginIdentifier.replace(/\\D/g, '')}`, password },
+            body: { mobile: `${phoneCountryCode} ${loginIdentifier.replace(/\D/g, '')}`, password },
           })
           if (invokeError) throw invokeError
           if (!data?.access_token || !data?.refresh_token) throw new Error('Invalid login details.')
