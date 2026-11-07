@@ -7,7 +7,7 @@ import { canonicalUrl } from '../lib/canonical-url'
 import siteMetadata from '../metadata.json'
 
 const meta = siteMetadata['/dashboard']
-const currencies = ['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR'] as const
+const currencies = ['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR', 'INR'] as const
 type Currency = (typeof currencies)[number]
 type Investment = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; reference: string | null; property_id: string | null }
 type LedgerItem = { id: string; amount: number | string; currency: Currency; transaction_type: string; direction: string; status: string; description: string | null; created_at: string }
