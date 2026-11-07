@@ -175,6 +175,8 @@ as $$
   );
 $$;
 
+drop function if exists public.admin_manage_access(text, text, uuid);
+
 create or replace function public.admin_manage_access(
   p_action text,
   p_email text default null,
