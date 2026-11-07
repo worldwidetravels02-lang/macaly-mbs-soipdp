@@ -4,6 +4,15 @@ import { requireSupabase } from '@/lib/supabase-client'
 import { ArrowRight } from './site-chrome'
 
 type View = 'signin' | 'signup' | 'forgot' | 'reset'
+type LoginMethod = 'email' | 'mobile'
+
+const countryCodes = [
+  ['+971', 'UAE'], ['+44', 'UK'], ['+91', 'India'], ['+1', 'USA / Canada'],
+  ['+966', 'Saudi Arabia'], ['+974', 'Qatar'], ['+968', 'Oman'], ['+965', 'Kuwait'],
+  ['+973', 'Bahrain'], ['+92', 'Pakistan'], ['+880', 'Bangladesh'], ['+94', 'Sri Lanka'],
+  ['+63', 'Philippines'], ['+60', 'Malaysia'], ['+65', 'Singapore'], ['+61', 'Australia'],
+  ['+49', 'Germany'], ['+33', 'France'], ['+90', 'Turkey'], ['+20', 'Egypt'],
+] as const
 
 const inputClass =
   'mt-2 w-full border border-input bg-background px-4 py-3 text-[0.95rem] outline-none transition-colors placeholder:text-ink-soft/60 focus:border-brass disabled:opacity-60'
@@ -27,6 +36,8 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [loginIdentifier, setLoginIdentifier] = useState('')
+  const [loginMethod, setLoginMethod] = useState<LoginMethod>('email')
+  const [phoneCountryCode, setPhoneCountryCode] = useState('+971')
   const [mobile, setMobile] = useState('')
   const [referralCode, setReferralCode] = useState('')
   const [password, setPassword] = useState('')
@@ -68,7 +79,7 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
           options: {
             data: {
               full_name: fullName.trim(),
-              mobile: mobile.trim(),
+              mobile: `${phoneCountryCode} ${mobile.replace(/\\D/g, '')}`,
               referral_code: referralCode.trim() || null,
             },
           },
@@ -82,7 +93,7 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
         setView('signin')
         return
       } else {
-        if (loginIdentifier.includes('@')) {
+        if (loginMethod === 'email') {
           const { error: authError } = await supabase.auth.signInWithPassword({
             email: loginIdentifier.trim().toLowerCase(),
             password,
@@ -90,7 +101,7 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
           if (authError) throw authError
         } else {
           const { data, error: invokeError } = await supabase.functions.invoke('phone-password-login', {
-            body: { mobile: loginIdentifier.trim(), password },
+            body: { mobile: `${phoneCountryCode} ${loginIdentifier.replace(/\\D/g, '')}`, password },
           })
           if (invokeError) throw invokeError
           if (!data?.access_token || !data?.refresh_token) throw new Error('Invalid login details.')
@@ -173,7 +184,12 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
               <input type="email" required autoComplete="email" value={email} onChange={e => { setEmail(e.target.value); clearMessages() }} disabled={busy} placeholder="you@example.com" data-testid="register-email" className={inputClass} />
             </label>
             <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Mobile number</span>
-              <input type="tel" required autoComplete="tel" value={mobile} onChange={e => { setMobile(e.target.value); clearMessages() }} disabled={busy} placeholder="+971 50 000 0000" data-testid="register-mobile" className={inputClass} />
+              <div className="mt-2 grid grid-cols-[minmax(110px,0.38fr)_1fr] gap-2">
+                <select aria-label="Country calling code" value={phoneCountryCode} onChange={e => setPhoneCountryCode(e.target.value)} disabled={busy} className="min-w-0 border border-input bg-background px-2 py-3 text-sm outline-none focus:border-brass" data-testid="register-country-code">
+                  {countryCodes.map(([code, country]) => <option key={code} value={code}>{code} {country}</option>)}
+                </select>
+                <input type="tel" required autoComplete="tel-national" value={mobile} onChange={e => { setMobile(e.target.value); clearMessages() }} disabled={busy} placeholder="50 000 0000" data-testid="register-mobile" className="min-w-0 border border-input bg-background px-4 py-3 text-[0.95rem] outline-none transition-colors placeholder:text-ink-soft/60 focus:border-brass disabled:opacity-60" />
+              </div>
             </label>
           </div>
           <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Referral code (optional)</span>
@@ -196,9 +212,24 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
 
       {view === 'signin' ? (
         <form className="mt-8 grid gap-4" onSubmit={handleSignInOrUp} data-testid="login-form">
-          <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Email address or mobile number</span>
-            <input type="text" required autoComplete="username" value={loginIdentifier} onChange={e => { setLoginIdentifier(e.target.value); clearMessages() }} disabled={busy} placeholder="Email or +971 50 000 0000" data-testid="login-identifier" className={inputClass} />
-          </label>
+          <div className="grid grid-cols-2 border border-border p-1" role="group" aria-label="Login method">
+            <button type="button" onClick={() => { setLoginMethod('email'); setLoginIdentifier(''); clearMessages() }} className={`px-3 py-2 text-xs tracking-wide ${loginMethod === 'email' ? 'bg-primary text-primary-foreground' : 'text-ink-soft'}`} aria-pressed={loginMethod === 'email'}>Email</button>
+            <button type="button" onClick={() => { setLoginMethod('mobile'); setLoginIdentifier(''); clearMessages() }} className={`px-3 py-2 text-xs tracking-wide ${loginMethod === 'mobile' ? 'bg-primary text-primary-foreground' : 'text-ink-soft'}`} aria-pressed={loginMethod === 'mobile'}>Mobile number</button>
+          </div>
+          {loginMethod === 'email' ? (
+            <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Email address</span>
+              <input type="email" required autoComplete="username" value={loginIdentifier} onChange={e => { setLoginIdentifier(e.target.value); clearMessages() }} disabled={busy} placeholder="you@example.com" data-testid="login-identifier" className={inputClass} />
+            </label>
+          ) : (
+            <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Mobile number</span>
+              <div className="mt-2 grid grid-cols-[minmax(110px,0.38fr)_1fr] gap-2">
+                <select aria-label="Country calling code" value={phoneCountryCode} onChange={e => setPhoneCountryCode(e.target.value)} disabled={busy} className="min-w-0 border border-input bg-background px-2 py-3 text-sm outline-none focus:border-brass" data-testid="login-country-code">
+                  {countryCodes.map(([code, country]) => <option key={code} value={code}>{code} {country}</option>)}
+                </select>
+                <input type="tel" required autoComplete="tel-national" value={loginIdentifier} onChange={e => { setLoginIdentifier(e.target.value); clearMessages() }} disabled={busy} placeholder="50 000 0000" data-testid="login-identifier" className="min-w-0 border border-input bg-background px-4 py-3 text-[0.95rem] outline-none transition-colors placeholder:text-ink-soft/60 focus:border-brass disabled:opacity-60" />
+              </div>
+            </label>
+          )}
           <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Password</span>
             <input type="password" required autoComplete="current-password" value={password} onChange={e => { setPassword(e.target.value); clearMessages() }} disabled={busy} placeholder="Your password" data-testid="login-password" className={inputClass} />
           </label>
