@@ -75,8 +75,20 @@ function WalletPage() {
         client.from('withdrawal_requests').select('id,amount,currency,status,created_at,admin_note,payout_method,payout_details').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(30),
         client.from('notifications').select('id,title,body,read_at,created_at').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(20),
       ])
-      for (const result of [profileResult, balanceResult, transactionResult, profitResult, topupResult, withdrawalResult, notificationResult]) {
-        if (result.error) throw result.error
+      const checks = [
+        ['profiles', profileResult],
+        ['wallet_balances', balanceResult],
+        ['wallet_transactions', transactionResult],
+        ['profit_payouts', profitResult],
+        ['topup_requests', topupResult],
+        ['withdrawal_requests', withdrawalResult],
+        ['notifications', notificationResult],
+      ] as const
+      for (const [table, result] of checks) {
+        if (result.error) {
+          const detail = result.error.message || 'Unknown database error'
+          throw new Error(`Wallet could not load ${table}: ${detail}`)
+        }
       }
       const savedCurrency = profileResult.data?.preferred_currency
       if (savedCurrency && currencies.includes(savedCurrency as Currency) && savedCurrency !== currency) {
