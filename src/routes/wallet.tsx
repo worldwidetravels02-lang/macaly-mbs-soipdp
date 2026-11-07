@@ -9,7 +9,7 @@ const meta = siteMetadata['/wallet']
 const currencies = ['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR', 'INR'] as const
 type Currency = (typeof currencies)[number]
 type WalletRow = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; description?: string | null; transaction_type?: string; direction?: string }
-type ProfitRow = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; admin_note?: string | null }
+type ProfitRow = { id: string; amount: number | string; currency: Currency; status: string; created_at: string }
 type RequestRow = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; admin_note?: string | null; payout_method?: string | null; payout_details?: Record<string, unknown> | null }
 type WalletNotification = { id: string; title: string; body: string; read_at: string | null; created_at: string }
 
@@ -70,7 +70,7 @@ function WalletPage() {
         client.from('profiles').select('preferred_currency').eq('id', authData.user.id).maybeSingle(),
         client.from('wallet_balances').select('balance').eq('user_id', authData.user.id).eq('currency', currency).maybeSingle(),
         client.from('wallet_transactions').select('id,amount,currency,status,created_at,description,transaction_type,direction').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(transactionLimit),
-        client.from('profit_payouts').select('id,amount,currency,status,created_at,admin_note').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(20),
+        client.from('profit_payouts').select('id,amount,currency,status,created_at').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(20),
         client.from('topup_requests').select('id,amount,currency,status,created_at,admin_note').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(30),
         client.from('withdrawal_requests').select('id,amount,currency,status,created_at,admin_note,payout_method,payout_details').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(30),
         client.from('notifications').select('id,title,body,read_at,created_at').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(20),
@@ -302,7 +302,6 @@ function RequestHistory({ title, rows }: { title: string; rows: RequestRow[] }) 
               <div className="min-w-0">
                 <p className="text-sm">{date(row.created_at)}</p>
                 <p className="mt-1 text-xs capitalize text-ink-soft">{row.status.replace(/_/g, ' ')}</p>
-                {row.admin_note ? <p className="mt-2 text-xs text-ink-soft">{row.admin_note}</p> : null}
                 {row.payout_method ? <p className="mt-2 text-xs text-ink-soft">Payout method: {row.payout_method}</p> : null}
               </div>
               <p className="display shrink-0 text-lg">{money(row.amount, row.currency)}</p>
