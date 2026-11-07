@@ -1,3 +1,4 @@
+// Cloudflare deployment trigger
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { requireSupabase } from '@/lib/supabase-client'
