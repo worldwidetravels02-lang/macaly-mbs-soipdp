@@ -48,6 +48,13 @@ export const Route = createFileRoute('/admin')({
 function AdminPage() {
   const [user, setUser] = useState<User | null>(null)
   const [authorized, setAuthorized] = useState(false)
+  const [adminRole, setAdminRole] = useState<'owner' | 'admin' | ''>('')
+  const [ownerPinSet, setOwnerPinSet] = useState(false)
+  const [ownerVerified, setOwnerVerified] = useState(false)
+  const [ownerPin, setOwnerPin] = useState('')
+  const [newOwnerPin, setNewOwnerPin] = useState('')
+  const [confirmOwnerPin, setConfirmOwnerPin] = useState('')
+  const [currentOwnerPin, setCurrentOwnerPin] = useState('')
   const [checking, setChecking] = useState(true)
   const [section, setSection] = useState<Section>('overview')
   const [rows, setRows] = useState<Record<string, Row[]>>({})
@@ -94,7 +101,17 @@ function AdminPage() {
       setUser(auth.user)
       if (!auth.user) { setAuthorized(false); return }
       const { data: membership, error: membershipError } = await client.from('admin_members').select('role').eq('user_id', auth.user.id).maybeSingle()
-      if (membershipError || !membership) { setAuthorized(false); return }
+      if (membershipError || !membership) { setAuthorized(false); setAdminRole(''); return }
+      setAdminRole(membership.role === 'owner' ? 'owner' : 'admin')
+      if (membership.role === 'owner') {
+        const { data: pinSet, error: pinStatusError } = await client.rpc('owner_pin_is_set')
+        if (pinStatusError) throw pinStatusError
+        setOwnerPinSet(Boolean(pinSet))
+        setOwnerVerified(false)
+      } else {
+        setOwnerPinSet(false)
+        setOwnerVerified(true)
+      }
       setAuthorized(true)
       const queries: Record<string, PromiseLike<any>> = {
         properties: client.from('properties').select('*').order('created_at', { ascending: false }),
@@ -410,9 +427,44 @@ function AdminPage() {
     }, 'Payment instructions saved.')
   }
 
+  const submitOwnerPin = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setBusy(true); setError(''); setNotice('')
+    try {
+      const client = requireSupabase()
+      if (!ownerPinSet) {
+        if (!/^\d{4}$/.test(newOwnerPin)) throw new Error('Choose exactly four digits.')
+        if (newOwnerPin !== confirmOwnerPin) throw new Error('The two codes do not match.')
+        const { error: saveError } = await client.rpc('owner_set_pin', { p_new_pin: newOwnerPin, p_current_pin: null })
+        if (saveError) throw saveError
+        setOwnerPinSet(true); setOwnerVerified(true)
+        setNewOwnerPin(''); setConfirmOwnerPin('')
+        setNotice('Owner security code created. You are now verified for this login.')
+      } else {
+        const { data: verified, error: verifyError } = await client.rpc('owner_verify_pin', { p_pin: ownerPin })
+        if (verifyError) throw verifyError
+        if (!verified) throw new Error('Incorrect code. Please try again.')
+        setOwnerVerified(true); setOwnerPin('')
+        setNotice('Owner access verified.')
+      }
+    } catch (cause) { setError(errorMessage(cause, 'Owner verification failed.')) }
+    finally { setBusy(false) }
+  }
+
+  const changeOwnerPin = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!/^\d{4}$/.test(newOwnerPin)) { setError('Choose exactly four digits.'); return }
+    if (newOwnerPin !== confirmOwnerPin) { setError('The two codes do not match.'); return }
+    await run(async () => {
+      const { error: saveError } = await requireSupabase().rpc('owner_set_pin', { p_new_pin: newOwnerPin, p_current_pin: currentOwnerPin })
+      if (saveError) throw saveError
+      setNewOwnerPin(''); setConfirmOwnerPin(''); setCurrentOwnerPin('')
+    }, 'Owner security code changed.')
+  }
+
   const signOut = async () => {
     await requireSupabase().auth.signOut()
-    setUser(null); setAuthorized(false)
+    setUser(null); setAuthorized(false); setOwnerVerified(false); setAdminRole('')
   }
 
   return (
@@ -430,7 +482,8 @@ function AdminPage() {
           {error ? <p role="alert" className="mb-5 border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</p> : null}
           {notice ? <p role="status" className="mb-5 border border-brass/40 bg-brass/5 px-4 py-3 text-sm">{notice}</p> : null}
 
-          {authorized ? <>
+          {authorized && adminRole === 'owner' && !ownerVerified ? <section className="mx-auto max-w-xl border border-border bg-card p-8 sm:p-10"><p className="eyebrow text-brass">Owner security</p><h2 className="display mt-4 text-2xl">{ownerPinSet ? 'Enter your owner code' : 'Create your owner code'}</h2><p className="mt-3 text-sm leading-7 text-ink-soft">{ownerPinSet ? 'Enter your private four-digit code to unlock the owner workspace. Administrators do not need this code.' : 'Create a private four-digit code. You will enter it whenever you sign in to the owner workspace. Do not share it with administrators.'}</p><form onSubmit={submitOwnerPin} className="mt-6 grid gap-4">{ownerPinSet ? <input required inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{4}" maxLength={4} type="password" className={inputClass} placeholder="Four-digit owner code" value={ownerPin} onChange={(e) => setOwnerPin(e.target.value.replace(/\D/g, '').slice(0, 4))} /> : <><input required inputMode="numeric" pattern="[0-9]{4}" maxLength={4} type="password" className={inputClass} placeholder="Create four-digit code" value={newOwnerPin} onChange={(e) => setNewOwnerPin(e.target.value.replace(/\D/g, '').slice(0, 4))} /><input required inputMode="numeric" pattern="[0-9]{4}" maxLength={4} type="password" className={inputClass} placeholder="Confirm four-digit code" value={confirmOwnerPin} onChange={(e) => setConfirmOwnerPin(e.target.value.replace(/\D/g, '').slice(0, 4))} /></>}{error ? <p role="alert" className="border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</p> : null}<button disabled={busy} className={buttonClass}>{busy ? 'Please wait…' : ownerPinSet ? 'Verify owner code' : 'Create owner code'} <ArrowRight /></button></form></section> : null}
+          {authorized && (adminRole !== 'owner' || ownerVerified) ? <>
             <nav aria-label="Administration sections" className="mb-8 flex gap-2 overflow-x-auto border-b border-border pb-3">
               {SECTIONS.map((item) => <button key={item.id} type="button" onClick={() => setSection(item.id)} className={section === item.id ? 'eyebrow shrink-0 border-b-2 border-brass px-4 py-3 text-[0.55rem] text-brass' : 'eyebrow shrink-0 px-4 py-3 text-[0.55rem] text-ink-soft hover:text-foreground'}>{item.label}</button>)}
             </nav>
