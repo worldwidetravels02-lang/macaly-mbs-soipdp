@@ -437,6 +437,9 @@ function AdminPage() {
         if (newOwnerPin !== confirmOwnerPin) throw new Error('The two codes do not match.')
         const { error: saveError } = await client.rpc('owner_set_pin', { p_new_pin: newOwnerPin, p_current_pin: null })
         if (saveError) throw saveError
+        const { data: verified, error: verifyError } = await client.rpc('owner_verify_pin', { p_pin: newOwnerPin })
+        if (verifyError) throw verifyError
+        if (!verified) throw new Error('Owner code was saved, but verification did not complete. Please sign in again.')
         setOwnerPinSet(true); setOwnerVerified(true)
         setNewOwnerPin(''); setConfirmOwnerPin('')
         setNotice('Owner security code created. You are now verified for this login.')
