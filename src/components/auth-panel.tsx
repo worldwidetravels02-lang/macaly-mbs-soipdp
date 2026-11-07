@@ -26,6 +26,7 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
   const [notice, setNotice] = useState<string | null>(null)
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
+  const [loginIdentifier, setLoginIdentifier] = useState('')
   const [mobile, setMobile] = useState('')
   const [referralCode, setReferralCode] = useState('')
   const [password, setPassword] = useState('')
@@ -81,11 +82,24 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
         setView('signin')
         return
       } else {
-        const { error: authError } = await supabase.auth.signInWithPassword({
-          email: email.trim().toLowerCase(),
-          password,
-        })
-        if (authError) throw authError
+        if (loginIdentifier.includes('@')) {
+          const { error: authError } = await supabase.auth.signInWithPassword({
+            email: loginIdentifier.trim().toLowerCase(),
+            password,
+          })
+          if (authError) throw authError
+        } else {
+          const { data, error: invokeError } = await supabase.functions.invoke('phone-password-login', {
+            body: { mobile: loginIdentifier.trim(), password },
+          })
+          if (invokeError) throw invokeError
+          if (!data?.access_token || !data?.refresh_token) throw new Error('Invalid login details.')
+          const { error: sessionError } = await supabase.auth.setSession({
+            access_token: data.access_token,
+            refresh_token: data.refresh_token,
+          })
+          if (sessionError) throw sessionError
+        }
         await navigate({ to: '/dashboard' })
       }
     } catch (err) {
@@ -141,7 +155,7 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
     view === 'signup' ? 'Register to save residences, receive private previews and manage your booking.'
       : view === 'forgot' ? 'We will send a password-reset email if an account exists.'
         : view === 'reset' ? 'Your recovery link is verified. Enter a new password below.'
-          : 'Sign in with the email address and password on your account.'
+          : 'Sign in with your email address or registered mobile number and password.'
 
   return (
     <div className="border border-border bg-card p-6 soft-shadow sm:p-9" data-testid="auth-panel" data-state={busy ? 'loading' : 'ready'}>
@@ -182,8 +196,8 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
 
       {view === 'signin' ? (
         <form className="mt-8 grid gap-4" onSubmit={handleSignInOrUp} data-testid="login-form">
-          <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Email address</span>
-            <input type="email" required autoComplete="email" value={email} onChange={e => { setEmail(e.target.value); clearMessages() }} disabled={busy} placeholder="you@example.com" data-testid="login-email" className={inputClass} />
+          <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Email address or mobile number</span>
+            <input type="text" required autoComplete="username" value={loginIdentifier} onChange={e => { setLoginIdentifier(e.target.value); clearMessages() }} disabled={busy} placeholder="Email or +971 50 000 0000" data-testid="login-identifier" className={inputClass} />
           </label>
           <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Password</span>
             <input type="password" required autoComplete="current-password" value={password} onChange={e => { setPassword(e.target.value); clearMessages() }} disabled={busy} placeholder="Your password" data-testid="login-password" className={inputClass} />
