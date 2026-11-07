@@ -2,3 +2,6 @@ project_id = "urmzdpnwqgouvwdycrdv"
 
 [functions.stripe-webhook]
 verify_jwt = false
+
+[functions.phone-password-login]
+verify_jwt = false
