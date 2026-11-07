@@ -1,4 +1,4 @@
-// Cloudflare deployment trigger
+// Authentication supports email/password and country-code mobile/password sign-in.
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { requireSupabase } from '@/lib/supabase-client'
