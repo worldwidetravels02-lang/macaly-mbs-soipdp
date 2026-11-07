@@ -6,7 +6,7 @@ import { canonicalUrl } from '../lib/canonical-url'
 import siteMetadata from '../metadata.json'
 
 const meta = siteMetadata['/wallet']
-const currencies = ['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR'] as const
+const currencies = ['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR', 'INR'] as const
 type Currency = (typeof currencies)[number]
 type WalletRow = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; description?: string | null; transaction_type?: string; direction?: string }
 type ProfitRow = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; admin_note?: string | null }
