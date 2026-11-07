@@ -94,7 +94,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
         document.documentElement.lang = savedLanguage.toLowerCase()
         document.documentElement.dir = savedLanguage === 'AR' ? 'rtl' : 'ltr'
       }
-      if (['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR'].includes(savedCurrency ?? '')) {
+      if (['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR', 'INR'].includes(savedCurrency ?? '')) {
         setCurrency(savedCurrency!)
       }
     } catch {
@@ -111,7 +111,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
   }
 
   const changeCurrency = (value: string) => {
-    if (!['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR'].includes(value)) return
+    if (!['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR', 'INR'].includes(value)) return
     setCurrency(value)
     try { window.localStorage.setItem('msheireb-currency', value) } catch { /* optional */ }
     window.dispatchEvent(new CustomEvent('msheireb-currency-change', { detail: value }))
@@ -163,7 +163,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
           </select>
           <label className="sr-only" htmlFor="site-currency">{translateSiteLabel('Currency', language)}</label>
           <select id="site-currency" aria-label="Currency" value={currency} onChange={(event) => changeCurrency(event.target.value)} className="eyebrow cursor-pointer border border-current/25 bg-transparent px-2 py-2 text-[0.52rem]">
-            {['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR'].map((code) => <option key={code} value={code}>{code}</option>)}
+            {['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR', 'INR'].map((code) => <option key={code} value={code}>{code}</option>)}
           </select>
           {isAuthenticated ? (
             <Link
@@ -250,7 +250,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
             <label className="flex flex-1 flex-col gap-2">
               <span className="eyebrow text-[0.5rem] text-brass">{translateSiteLabel('Currency', language)}</span>
               <select aria-label="Currency" value={currency} onChange={(event) => changeCurrency(event.target.value)} className="border border-border bg-background px-3 py-3 text-sm">
-                {['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR'].map((code) => <option key={code} value={code}>{code}</option>)}
+                {['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR', 'INR'].map((code) => <option key={code} value={code}>{code}</option>)}
               </select>
             </label>
           </div>
