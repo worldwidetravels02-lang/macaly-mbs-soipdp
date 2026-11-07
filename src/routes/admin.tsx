@@ -25,7 +25,7 @@ const SECTIONS: { id: Section; label: string }[] = [
   { id: 'support', label: 'Support' },
   { id: 'settings', label: 'Settings' },
 ]
-const CURRENCIES = ['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR']
+const CURRENCIES = ['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR', 'INR']
 const meta = siteMetadata['/admin']
 const money = (value: unknown, currency = 'AED') => new Intl.NumberFormat('en', { style: 'currency', currency, maximumFractionDigits: 2 }).format(Number(value || 0))
 const date = (value: unknown) => value ? new Date(String(value)).toLocaleString() : '—'
