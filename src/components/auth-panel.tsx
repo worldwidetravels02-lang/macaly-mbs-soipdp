@@ -38,7 +38,7 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
   const [email, setEmail] = useState('')
   const [loginIdentifier, setLoginIdentifier] = useState('')
   const [loginMethod, setLoginMethod] = useState<LoginMethod>('email')
-  const [phoneCountryCode, setPhoneCountryCode] = useState('+971')
+  const [phoneCountryCode, setPhoneCountryCode] = useState('+91')
   const [mobile, setMobile] = useState('')
   const [referralCode, setReferralCode] = useState('')
   const [password, setPassword] = useState('')
