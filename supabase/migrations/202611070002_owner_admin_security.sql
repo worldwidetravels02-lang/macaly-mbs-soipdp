@@ -273,3 +273,22 @@ grant execute on function public.owner_set_pin(text, text) to authenticated;
 grant execute on function public.owner_verify_pin(text) to authenticated;
 grant execute on function public.owner_is_verified() to authenticated;
 grant execute on function public.admin_manage_access(text, text, uuid, text) to authenticated;
+
+
+create or replace function public.owner_pin_is_set()
+returns boolean
+language sql
+security definer
+stable
+set search_path = pg_catalog, public, auth
+as $$
+  select exists (
+    select 1 from public.owner_security
+    where user_id = auth.uid()
+  ) and exists (
+    select 1 from public.admin_members
+    where user_id = auth.uid() and role = 'owner'
+  );
+$$;
+revoke all on function public.owner_pin_is_set() from public;
+grant execute on function public.owner_pin_is_set() to authenticated;
