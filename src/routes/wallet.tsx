@@ -10,6 +10,7 @@ const currencies = ['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR', 'INR'] as const
 type Currency = (typeof currencies)[number]
 type WalletRow = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; description?: string | null; transaction_type?: string; direction?: string }
 type ProfitRow = { id: string; amount: number | string; currency: Currency; status: string; created_at: string }
+type CommissionRow = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; commission_type: string; description: string | null }
 type RequestRow = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; admin_note?: string | null; payout_method?: string | null; payout_details?: Record<string, unknown> | null }
 type WalletNotification = { id: string; title: string; body: string; read_at: string | null; created_at: string }
 
@@ -42,6 +43,7 @@ function WalletPage() {
   const [transactionLimit, setTransactionLimit] = useState(30)
   const [transactionFilter, setTransactionFilter] = useState<'all' | 'credit' | 'debit'>('all')
   const [profits, setProfits] = useState<ProfitRow[]>([])
+  const [commissions, setCommissions] = useState<CommissionRow[]>([])
   const [topups, setTopups] = useState<RequestRow[]>([])
   const [withdrawals, setWithdrawals] = useState<RequestRow[]>([])
   const [notifications, setNotifications] = useState<WalletNotification[]>([])
@@ -66,11 +68,12 @@ function WalletPage() {
         return
       }
       setUserId(authData.user.id)
-      const [profileResult, balanceResult, transactionResult, profitResult, topupResult, withdrawalResult, notificationResult] = await Promise.all([
+      const [profileResult, balanceResult, transactionResult, profitResult, commissionResult, topupResult, withdrawalResult, notificationResult] = await Promise.all([
         client.from('profiles').select('preferred_currency').eq('id', authData.user.id).maybeSingle(),
         client.from('wallet_balances').select('balance').eq('user_id', authData.user.id).eq('currency', currency).maybeSingle(),
         client.from('wallet_transactions').select('id,amount,currency,status,created_at,description,transaction_type,direction').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(transactionLimit),
         client.from('profit_payouts').select('id,amount,currency,status,created_at').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(20),
+        client.from('commission_records').select('id,amount,currency,status,created_at,commission_type,description').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(30),
         client.from('topup_requests').select('id,amount,currency,status,created_at,admin_note').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(30),
         client.from('withdrawal_requests').select('id,amount,currency,status,created_at,admin_note,payout_method,payout_details').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(30),
         client.from('notifications').select('id,title,body,read_at,created_at').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(20),
@@ -80,6 +83,7 @@ function WalletPage() {
         ['wallet_balances', balanceResult],
         ['wallet_transactions', transactionResult],
         ['profit_payouts', profitResult],
+        ['commission_records', commissionResult],
         ['topup_requests', topupResult],
         ['withdrawal_requests', withdrawalResult],
         ['notifications', notificationResult],
@@ -98,6 +102,7 @@ function WalletPage() {
       setBalance(Number(balanceResult.data?.balance ?? 0))
       setTransactions((transactionResult.data ?? []) as WalletRow[])
       setProfits((profitResult.data ?? []) as ProfitRow[])
+      setCommissions((commissionResult.data ?? []) as CommissionRow[])
       setTopups((topupResult.data ?? []) as RequestRow[])
       setWithdrawals((withdrawalResult.data ?? []) as RequestRow[])
       setNotifications((notificationResult.data ?? []) as WalletNotification[])
@@ -267,8 +272,9 @@ function WalletPage() {
               <RequestHistory title="Deposit requests" rows={topups} />
               <RequestHistory title="Withdrawal requests" rows={withdrawals} />
             </section>
-            <section className="grid gap-6 lg:grid-cols-2">
+            <section className="grid gap-6 lg:grid-cols-3">
               <History title="Profit credits" rows={profits.filter((row) => row.currency === currency)} />
+              <CommissionHistory rows={commissions.filter((row) => row.currency === currency)} />
               <div className="border border-border bg-card">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-6 py-4">
                   <h2 className="display text-lg">Wallet activity</h2>
@@ -303,6 +309,29 @@ function RequestHistory({ title, rows }: { title: string; rows: RequestRow[] }) 
                 <p className="text-sm">{date(row.created_at)}</p>
                 <p className="mt-1 text-xs capitalize text-ink-soft">{row.status.replace(/_/g, ' ')}</p>
                 {row.payout_method ? <p className="mt-2 text-xs text-ink-soft">Payout method: {row.payout_method}</p> : null}
+              </div>
+              <p className="display shrink-0 text-lg">{money(row.amount, row.currency)}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+
+function CommissionHistory({ rows }: { rows: CommissionRow[] }) {
+  return (
+    <div className="border border-border bg-card">
+      <h2 className="display border-b border-border px-6 py-4 text-lg">Commission history</h2>
+      {rows.length === 0 ? <p className="px-6 py-6 text-sm text-ink-soft">No commission records yet.</p> : (
+        <ul className="divide-y divide-border">
+          {rows.map((row) => (
+            <li key={row.id} className="flex items-start justify-between gap-4 px-6 py-4">
+              <div className="min-w-0">
+                <p className="text-sm capitalize">{row.commission_type.replace(/_/g, ' ')} commission</p>
+                <p className="mt-1 text-xs text-ink-soft">{date(row.created_at)} · {row.status.replace(/_/g, ' ')}</p>
+                {row.description ? <p className="mt-2 text-xs text-ink-soft">{row.description}</p> : null}
               </div>
               <p className="display shrink-0 text-lg">{money(row.amount, row.currency)}</p>
             </li>
