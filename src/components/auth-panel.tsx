@@ -8,7 +8,7 @@ type View = 'signin' | 'signup' | 'forgot' | 'reset'
 type LoginMethod = 'email' | 'mobile'
 
 const countryCodes = [
-  ['+971', 'UAE'], ['+44', 'UK'], ['+91', 'India'], ['+1', 'USA / Canada'],
+  ['+971', 'UAE'], ['+44', 'UK'], ['+91', 'India'], ['+855', 'Cambodia'], ['+1', 'USA / Canada'],
   ['+966', 'Saudi Arabia'], ['+974', 'Qatar'], ['+968', 'Oman'], ['+965', 'Kuwait'],
   ['+973', 'Bahrain'], ['+92', 'Pakistan'], ['+880', 'Bangladesh'], ['+94', 'Sri Lanka'],
   ['+63', 'Philippines'], ['+60', 'Malaysia'], ['+65', 'Singapore'], ['+61', 'Australia'],
@@ -74,7 +74,7 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
     try {
       const supabase = requireSupabase()
       if (view === 'signup') {
-        const { error: authError } = await supabase.auth.signUp({
+        const { data: signUpData, error: authError } = await supabase.auth.signUp({
           email: email.trim().toLowerCase(),
           password,
           options: {
@@ -86,11 +86,13 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
           },
         })
         if (authError) throw authError
-        const { error: signOutError } = await supabase.auth.signOut({ scope: 'local' })
-        if (signOutError) throw signOutError
         setPassword('')
         setConfirmPassword('')
-        setNotice('Registration successful. Please log in.')
+        if (signUpData.session) {
+          await navigate({ to: '/residences' })
+          return
+        }
+        setNotice('Your account was created, but Supabase is requiring email confirmation. Disable email confirmation in Supabase Authentication settings to allow immediate access.')
         setView('signin')
         return
       } else {
