@@ -1,6 +1,6 @@
 import { requireSupabase } from './supabase-client'
 
-export type WalletCurrency = 'AED' | 'OMR' | 'SAR' | 'KWD' | 'BHD' | 'QAR'
+export type WalletCurrency = 'AED' | 'OMR' | 'SAR' | 'KWD' | 'BHD' | 'QAR' | 'INR'
 
 export type WalletBalance = {
   user_id: string
