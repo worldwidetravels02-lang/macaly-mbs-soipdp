@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase-client'
 
-type CurrencyCode = 'AED' | 'OMR' | 'SAR' | 'KWD' | 'BHD' | 'QAR'
+type CurrencyCode = 'AED' | 'OMR' | 'SAR' | 'KWD' | 'BHD' | 'QAR' | 'INR'
 type FxRate = { code: CurrencyCode; aed_per_unit: number }
 
-const SUPPORTED: CurrencyCode[] = ['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR']
+const SUPPORTED: CurrencyCode[] = ['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR', 'INR']
 
 function readCurrency(): CurrencyCode {
   try {
