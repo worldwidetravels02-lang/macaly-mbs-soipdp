@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase-client'
 
-type CurrencyCode = 'AED' | 'OMR' | 'SAR' | 'KWD' | 'BHD' | 'QAR'
+type CurrencyCode = 'AED' | 'OMR' | 'SAR' | 'KWD' | 'BHD' | 'QAR' | 'INR'
 type FxRate = { code: CurrencyCode; aed_per_unit: number }
 
-const SUPPORTED: CurrencyCode[] = ['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR']
+const SUPPORTED: CurrencyCode[] = ['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR', 'INR']
 
 function readCurrency(): CurrencyCode {
   try {
@@ -16,7 +16,7 @@ function readCurrency(): CurrencyCode {
 }
 
 function parseAedLabel(label: string): { prefix: string; amount: number } | null {
-  const match = label.match(/^(.*?)(?:AED)\\s*([\\d,.]+)\\s*(M|K)?(.*)$/i)
+  const match = label.match(/^(.*?)(?:AED)\s*([\d,.]+)\s*(M|K)?(.*)$/i)
   if (!match) return null
   const base = Number(match[2].replace(/,/g, ''))
   if (!Number.isFinite(base)) return null

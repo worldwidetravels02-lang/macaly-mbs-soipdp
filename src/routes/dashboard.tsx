@@ -10,7 +10,9 @@ const meta = siteMetadata['/dashboard']
 const currencies = ['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR', 'INR'] as const
 type Currency = (typeof currencies)[number]
 type Investment = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; reference: string | null; property_id: string | null }
+type InvestmentRequest = { id: string; property_name: string; amount: number | string; currency: Currency; status: string; created_at: string }
 type LedgerItem = { id: string; amount: number | string; currency: Currency; transaction_type: string; direction: string; status: string; description: string | null; created_at: string }
+type Commission = { id: string; amount: number | string; currency: Currency; commission_type: string; status: string; description: string | null; created_at: string }
 
 function formatMoney(amount: number | string, currency: Currency) {
   return new Intl.NumberFormat('en', { style: 'currency', currency, maximumFractionDigits: 2 }).format(Number(amount || 0))
@@ -36,7 +38,9 @@ function DashboardPage() {
   const [currency, setCurrency] = useState<Currency>('AED')
   const [balance, setBalance] = useState(0)
   const [investments, setInvestments] = useState<Investment[]>([])
+  const [investmentRequests, setInvestmentRequests] = useState<InvestmentRequest[]>([])
   const [activity, setActivity] = useState<LedgerItem[]>([])
+  const [commissions, setCommissions] = useState<Commission[]>([])
   const [unread, setUnread] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -50,14 +54,16 @@ function DashboardPage() {
       const current = auth.user
       setUser(current)
       if (!current) return
-      const [profile, wallet, projects, ledger, notices] = await Promise.all([
+      const [profile, wallet, projects, requests, ledger, notices, commissionRows] = await Promise.all([
         client.from('profiles').select('full_name,preferred_currency').eq('id', current.id).maybeSingle(),
         client.from('wallet_balances').select('balance').eq('user_id', current.id).eq('currency', currency).maybeSingle(),
         client.from('investments').select('id,amount,currency,status,created_at,reference,property_id').eq('user_id', current.id).order('created_at', { ascending: false }).limit(8),
+        client.from('investment_requests').select('id,property_name,amount,currency,status,created_at').eq('user_id', current.id).order('created_at', { ascending: false }).limit(8),
         client.from('wallet_transactions').select('id,amount,currency,transaction_type,direction,status,description,created_at').eq('user_id', current.id).order('created_at', { ascending: false }).limit(8),
         client.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', current.id).is('read_at', null),
+        client.from('commission_records').select('id,amount,currency,commission_type,status,description,created_at').eq('user_id', current.id).order('created_at', { ascending: false }).limit(8),
       ])
-      for (const result of [profile, wallet, projects, ledger, notices]) if (result.error) throw result.error
+      for (const result of [profile, wallet, projects, requests, ledger, notices, commissionRows]) if (result.error) throw result.error
       setName(profile.data?.full_name?.trim() || current.user_metadata?.full_name || current.email?.split('@')[0] || 'Member')
       const preferred = profile.data?.preferred_currency
       if (preferred && currencies.includes(preferred as Currency) && preferred !== currency) {
@@ -66,7 +72,9 @@ function DashboardPage() {
       }
       setBalance(Number(wallet.data?.balance ?? 0))
       setInvestments((projects.data ?? []) as Investment[])
+      setInvestmentRequests((requests.data ?? []) as InvestmentRequest[])
       setActivity((ledger.data ?? []) as LedgerItem[])
+      setCommissions((commissionRows.data ?? []) as Commission[])
       setUnread(notices.count ?? 0)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not load your dashboard.')
@@ -85,7 +93,7 @@ function DashboardPage() {
   }, [load])
 
   const activeProjects = investments.filter((row) => ['approved', 'funded', 'completed'].includes(row.status)).length
-  const pendingProjects = investments.filter((row) => row.status === 'pending').length
+  const pendingProjects = investmentRequests.filter((row) => ['pending', 'approved'].includes(row.status)).length
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -108,6 +116,14 @@ function DashboardPage() {
               <div className="border border-border bg-card p-6"><p className="eyebrow text-[0.5rem] text-ink-soft">Unread notifications</p><p className="display mt-3 text-2xl">{unread}</p><p className="mt-2 text-xs text-ink-soft">Updates on your account</p></div>
             </section>
 
+            <section className="border border-border bg-card">
+              <div className="flex items-center justify-between gap-3 border-b border-border px-6 py-5"><h2 className="display text-xl">Your commissions</h2><Link to="/wallet" className="eyebrow text-[0.5rem]">Open wallet <ArrowRight /></Link></div>
+              {commissions.length === 0 ? <p className="px-6 py-7 text-sm text-ink-soft">No commission records yet. Approved commissions will appear here.</p> : <ul className="divide-y divide-border">{commissions.map((row) => <li key={row.id} className="flex items-center justify-between gap-4 px-6 py-4"><div><p className="text-sm capitalize">{row.commission_type.replace(/_/g, ' ')} commission</p><p className="mt-1 text-xs text-ink-soft">{formatDate(row.created_at)} · {row.status}{row.description ? ` · ${row.description}` : ''}</p></div><p className="display text-base">{formatMoney(row.amount, row.currency)}</p></li>)}</ul>}
+            </section>
+            <section className="border border-border bg-card">
+              <div className="flex items-center justify-between gap-3 border-b border-border px-6 py-5"><h2 className="display text-xl">Investment applications</h2><Link to="/residences" className="eyebrow text-[0.5rem]">Explore properties <ArrowRight /></Link></div>
+              {investmentRequests.length === 0 ? <p className="px-6 py-7 text-sm text-ink-soft">No investment applications have been submitted yet.</p> : <ul className="divide-y divide-border">{investmentRequests.map((row) => <li key={row.id} className="flex items-center justify-between gap-4 px-6 py-4"><div><p className="text-sm">{row.property_name}</p><p className="mt-1 text-xs text-ink-soft">{formatDate(row.created_at)} · {formatMoney(row.amount, row.currency)}</p></div><span className="eyebrow text-[0.5rem] text-ink-soft">{row.status}</span></li>)}</ul>}
+            </section>
             <section className="grid gap-6 lg:grid-cols-2">
               <div className="border border-border bg-card"><div className="flex items-center justify-between gap-3 border-b border-border px-6 py-5"><h2 className="display text-xl">Your property requests</h2><Link to="/residences" className="eyebrow text-[0.5rem]">Explore projects <ArrowRight /></Link></div>
                 {investments.length === 0 ? <div className="px-6 py-8"><p className="text-sm text-ink-soft">You have not submitted a property request yet.</p><Link to="/residences" className="eyebrow mt-4 inline-flex items-center gap-2 text-[0.55rem]">Browse properties <ArrowRight /></Link></div> : <ul className="divide-y divide-border">{investments.map((row) => <li key={row.id} className="flex items-center justify-between gap-4 px-6 py-4"><div><p className="text-sm">{row.reference || 'Property request'}</p><p className="mt-1 text-xs text-ink-soft">{formatDate(row.created_at)} · {formatMoney(row.amount, row.currency)}</p></div><span className="eyebrow text-[0.5rem] text-ink-soft">{row.status}</span></li>)}</ul>}

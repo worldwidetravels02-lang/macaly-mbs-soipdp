@@ -8,7 +8,7 @@ import { canonicalUrl } from '../lib/canonical-url'
 import siteMetadata from '../metadata.json'
 
 type Row = Record<string, any>
-type Section = 'overview' | 'properties' | 'enquiries' | 'users' | 'promotions' | 'finance' | 'investments' | 'verifications' | 'tasks' | 'payments' | 'content' | 'team' | 'support' | 'settings'
+type Section = 'overview' | 'properties' | 'enquiries' | 'users' | 'promotions' | 'finance' | 'investments' | 'commissions' | 'verifications' | 'tasks' | 'payments' | 'content' | 'team' | 'support' | 'settings'
 const SECTIONS: { id: Section; label: string }[] = [
   { id: 'overview', label: 'Overview' },
   { id: 'properties', label: 'Properties' },
@@ -17,6 +17,7 @@ const SECTIONS: { id: Section; label: string }[] = [
   { id: 'promotions', label: 'Promotions' },
   { id: 'finance', label: 'Wallet & finance' },
   { id: 'investments', label: 'Investments' },
+  { id: 'commissions', label: 'Commissions' },
   { id: 'verifications', label: 'Identity checks' },
   { id: 'tasks', label: 'Tasks & levels' },
   { id: 'payments', label: 'Payment records' },
@@ -75,6 +76,7 @@ function AdminPage() {
   const [profileLevel, setProfileLevel] = useState('0')
   const [notificationDraft, setNotificationDraft] = useState({ user_id: '', title: '', body: '' })
   const [profitDraft, setProfitDraft] = useState({ user_id: '', amount: '', currency: 'AED', period_start: '', period_end: '', description: 'Monthly profit credited to customer wallet' })
+  const [commissionDraft, setCommissionDraft] = useState({ user_id: '', plan_id: '', base_amount: '', currency: 'AED', commission_type: 'referral', source_user_id: '', reference: '', description: '' })
   const [manualWalletDraft, setManualWalletDraft] = useState({ user_id: '', amount: '', currency: 'AED', description: 'Balance added by administrator' })
   const [walletSearch, setWalletSearch] = useState('')
   const [walletCurrencyFilter, setWalletCurrencyFilter] = useState('all')
@@ -90,6 +92,7 @@ function AdminPage() {
   const [fxDrafts, setFxDrafts] = useState<Record<string, string>>({})
   const [priceDrafts, setPriceDrafts] = useState<Record<string, string>>({})
   const [planDrafts, setPlanDrafts] = useState<Record<string, { name: string; minimum_amount: string; profit_percent: string; commission_percent: string }>>({})
+  const [newPlanDraft, setNewPlanDraft] = useState({ code: '', level: '1', name: '', minimum_amount: '0', profit_percent: '0', commission_percent: '0', active: false })
 
   const load = useCallback(async () => {
     setChecking(true)
@@ -122,6 +125,7 @@ function AdminPage() {
         withdrawals: client.from('withdrawal_requests').select('*').order('created_at', { ascending: false }).limit(100),
         investments: client.from('investments').select('*').order('created_at', { ascending: false }).limit(100),
         profits: client.from('profit_payouts').select('*').order('created_at', { ascending: false }).limit(100),
+        commissions: client.from('commission_records').select('*').order('created_at', { ascending: false }).limit(200),
         threads: client.from('support_threads').select('*').order('updated_at', { ascending: false }).limit(100),
         fx: client.from('fx_rates').select('*').order('code'),
         prices: client.from('property_prices').select('*').order('slug'),
@@ -364,6 +368,50 @@ function AdminPage() {
     }, 'Profit credited to the customer internal wallet.')
   }
 
+  const createCommission = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const baseAmount = Number(commissionDraft.base_amount)
+    if (!commissionDraft.user_id || !commissionDraft.plan_id) { setError('Select a customer and an active commission plan.'); return }
+    if (!Number.isFinite(baseAmount) || baseAmount <= 0 || baseAmount > 100000000) { setError('Enter a valid commission base amount.'); return }
+    await run(async () => {
+      const { error: rpcError } = await requireSupabase().rpc('admin_create_commission', {
+        p_user_id: commissionDraft.user_id,
+        p_plan_id: commissionDraft.plan_id,
+        p_base_amount: baseAmount,
+        p_currency: commissionDraft.currency,
+        p_commission_type: commissionDraft.commission_type,
+        p_source_user_id: commissionDraft.source_user_id || null,
+        p_reference: commissionDraft.reference || null,
+        p_description: commissionDraft.description || null,
+      })
+      if (rpcError) throw rpcError
+      setCommissionDraft({ user_id: '', plan_id: '', base_amount: '', currency: 'AED', commission_type: 'referral', source_user_id: '', reference: '', description: '' })
+    }, 'Commission calculated from the selected plan rate and added to the pending review queue.')
+  }
+
+  const reviewCommission = (id: string, action: 'credit' | 'reject') => run(async () => {
+    const { error: rpcError } = await requireSupabase().rpc('admin_review_commission', {
+      p_commission_id: id,
+      p_action: action,
+      p_admin_note: action === 'credit' ? 'Approved and credited by administrator' : 'Rejected by administrator',
+    })
+    if (rpcError) throw rpcError
+  }, action === 'credit' ? 'Commission approved and credited to the internal wallet.' : 'Commission rejected.')
+
+  const reviewInvestmentRequest = (id: string, action: 'approve' | 'reject') => run(async () => {
+    const { error: rpcError } = await requireSupabase().rpc('admin_review_investment_request', {
+      p_request_id: id,
+      p_action: action,
+      p_admin_note: action === 'approve' ? 'Approved by administrator' : 'Rejected by administrator',
+    })
+    if (rpcError) throw rpcError
+  }, action === 'approve' ? 'Investment approved. Plan percentages were recalculated from the current admin settings.' : 'Investment request rejected.')
+
+  const fundInvestmentRequest = (id: string) => run(async () => {
+    const { error: rpcError } = await requireSupabase().rpc('admin_fund_investment_request', { p_request_id: id })
+    if (rpcError) throw rpcError
+  }, 'Investment funded from the customer posted wallet balance and recorded in the ledger.')
+
   const setAccountState = (customerId: string, status: 'active' | 'frozen' | 'blocked') => run(async () => {
     const { error: stateError } = await requireSupabase().from('account_states').upsert({ user_id: customerId, status, reason: status === 'active' ? null : 'Updated by administrator', updated_by: user?.id, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
     if (stateError) throw stateError
@@ -404,6 +452,29 @@ function AdminPage() {
       if (saveError) throw saveError
       setPostDraft({ title: '', slug: '', category: 'News', excerpt: '', content: '', cover_image_url: '', author_name: 'Msheireb Properties' })
     }, 'Journal post created as a draft.')
+  }
+
+  const createMembershipPlan = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const level = Number(newPlanDraft.level)
+    const minimum = Number(newPlanDraft.minimum_amount)
+    const profit = Number(newPlanDraft.profit_percent)
+    const commission = Number(newPlanDraft.commission_percent)
+    const code = newPlanDraft.code.trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-|-$/g, '')
+    if (!code || !newPlanDraft.name.trim()) { setError('Enter a plan name and unique plan code.'); return }
+    if (!Number.isInteger(level) || level < 0 || ![minimum, profit, commission].every(Number.isFinite) || minimum < 0 || profit < 0 || profit > 100 || commission < 0 || commission > 100) {
+      setError('Enter a valid level, minimum amount and percentages from 0 to 100.')
+      return
+    }
+    await run(async () => {
+      const { error: saveError } = await requireSupabase().from('membership_plans').insert({
+        code, level, name: newPlanDraft.name.trim(), minimum_amount: minimum,
+        profit_percent: profit, commission_percent: commission, active: newPlanDraft.active,
+        updated_at: new Date().toISOString(), updated_by: user?.id,
+      })
+      if (saveError) throw saveError
+      setNewPlanDraft({ code: '', level: '1', name: '', minimum_amount: '0', profit_percent: '0', commission_percent: '0', active: false })
+    }, 'Investment plan created.')
   }
 
   const saveTelegramSupport = async (event: FormEvent<HTMLFormElement>) => {
@@ -578,7 +649,9 @@ function AdminPage() {
               <DataTable title="Investment requests" rows={rows.investments ?? []} columns={['user_id','property_id','amount','currency','status','created_at']} />
             </div> : null}
 
-            {section === 'investments' ? <div className="grid gap-6"><DataTable title="Customer investment requests" rows={rows.investmentRequests ?? []} columns={['user_id','property_name','plan_code','amount','expected_profit','expected_commission','status','created_at']} render={(item) => item.status === 'pending' ? <div className="flex gap-2"><button disabled={busy} className={softButton} onClick={() => updateStatus('investment_requests', text(item.id), { status: 'approved', reviewed_at: new Date().toISOString(), reviewed_by: user?.id }, 'Investment request approved.')}>Approve</button><button disabled={busy} className={softButton} onClick={() => updateStatus('investment_requests', text(item.id), { status: 'rejected', reviewed_at: new Date().toISOString(), reviewed_by: user?.id }, 'Investment request rejected.')}>Reject</button></div> : null} /><DataTable title="Active investment ledger" rows={rows.investments ?? []} columns={['user_id','property_id','amount','currency','status','created_at']} /></div> : null}
+            {section === 'investments' ? <div className="grid gap-6"><p className="border border-brass/40 bg-brass/5 p-4 text-xs leading-6">Investment terms are recalculated from the active plan on approval. Funding debits the customer's posted internal wallet balance. Any investment commission is created as pending and must be separately reviewed before crediting. Profit estimates are not guaranteed returns.</p><DataTable title="Customer investment requests" rows={rows.investmentRequests ?? []} columns={['user_id','property_name','plan_code','amount','currency','profit_percent','expected_profit','commission_percent','expected_commission','status','created_at']} render={(item) => item.status === 'pending' ? <div className="flex flex-wrap gap-2"><button disabled={busy} className={softButton} onClick={() => reviewInvestmentRequest(text(item.id), 'approve')}>Approve</button><button disabled={busy} className={softButton} onClick={() => reviewInvestmentRequest(text(item.id), 'reject')}>Reject</button></div> : item.status === 'approved' ? <button disabled={busy} className={softButton} onClick={() => fundInvestmentRequest(text(item.id))}>Fund from wallet</button> : null} /><DataTable title="Funded investment ledger" rows={rows.investments ?? []} columns={['user_id','property_id','amount','currency','status','reference','created_at']} /></div> : null}
+
+            {section === 'commissions' ? <div className="grid gap-6"><form onSubmit={createCommission} className="grid gap-3 border border-border bg-card p-6"><h2 className="display text-xl">Create commission record</h2><p className="text-xs leading-6 text-ink-soft">The commission percentage is read from the active plan you select. The amount is calculated by the database and remains pending until an administrator approves or rejects it.</p><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"><select required className={inputClass} value={commissionDraft.user_id} onChange={(event) => setCommissionDraft({ ...commissionDraft, user_id: event.target.value })}><option value="">Commission recipient</option>{(rows.users ?? []).map((item) => <option key={item.id} value={item.id}>{text(item.full_name) || text(item.mobile) || text(item.id)}</option>)}</select><select required className={inputClass} value={commissionDraft.plan_id} onChange={(event) => setCommissionDraft({ ...commissionDraft, plan_id: event.target.value })}><option value="">Active commission plan</option>{(rows.plans ?? []).filter((plan) => plan.active).map((plan) => <option key={plan.id} value={plan.id}>{text(plan.name)} · {text(plan.commission_percent)}%</option>)}</select><input required type="number" min="0.01" max="100000000" step="0.01" className={inputClass} placeholder="Commission base amount" value={commissionDraft.base_amount} onChange={(event) => setCommissionDraft({ ...commissionDraft, base_amount: event.target.value })} /><select className={inputClass} value={commissionDraft.currency} onChange={(event) => setCommissionDraft({ ...commissionDraft, currency: event.target.value })}>{CURRENCIES.map((code) => <option key={code}>{code}</option>)}</select><select className={inputClass} value={commissionDraft.commission_type} onChange={(event) => setCommissionDraft({ ...commissionDraft, commission_type: event.target.value })}><option value="referral">Referral</option><option value="property">Property</option><option value="investment">Investment</option><option value="sales">Sales</option><option value="other">Other</option></select><select className={inputClass} value={commissionDraft.source_user_id} onChange={(event) => setCommissionDraft({ ...commissionDraft, source_user_id: event.target.value })}><option value="">Source customer (optional)</option>{(rows.users ?? []).filter((item) => item.id !== commissionDraft.user_id).map((item) => <option key={item.id} value={item.id}>{text(item.full_name) || text(item.mobile) || text(item.id)}</option>)}</select><input maxLength={160} className={inputClass} placeholder="Reference (optional)" value={commissionDraft.reference} onChange={(event) => setCommissionDraft({ ...commissionDraft, reference: event.target.value })} /><input maxLength={240} className={inputClass} placeholder="Description (optional)" value={commissionDraft.description} onChange={(event) => setCommissionDraft({ ...commissionDraft, description: event.target.value })} /></div><button disabled={busy || !commissionDraft.user_id || !commissionDraft.plan_id || !commissionDraft.base_amount} className={buttonClass}>Calculate and add pending commission <ArrowRight /></button></form><DataTable title="Commission records" rows={rows.commissions ?? []} columns={['user_id','source_user_id','commission_type','reference','base_amount','commission_percent','amount','currency','status','description','created_at']} render={(item) => item.status === 'pending' ? <div className="flex flex-wrap gap-2"><button disabled={busy} className={softButton} onClick={() => reviewCommission(text(item.id), 'credit')}>Approve and credit</button><button disabled={busy} className={softButton} onClick={() => reviewCommission(text(item.id), 'reject')}>Reject</button></div> : null} /><DataTable title="Commission rate configuration" rows={(rows.plans ?? []).map((item) => ({ ...item, commission_percent: text(item.commission_percent) + '%' }))} columns={['level','code','name','commission_percent','active']} /></div> : null}
 
             {section === 'verifications' ? <DataTable title="Customer identity verification" rows={rows.verifications ?? []} columns={['user_id','document_type','document_name','document_url','note','status','submitted_at']} render={(item) => <div className="flex flex-wrap gap-2"><button type="button" className={softButton} onClick={() => void openIdentityDocument(text(item.document_url))}>View private document</button>{item.status === 'pending' ? <><button disabled={busy} className={softButton} onClick={() => updateStatus('verifications', text(item.id), { status: 'approved', reviewed_at: new Date().toISOString(), reviewed_by: user?.id }, 'Identity verification approved.')}>Approve</button><button disabled={busy} className={softButton} onClick={() => updateStatus('verifications', text(item.id), { status: 'rejected', reviewed_at: new Date().toISOString(), reviewed_by: user?.id, review_note: 'Please resubmit a valid document.' }, 'Identity verification rejected.')}>Reject</button></> : null}</div>} /> : null}
 
@@ -596,6 +669,7 @@ function AdminPage() {
             {section === 'settings' ? <div className="grid gap-6">
               <section className="grid gap-4 border border-border bg-card p-5"><div><h2 className="display text-xl">Currency exchange rates</h2><p className="mt-1 text-xs text-ink-soft">AED value of one unit of each currency. Enter rates supplied by your finance provider.</p></div>{(rows.fx ?? []).map((item) => <form key={item.code} onSubmit={(event) => { event.preventDefault(); void run(async () => { const value = Number(fxDrafts[text(item.code)]); if (!Number.isFinite(value) || value <= 0) throw new Error('Enter a rate greater than zero.'); const { error: saveError } = await requireSupabase().from('fx_rates').update({ aed_per_unit: value, updated_at: new Date().toISOString(), updated_by: user?.id }).eq('code', item.code); if (saveError) throw saveError }, `Updated ${text(item.code)} exchange rate.`) }} className="grid items-center gap-2 border-t border-border pt-3 sm:grid-cols-[1fr_1fr_auto]"><label className="text-sm font-medium">{text(item.code)} · {text(item.label)}</label><input required type="number" min="0.00000001" step="0.00000001" className={inputClass} value={fxDrafts[text(item.code)] ?? ''} onChange={(event) => setFxDrafts({ ...fxDrafts, [text(item.code)]: event.target.value })} /><button disabled={busy} className={softButton}>Save rate</button></form>)}</section>
               <section className="grid gap-4 border border-border bg-card p-5"><div><h2 className="display text-xl">Property price labels</h2><p className="mt-1 text-xs text-ink-soft">Update the public price text shown for each property slug.</p></div>{(rows.prices ?? []).map((item) => <form key={item.id} onSubmit={(event) => { event.preventDefault(); void run(async () => { const { error: saveError } = await requireSupabase().from('property_prices').update({ price_label: priceDrafts[text(item.id)], updated_at: new Date().toISOString(), updated_by: user?.id }).eq('id', item.id); if (saveError) throw saveError }, 'Property price label saved.') }} className="grid items-center gap-2 border-t border-border pt-3 sm:grid-cols-[1fr_1fr_auto]"><label className="text-sm font-medium">{text(item.slug)}</label><input required maxLength={120} className={inputClass} value={priceDrafts[text(item.id)] ?? ''} onChange={(event) => setPriceDrafts({ ...priceDrafts, [text(item.id)]: event.target.value })} /><button disabled={busy} className={softButton}>Save label</button></form>)}</section>
+              <form onSubmit={createMembershipPlan} className="grid gap-3 border border-brass/40 bg-card p-5"><div><h2 className="display text-xl">Create investment plan</h2><p className="mt-1 text-xs text-ink-soft">Set the minimum investment and the editable profit and commission percentages. Percentages are estimates only and do not guarantee a return.</p></div><div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3"><input required maxLength={48} className={inputClass} placeholder="Plan code (e.g. level-1)" value={newPlanDraft.code} onChange={(event) => setNewPlanDraft({ ...newPlanDraft, code: event.target.value })} /><input required maxLength={100} className={inputClass} placeholder="Plan name" value={newPlanDraft.name} onChange={(event) => setNewPlanDraft({ ...newPlanDraft, name: event.target.value })} /><input required type="number" min="0" step="1" className={inputClass} placeholder="Level" value={newPlanDraft.level} onChange={(event) => setNewPlanDraft({ ...newPlanDraft, level: event.target.value })} /><input required type="number" min="0" step="0.01" className={inputClass} placeholder="Minimum amount (AED)" value={newPlanDraft.minimum_amount} onChange={(event) => setNewPlanDraft({ ...newPlanDraft, minimum_amount: event.target.value })} /><input required type="number" min="0" max="100" step="0.0001" className={inputClass} placeholder="Profit percentage" value={newPlanDraft.profit_percent} onChange={(event) => setNewPlanDraft({ ...newPlanDraft, profit_percent: event.target.value })} /><input required type="number" min="0" max="100" step="0.0001" className={inputClass} placeholder="Commission percentage" value={newPlanDraft.commission_percent} onChange={(event) => setNewPlanDraft({ ...newPlanDraft, commission_percent: event.target.value })} /></div><label className="flex items-center gap-3 text-sm"><input type="checkbox" checked={newPlanDraft.active} onChange={(event) => setNewPlanDraft({ ...newPlanDraft, active: event.target.checked })} /> Make this plan available for new investment requests</label><button disabled={busy} className={buttonClass}>Create investment plan <ArrowRight /></button></form>
               <section className="grid gap-4 border border-border bg-card p-5"><div><h2 className="display text-xl">Membership plan settings</h2><p className="mt-1 text-xs text-ink-soft">Changing percentages changes displayed plan terms. Do not advertise guaranteed returns unless legally approved and funded.</p></div>{(rows.plans ?? []).map((item) => { const draft = planDrafts[text(item.id)] ?? { name: text(item.name), minimum_amount: text(item.minimum_amount), profit_percent: text(item.profit_percent), commission_percent: text(item.commission_percent) }; return <form key={item.id} onSubmit={(event) => { event.preventDefault(); void run(async () => { const minimum = Number(draft.minimum_amount), profit = Number(draft.profit_percent), commission = Number(draft.commission_percent); if (![minimum, profit, commission].every(Number.isFinite) || minimum < 0 || profit < 0 || commission < 0 || profit > 100 || commission > 100) throw new Error('Enter valid non-negative amounts and percentages no greater than 100.'); const { error: saveError } = await requireSupabase().from('membership_plans').update({ name: draft.name.trim(), minimum_amount: minimum, profit_percent: profit, commission_percent: commission, updated_at: new Date().toISOString(), updated_by: user?.id }).eq('id', item.id); if (saveError) throw saveError }, 'Membership plan settings saved.') }} className="grid gap-2 border-t border-border pt-4"><p className="text-sm font-medium">Level {text(item.level)} · {text(item.code)}</p><div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4"><input required className={inputClass} aria-label="Plan name" value={draft.name} onChange={(event) => setPlanDrafts({ ...planDrafts, [text(item.id)]: { ...draft, name: event.target.value } })} /><input required type="number" min="0" step="0.01" className={inputClass} aria-label="Minimum amount" placeholder="Minimum amount" value={draft.minimum_amount} onChange={(event) => setPlanDrafts({ ...planDrafts, [text(item.id)]: { ...draft, minimum_amount: event.target.value } })} /><input required type="number" min="0" max="100" step="0.0001" className={inputClass} aria-label="Profit percentage" placeholder="Profit %" value={draft.profit_percent} onChange={(event) => setPlanDrafts({ ...planDrafts, [text(item.id)]: { ...draft, profit_percent: event.target.value } })} /><input required type="number" min="0" max="100" step="0.0001" className={inputClass} aria-label="Commission percentage" placeholder="Commission %" value={draft.commission_percent} onChange={(event) => setPlanDrafts({ ...planDrafts, [text(item.id)]: { ...draft, commission_percent: event.target.value } })} /></div><button disabled={busy} className={softButton + ' justify-self-start'}>Save plan settings</button></form> })}</section>
             </div> : null}
 

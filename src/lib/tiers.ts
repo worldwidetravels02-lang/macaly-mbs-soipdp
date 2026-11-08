@@ -1,7 +1,5 @@
 /** Membership programme thresholds and shared wallet constants. */
 
-export const SIGN_IN_BONUS_AED = 200
-
 export type Tier = {
   level: number
   name: string
@@ -20,7 +18,6 @@ export const TIERS: Tier[] = [
     propertyAllowance: 20,
     summary: 'Open to every registered member, from the moment you sign in.',
     benefits: [
-      'AED 200 sign-in bonus credited to your wallet',
       '20 residence projects unlocked',
       'Access to residence previews and floor plans',
       'Quarterly market note for Dubai residential',
