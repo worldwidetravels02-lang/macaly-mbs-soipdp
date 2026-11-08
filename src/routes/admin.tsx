@@ -8,7 +8,7 @@ import { canonicalUrl } from '../lib/canonical-url'
 import siteMetadata from '../metadata.json'
 
 type Row = Record<string, any>
-type Section = 'overview' | 'properties' | 'enquiries' | 'users' | 'promotions' | 'finance' | 'investments' | 'verifications' | 'tasks' | 'payments' | 'content' | 'team' | 'support' | 'settings'
+type Section = 'overview' | 'properties' | 'enquiries' | 'users' | 'promotions' | 'finance' | 'investments' | 'commissions' | 'verifications' | 'tasks' | 'payments' | 'content' | 'team' | 'support' | 'settings'
 const SECTIONS: { id: Section; label: string }[] = [
   { id: 'overview', label: 'Overview' },
   { id: 'properties', label: 'Properties' },
@@ -17,6 +17,7 @@ const SECTIONS: { id: Section; label: string }[] = [
   { id: 'promotions', label: 'Promotions' },
   { id: 'finance', label: 'Wallet & finance' },
   { id: 'investments', label: 'Investments' },
+  { id: 'commissions', label: 'Commissions' },
   { id: 'verifications', label: 'Identity checks' },
   { id: 'tasks', label: 'Tasks & levels' },
   { id: 'payments', label: 'Payment records' },
@@ -75,6 +76,7 @@ function AdminPage() {
   const [profileLevel, setProfileLevel] = useState('0')
   const [notificationDraft, setNotificationDraft] = useState({ user_id: '', title: '', body: '' })
   const [profitDraft, setProfitDraft] = useState({ user_id: '', amount: '', currency: 'AED', period_start: '', period_end: '', description: 'Monthly profit credited to customer wallet' })
+  const [commissionDraft, setCommissionDraft] = useState({ user_id: '', plan_id: '', base_amount: '', currency: 'AED', commission_type: 'referral', source_user_id: '', reference: '', description: '' })
   const [manualWalletDraft, setManualWalletDraft] = useState({ user_id: '', amount: '', currency: 'AED', description: 'Balance added by administrator' })
   const [walletSearch, setWalletSearch] = useState('')
   const [walletCurrencyFilter, setWalletCurrencyFilter] = useState('all')
@@ -122,6 +124,7 @@ function AdminPage() {
         withdrawals: client.from('withdrawal_requests').select('*').order('created_at', { ascending: false }).limit(100),
         investments: client.from('investments').select('*').order('created_at', { ascending: false }).limit(100),
         profits: client.from('profit_payouts').select('*').order('created_at', { ascending: false }).limit(100),
+        commissions: client.from('commission_records').select('*').order('created_at', { ascending: false }).limit(200),
         threads: client.from('support_threads').select('*').order('updated_at', { ascending: false }).limit(100),
         fx: client.from('fx_rates').select('*').order('code'),
         prices: client.from('property_prices').select('*').order('slug'),
@@ -364,6 +367,41 @@ function AdminPage() {
     }, 'Profit credited to the customer internal wallet.')
   }
 
+  const createCommission = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const baseAmount = Number(commissionDraft.base_amount)
+    if (!commissionDraft.user_id || !commissionDraft.plan_id) { setError('Select a customer and an active commission plan.'); return }
+    if (!Number.isFinite(baseAmount) || baseAmount <= 0 || baseAmount > 100000000) { setError('Enter a valid commission base amount.'); return }
+    await run(async () => {
+      const { error: rpcError } = await requireSupabase().rpc('admin_create_commission', {
+        p_user_id: commissionDraft.user_id,
+        p_plan_id: commissionDraft.plan_id,
+        p_base_amount: baseAmount,
+        p_currency: commissionDraft.currency,
+        p_commission_type: commissionDraft.commission_type,
+        p_source_user_id: commissionDraft.source_user_id || null,
+        p_reference: commissionDraft.reference || null,
+        p_description: commissionDraft.description || null,
+      })
+      if (rpcError) throw rpcError
+      setCommissionDraft({ user_id: '', plan_id: '', base_amount: '', currency: 'AED', commission_type: 'referral', source_user_id: '', reference: '', description: '' })
+    }, 'Commission calculated from the selected plan rate and added to the pending review queue.')
+  }
+
+  const reviewCommission = (id: string, action: 'credit' | 'reject') => run(async () => {
+    const { error: rpcError } = await requireSupabase().rpc('admin_review_commission', {
+      p_commission_id: id,
+      p_action: action,
+      p_admin_note: action === 'credit' ? 'Approved and credited by administrator' : 'Rejected by administrator',
+    })
+    if (rpcError) throw rpcError
+  }, action === 'credit' ? 'Commission approved and credited to the internal wallet.' : 'Commission rejected.')
+
+  const fundInvestmentRequest = (id: string) => run(async () => {
+    const { error: rpcError } = await requireSupabase().rpc('admin_fund_investment_request', { p_request_id: id })
+    if (rpcError) throw rpcError
+  }, 'Investment funded from the customer posted wallet balance and recorded in the ledger.')
+
   const setAccountState = (customerId: string, status: 'active' | 'frozen' | 'blocked') => run(async () => {
     const { error: stateError } = await requireSupabase().from('account_states').upsert({ user_id: customerId, status, reason: status === 'active' ? null : 'Updated by administrator', updated_by: user?.id, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
     if (stateError) throw stateError
@@ -578,7 +616,9 @@ function AdminPage() {
               <DataTable title="Investment requests" rows={rows.investments ?? []} columns={['user_id','property_id','amount','currency','status','created_at']} />
             </div> : null}
 
-            {section === 'investments' ? <div className="grid gap-6"><DataTable title="Customer investment requests" rows={rows.investmentRequests ?? []} columns={['user_id','property_name','plan_code','amount','expected_profit','expected_commission','status','created_at']} render={(item) => item.status === 'pending' ? <div className="flex gap-2"><button disabled={busy} className={softButton} onClick={() => updateStatus('investment_requests', text(item.id), { status: 'approved', reviewed_at: new Date().toISOString(), reviewed_by: user?.id }, 'Investment request approved.')}>Approve</button><button disabled={busy} className={softButton} onClick={() => updateStatus('investment_requests', text(item.id), { status: 'rejected', reviewed_at: new Date().toISOString(), reviewed_by: user?.id }, 'Investment request rejected.')}>Reject</button></div> : null} /><DataTable title="Active investment ledger" rows={rows.investments ?? []} columns={['user_id','property_id','amount','currency','status','created_at']} /></div> : null}
+            {section === 'investments' ? <div className="grid gap-6"><p className="border border-brass/40 bg-brass/5 p-4 text-xs leading-6">Investment requests are reviewed by an administrator. Funding debits the customer's posted internal wallet balance only after approval. Expected profit is a plan estimate, not a guaranteed return.</p><DataTable title="Customer investment requests" rows={rows.investmentRequests ?? []} columns={['user_id','property_name','plan_code','amount','currency','expected_profit','expected_commission','status','created_at']} render={(item) => item.status === 'pending' ? <div className="flex flex-wrap gap-2"><button disabled={busy} className={softButton} onClick={() => updateStatus('investment_requests', text(item.id), { status: 'approved', reviewed_at: new Date().toISOString(), reviewed_by: user?.id }, 'Investment request approved. It can now be funded from the customer's posted wallet balance.')}>Approve</button><button disabled={busy} className={softButton} onClick={() => updateStatus('investment_requests', text(item.id), { status: 'rejected', reviewed_at: new Date().toISOString(), reviewed_by: user?.id }, 'Investment request rejected.')}>Reject</button></div> : item.status === 'approved' ? <button disabled={busy} className={softButton} onClick={() => fundInvestmentRequest(text(item.id))}>Fund from wallet</button> : null} /><DataTable title="Funded investment ledger" rows={rows.investments ?? []} columns={['user_id','property_id','amount','currency','status','reference','created_at']} /></div> : null}
+
+            {section === 'commissions' ? <div className="grid gap-6"><form onSubmit={createCommission} className="grid gap-3 border border-border bg-card p-6"><h2 className="display text-xl">Create commission record</h2><p className="text-xs leading-6 text-ink-soft">The commission percentage is read from the active plan you select. The amount is calculated by the database and remains pending until an administrator approves or rejects it.</p><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"><select required className={inputClass} value={commissionDraft.user_id} onChange={(event) => setCommissionDraft({ ...commissionDraft, user_id: event.target.value })}><option value="">Commission recipient</option>{(rows.users ?? []).map((item) => <option key={item.id} value={item.id}>{text(item.full_name) || text(item.mobile) || text(item.id)}</option>)}</select><select required className={inputClass} value={commissionDraft.plan_id} onChange={(event) => setCommissionDraft({ ...commissionDraft, plan_id: event.target.value })}><option value="">Active commission plan</option>{(rows.plans ?? []).filter((plan) => plan.active).map((plan) => <option key={plan.id} value={plan.id}>{text(plan.name)} · {text(plan.commission_percent)}%</option>)}</select><input required type="number" min="0.01" max="100000000" step="0.01" className={inputClass} placeholder="Commission base amount" value={commissionDraft.base_amount} onChange={(event) => setCommissionDraft({ ...commissionDraft, base_amount: event.target.value })} /><select className={inputClass} value={commissionDraft.currency} onChange={(event) => setCommissionDraft({ ...commissionDraft, currency: event.target.value })}>{CURRENCIES.map((code) => <option key={code}>{code}</option>)}</select><select className={inputClass} value={commissionDraft.commission_type} onChange={(event) => setCommissionDraft({ ...commissionDraft, commission_type: event.target.value })}><option value="referral">Referral</option><option value="property">Property</option><option value="investment">Investment</option><option value="sales">Sales</option><option value="other">Other</option></select><select className={inputClass} value={commissionDraft.source_user_id} onChange={(event) => setCommissionDraft({ ...commissionDraft, source_user_id: event.target.value })}><option value="">Source customer (optional)</option>{(rows.users ?? []).filter((item) => item.id !== commissionDraft.user_id).map((item) => <option key={item.id} value={item.id}>{text(item.full_name) || text(item.mobile) || text(item.id)}</option>)}</select><input maxLength={160} className={inputClass} placeholder="Reference (optional)" value={commissionDraft.reference} onChange={(event) => setCommissionDraft({ ...commissionDraft, reference: event.target.value })} /><input maxLength={240} className={inputClass} placeholder="Description (optional)" value={commissionDraft.description} onChange={(event) => setCommissionDraft({ ...commissionDraft, description: event.target.value })} /></div><button disabled={busy || !commissionDraft.user_id || !commissionDraft.plan_id || !commissionDraft.base_amount} className={buttonClass}>Calculate and add pending commission <ArrowRight /></button></form><DataTable title="Commission records" rows={rows.commissions ?? []} columns={['user_id','source_user_id','commission_type','reference','base_amount','commission_percent','amount','currency','status','description','created_at']} render={(item) => item.status === 'pending' ? <div className="flex flex-wrap gap-2"><button disabled={busy} className={softButton} onClick={() => reviewCommission(text(item.id), 'credit')}>Approve and credit</button><button disabled={busy} className={softButton} onClick={() => reviewCommission(text(item.id), 'reject')}>Reject</button></div> : null} /><DataTable title="Commission rate configuration" rows={(rows.plans ?? []).map((item) => ({ ...item, commission_percent: text(item.commission_percent) + '%' }))} columns={['level','code','name','commission_percent','active']} /></div> : null}
 
             {section === 'verifications' ? <DataTable title="Customer identity verification" rows={rows.verifications ?? []} columns={['user_id','document_type','document_name','document_url','note','status','submitted_at']} render={(item) => <div className="flex flex-wrap gap-2"><button type="button" className={softButton} onClick={() => void openIdentityDocument(text(item.document_url))}>View private document</button>{item.status === 'pending' ? <><button disabled={busy} className={softButton} onClick={() => updateStatus('verifications', text(item.id), { status: 'approved', reviewed_at: new Date().toISOString(), reviewed_by: user?.id }, 'Identity verification approved.')}>Approve</button><button disabled={busy} className={softButton} onClick={() => updateStatus('verifications', text(item.id), { status: 'rejected', reviewed_at: new Date().toISOString(), reviewed_by: user?.id, review_note: 'Please resubmit a valid document.' }, 'Identity verification rejected.')}>Reject</button></> : null}</div>} /> : null}
 
