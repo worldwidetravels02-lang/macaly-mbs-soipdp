@@ -39,6 +39,7 @@ export const RESIDENCE_PATHS = {
   'the-valley': '/residences/the-valley',
   'jumeirah-islands': '/residences/jumeirah-islands',
   'creek-harbour': '/residences/creek-harbour',
+  jvc: '/residences/jvc',
 } as const
 
 export type ResidenceSlug = keyof typeof RESIDENCE_PATHS
@@ -197,8 +198,7 @@ export const RESIDENCES: Residence[] = [
       { src: IMAGES.pool, caption: 'The shaded water court' },
     ],
     plans: [
-      {
-        id: 'downtown-2',
+      {        id: 'downtown-2',
         name: 'Type A · 2 bedroom',
         bedrooms: '2 bedrooms',
         size: '1,850 sq. ft.',
@@ -397,8 +397,7 @@ const LISTING_SEEDS: ListingSeed[] = [
     area: 'Al Barari, Dubai',
     configuration: '4 & 5 bedroom garden villas',
     price: 'From AED 12.4M',
-    image: PHOTOS['al-barari'],
-    alt: 'A tranquil tropical villa with a swimming pool surrounded by lush palm trees',
+    image: PHOTOS['al-barari'],    alt: 'A tranquil tropical villa with a swimming pool surrounded by lush palm trees',
     summary: 'Low villas set inside mature gardens, each with a shaded courtyard pool.',
     description:
       'Twelve garden homes arranged around a private water garden in Al Barari. Every villa opens to a shaded courtyard, with mature planting screening the pool terrace from the neighbouring plots.',
@@ -597,8 +596,7 @@ const LISTING_SEEDS: ListingSeed[] = [
     price: 'From AED 6.8M',
     image: PHOTOS['tilal-al-ghaf'],
     alt: 'Aerial photo of a luxurious island resort surrounded by turquoise waters',
-    summary: 'Villas on a white sand lagoon with a beach club at the centre.',
-    description:
+    summary: 'Villas on a white sand lagoon with a beach club at the centre.',    description:
       'Homes on the white sand lagoon at Tilal Al Ghaf, with beach frontage for the water-facing plots and a residents beach club at the centre of the community.',
     bedrooms: '3 & 4 bedrooms',
     size: '3,200 to 4,800 sq. ft.',
@@ -797,7 +795,6 @@ function planSet(slug: string, bedrooms: string, size: string, secondBedrooms: s
     },
   ]
 }
-
 const EXTRA_RESIDENCES: Residence[] = LISTING_SEEDS.map((seed) => ({
   slug: seed.slug as ResidenceSlug,
   name: seed.name,
@@ -835,30 +832,45 @@ const EXTRA_RESIDENCES: Residence[] = LISTING_SEEDS.map((seed) => ({
 RESIDENCES.push(...EXTRA_RESIDENCES)
 
  
-// Temporary demonstration content: replace these placeholders with verified
-// project information before accepting reservations or publishing prices.
-RESIDENCES.forEach((residence, index) => {
-  residence.name = `Sample Dubai Residence ${String(index + 1).padStart(2, '0')}`
-  residence.area = 'Dubai, United Arab Emirates · Sample location'
-  residence.configuration = 'Illustrative apartment and villa layouts'
+// Curated Dubai catalogue. Names are proposed marketing labels; verify all project details before publication.
+const jvcTemplate = RESIDENCES.find((residence) => residence.slug === 'business-bay')
+if (!jvcTemplate) throw new Error('Missing residence template for JVC listing')
+const jvcResidence: Residence = { ...jvcTemplate, slug: 'jvc' as ResidenceSlug }
+RESIDENCES.push(jvcResidence)
+
+const PROPERTY_CATALOGUE = [
+  { slug: 'downtown', name: 'Burj Vista Residences', area: 'Downtown Dubai' },
+  { slug: 'business-bay', name: 'The Opus Residences', area: 'Business Bay' },
+  { slug: 'marina', name: 'Marina Gate Residences', area: 'Dubai Marina' },
+  { slug: 'palm-jumeirah', name: 'Palm Luxury Residences', area: 'Palm Jumeirah' },
+  { slug: 'dubai-hills', name: 'Hills Estate Villas', area: 'Dubai Hills Estate' },
+  { slug: 'jvc', name: 'Garden Heights Residences', area: 'Jumeirah Village Circle' },
+  { slug: 'creek-harbour', name: 'Creek Waterfront Residences', area: 'Dubai Creek Harbour' },
+  { slug: 'arabian-ranches', name: 'Arabian Ranches Villas', area: 'Arabian Ranches' },
+] as const
+
+const selectedResidences = PROPERTY_CATALOGUE.map((listing) => {
+  const residence = RESIDENCES.find((item) => item.slug === listing.slug)
+  if (!residence) throw new Error(`Missing property detail for ${listing.slug}`)
+  residence.name = listing.name
+  residence.area = listing.area + ', Dubai'
+  residence.configuration = 'Property details on request'
   residence.price = 'Price on request'
-  residence.alt = 'Illustrative luxury residential concept image'
-  residence.summary = 'Demonstration listing only. Project details are awaiting confirmation.'
-  residence.description = 'This is a sample property page used to demonstrate the website layout. The project, availability, specifications and imagery have not been verified.'
-  residence.bedrooms = 'To be confirmed'
-  residence.size = 'To be confirmed'
+  residence.alt = 'Illustrative luxury property concept image; actual property imagery to be confirmed'
+  residence.summary = `Luxury property listing in ${listing.area}, Dubai.`
+  residence.description = 'This is a proposed catalogue listing name and location. The development identity, ownership, availability, specifications, images and prices have not been independently verified. Contact the Msheireb Properties team for confirmed information.'
+  residence.bedrooms = 'Details on request'
+  residence.size = 'Details on request'
   residence.handover = 'To be confirmed'
-  residence.features = ['Sample feature — details to be confirmed']
-  residence.gallery = residence.gallery.map((shot) => ({
-    ...shot,
-    caption: 'Illustrative concept image',
-  }))
+  residence.features = ['Details available on request']
+  residence.gallery = residence.gallery.map((shot) => ({ ...shot, caption: 'Illustrative concept image — verify before publication' }))
   residence.plans = []
   residence.investment = {
     entryFrom: 'Price on request',
     yieldPct: 'Not provided',
     options: [],
-    note: 'No price, rental yield, payment plan or investment return is being represented. Confirm all project and financial details before publication.',
+    note: 'No price, rental yield, payment plan or investment return is represented. Confirm all details before publication.',
   }
+  return residence
 })
-
+RESIDENCES.splice(0, RESIDENCES.length, ...selectedResidences)
