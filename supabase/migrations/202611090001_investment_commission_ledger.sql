@@ -278,7 +278,7 @@ begin
       'plan_code', v_request.plan_code, 'admin_note', p_admin_note));
   return v_request.id;
 end;
-$;
+$$;
 
 create or replace function public.admin_fund_investment_request(p_request_id uuid)
 returns uuid
