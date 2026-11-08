@@ -29,6 +29,10 @@ alter table public.investment_requests
 alter table public.investment_requests
   add constraint investment_requests_currency_check
   check (currency in ('AED','OMR','SAR','KWD','BHD','QAR','INR'));
+alter table public.investment_requests
+  add column if not exists plan_id uuid references public.membership_plans(id) on delete set null,
+  add column if not exists profit_percent numeric(8,4) not null default 0 check (profit_percent >= 0 and profit_percent <= 100),
+  add column if not exists commission_percent numeric(8,4) not null default 0 check (commission_percent >= 0 and commission_percent <= 100);
 
 create table if not exists public.commission_records (
   id uuid primary key default gen_random_uuid(),
@@ -208,6 +212,74 @@ begin
 end;
 $$;
 
+create or replace function public.admin_review_investment_request(
+  p_request_id uuid,
+  p_action text,
+  p_admin_note text default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $
+declare
+  v_request public.investment_requests%rowtype;
+  v_plan_id uuid;
+  v_minimum numeric(20,2);
+  v_profit_percent numeric(8,4);
+  v_commission_percent numeric(8,4);
+begin
+  if not (select private.is_admin()) then
+    raise exception 'Administrator access required' using errcode = '42501';
+  end if;
+  if p_action not in ('approve','reject') then
+    raise exception 'Choose approve or reject';
+  end if;
+  select * into v_request from public.investment_requests
+  where id = p_request_id for update;
+  if not found then raise exception 'Investment request not found'; end if;
+  if v_request.status <> 'pending' then
+    raise exception 'Only pending investment requests can be reviewed';
+  end if;
+
+  if p_action = 'approve' then
+    select id, minimum_amount, profit_percent, commission_percent
+      into v_plan_id, v_minimum, v_profit_percent, v_commission_percent
+    from public.membership_plans
+    where code = v_request.plan_code and active = true;
+    if v_plan_id is null then raise exception 'The selected investment plan is no longer active'; end if;
+    if v_request.amount < v_minimum then
+      raise exception 'The investment amount is below the current plan minimum';
+    end if;
+    update public.investment_requests
+    set status = 'approved',
+        plan_id = v_plan_id,
+        profit_percent = v_profit_percent,
+        commission_percent = v_commission_percent,
+        expected_profit = round(v_request.amount * v_profit_percent / 100, 2),
+        expected_commission = round(v_request.amount * v_commission_percent / 100, 2),
+        admin_note = nullif(btrim(p_admin_note), ''),
+        reviewed_at = now(),
+        reviewed_by = (select auth.uid())
+    where id = v_request.id;
+  else
+    update public.investment_requests
+    set status = 'rejected',
+        admin_note = nullif(btrim(p_admin_note), ''),
+        reviewed_at = now(),
+        reviewed_by = (select auth.uid())
+    where id = v_request.id;
+  end if;
+
+  insert into public.financial_audit_log(actor_id, action, entity_type, entity_id, details)
+  values ((select auth.uid()), 'investment_request_' || p_action, 'investment_request',
+    v_request.id, jsonb_build_object('user_id', v_request.user_id,
+      'amount', v_request.amount, 'currency', v_request.currency,
+      'plan_code', v_request.plan_code, 'admin_note', p_admin_note));
+  return v_request.id;
+end;
+$;
+
 create or replace function public.admin_fund_investment_request(p_request_id uuid)
 returns uuid
 language plpgsql
@@ -219,6 +291,8 @@ declare
   v_balance numeric(20,2);
   v_transaction_id uuid;
   v_investment_id uuid;
+  v_commission_amount numeric(20,2);
+  v_commission_id uuid;
 begin
   if not (select private.is_admin()) then
     raise exception 'Administrator access required' using errcode = '42501';
@@ -262,6 +336,21 @@ begin
   )
   returning id into v_investment_id;
 
+  v_commission_amount := round(v_request.amount * coalesce(v_request.commission_percent, 0) / 100, 2);
+  if v_commission_amount > 0 then
+    insert into public.commission_records(
+      user_id, plan_id, commission_type, reference, base_amount,
+      commission_percent, amount, currency, status, description,
+      idempotency_key, created_by
+    ) values (
+      v_request.user_id, v_request.plan_id, 'investment',
+      'investment-request:' || v_request.id::text, v_request.amount,
+      v_request.commission_percent, v_commission_amount, v_request.currency,
+      'pending', 'Investment commission awaiting administrator review',
+      'investment-commission:' || v_request.id::text, (select auth.uid())
+    ) returning id into v_commission_id;
+  end if;
+
   update public.investment_requests
   set status = 'funded', funded_at = now(), wallet_transaction_id = v_transaction_id
   where id = v_request.id;
@@ -269,16 +358,18 @@ begin
   insert into public.financial_audit_log(actor_id, action, entity_type, entity_id, details)
   values ((select auth.uid()), 'investment_funded', 'investment_request',
     v_request.id, jsonb_build_object('investment_id', v_investment_id,
-      'wallet_transaction_id', v_transaction_id, 'amount', v_request.amount,
-      'currency', v_request.currency));
+      'wallet_transaction_id', v_transaction_id, 'commission_record_id', v_commission_id,
+      'amount', v_request.amount, 'currency', v_request.currency));
 
   return v_transaction_id;
 end;
 $$;
 
 revoke all on function public.admin_create_commission(uuid,uuid,numeric,text,text,uuid,text,text) from public, anon;
+revoke all on function public.admin_review_investment_request(uuid,text,text) from public, anon;
 revoke all on function public.admin_review_commission(uuid,text,text) from public, anon;
 revoke all on function public.admin_fund_investment_request(uuid) from public, anon;
 grant execute on function public.admin_create_commission(uuid,uuid,numeric,text,text,uuid,text,text) to authenticated;
+grant execute on function public.admin_review_investment_request(uuid,text,text) to authenticated;
 grant execute on function public.admin_review_commission(uuid,text,text) to authenticated;
 grant execute on function public.admin_fund_investment_request(uuid) to authenticated;
