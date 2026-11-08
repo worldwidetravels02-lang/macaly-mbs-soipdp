@@ -218,9 +218,8 @@ export function ResidenceDetail({ slug }: { slug: ResidenceSlug }) {
 
                 {selectedRank ? (
                   <p data-testid="invest-preview" className="mt-3 text-xs text-ink-soft">
-                    {selectedRank.name}: profit {selectedRank.profit_percent}% and commission{' '}
-                    {selectedRank.commission_percent}% are paid into the wallet when administration
-                    funds the investment.
+                    {selectedRank.name}: estimated profit {selectedRank.profit_percent}% and commission{' '}
+                    {selectedRank.commission_percent}% are calculated from the plan settings. Funding requires administrator approval; investment commissions remain pending until separately approved. Estimates are not guaranteed returns.
                     {investValue >= Number(selectedRank.minimum_amount)
                       ? ` Estimated profit AED ${Math.round((investValue * selectedRank.profit_percent) / 100).toLocaleString()} and commission AED ${Math.round((investValue * selectedRank.commission_percent) / 100).toLocaleString()}.`
                       : ` Minimum AED ${Number(selectedRank.minimum_amount).toLocaleString()}.`}
