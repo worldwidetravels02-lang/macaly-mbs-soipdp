@@ -373,3 +373,125 @@ grant execute on function public.admin_create_commission(uuid,uuid,numeric,text,
 grant execute on function public.admin_review_investment_request(uuid,text,text) to authenticated;
 grant execute on function public.admin_review_commission(uuid,text,text) to authenticated;
 grant execute on function public.admin_fund_investment_request(uuid) to authenticated;
+
+
+-- Keep plan percentages within the same bounds enforced by the administration UI.
+alter table public.membership_plans
+  drop constraint if exists membership_plans_profit_percent_check;
+alter table public.membership_plans
+  add constraint membership_plans_profit_percent_check
+  check (profit_percent >= 0 and profit_percent <= 100);
+alter table public.membership_plans
+  drop constraint if exists membership_plans_commission_percent_check;
+alter table public.membership_plans
+  add constraint membership_plans_commission_percent_check
+  check (commission_percent >= 0 and commission_percent <= 100);
+
+-- Extend the existing administrator wallet-credit RPCs to accept INR as well.
+create or replace function public.admin_add_wallet_balance(
+  p_user_id uuid,
+  p_amount numeric,
+  p_currency text default 'AED',
+  p_description text default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_transaction_id uuid;
+  v_description text;
+begin
+  if not (select private.is_admin()) then
+    raise exception 'Administrator access required' using errcode = '42501';
+  end if;
+  if p_user_id is null or not exists (select 1 from auth.users where id = p_user_id) then
+    raise exception 'Select a valid customer';
+  end if;
+  if p_amount is null or p_amount <= 0 or p_amount > 100000000 then
+    raise exception 'Amount must be greater than zero and no more than 100,000,000';
+  end if;
+  if p_currency not in ('AED','OMR','SAR','KWD','BHD','QAR','INR') then
+    raise exception 'Unsupported currency';
+  end if;
+  v_description := coalesce(nullif(btrim(p_description), ''), 'Wallet balance added by administrator');
+  if length(v_description) > 240 then
+    raise exception 'Description must be 240 characters or fewer';
+  end if;
+  insert into public.wallet_transactions (
+    user_id, transaction_type, direction, amount, currency, status,
+    reference_type, idempotency_key, description, created_by, metadata
+  ) values (
+    p_user_id, 'admin_credit', 'credit', p_amount, p_currency, 'posted',
+    'admin_manual_credit', 'admin-credit:' || gen_random_uuid()::text,
+    v_description, (select auth.uid()), jsonb_build_object('source', 'admin_manual_credit')
+  )
+  returning id into v_transaction_id;
+  insert into public.financial_audit_log(actor_id, action, entity_type, entity_id, details)
+  values ((select auth.uid()), 'admin_wallet_balance_added', 'wallet_transaction', v_transaction_id,
+    jsonb_build_object('customer_id', p_user_id, 'amount', p_amount, 'currency', p_currency, 'description', v_description));
+  return v_transaction_id;
+end;
+$$;
+
+create or replace function public.admin_credit_profit_payout(
+  p_user_id uuid,
+  p_amount numeric,
+  p_currency text,
+  p_period_start date,
+  p_period_end date,
+  p_description text default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_payout_id uuid;
+  v_transaction_id uuid;
+  v_key text;
+begin
+  if not (select private.is_admin()) then
+    raise exception 'Administrator access required' using errcode = '42501';
+  end if;
+  if p_amount is null or p_amount <= 0 then raise exception 'Amount must be greater than zero'; end if;
+  if p_currency not in ('AED','OMR','SAR','KWD','BHD','QAR','INR') then raise exception 'Unsupported currency'; end if;
+  if p_period_start is null or p_period_end is null or p_period_end < p_period_start then
+    raise exception 'Invalid payout period';
+  end if;
+  if not exists (select 1 from auth.users where id = p_user_id) then raise exception 'Customer not found'; end if;
+
+  v_key := 'profit:' || p_user_id::text || ':' || p_currency || ':' || p_period_start::text || ':' || p_period_end::text;
+  insert into public.profit_payouts(user_id, period_start, period_end, amount, currency, status, idempotency_key, approved_by, approved_at)
+  values (p_user_id, p_period_start, p_period_end, p_amount, p_currency, 'approved', v_key, (select auth.uid()), now())
+  on conflict (idempotency_key) do nothing
+  returning id into v_payout_id;
+  if v_payout_id is null then raise exception 'A payout already exists for this customer and period'; end if;
+
+  insert into public.wallet_transactions (
+    user_id, transaction_type, direction, amount, currency, status,
+    reference_type, reference_id, idempotency_key, description, created_by
+  ) values (
+    p_user_id, 'profit', 'credit', p_amount, p_currency, 'posted',
+    'profit_payout', v_payout_id, v_key || ':ledger',
+    coalesce(p_description, 'Profit credited to customer wallet'), (select auth.uid())
+  )
+  returning id into v_transaction_id;
+
+  update public.profit_payouts
+  set status = 'credited', wallet_transaction_id = v_transaction_id, credited_at = now()
+  where id = v_payout_id;
+
+  insert into public.financial_audit_log(actor_id, action, entity_type, entity_id, details)
+  values ((select auth.uid()), 'profit_credited', 'profit_payout', v_payout_id,
+    jsonb_build_object('amount', p_amount, 'currency', p_currency, 'customer_id', p_user_id, 'ledger_id', v_transaction_id));
+  return v_transaction_id;
+end;
+$$;
+
+revoke all on function public.admin_add_wallet_balance(uuid,numeric,text,text) from public, anon;
+revoke all on function public.admin_credit_profit_payout(uuid,numeric,text,date,date,text) from public, anon;
+grant execute on function public.admin_add_wallet_balance(uuid,numeric,text,text) to authenticated;
+grant execute on function public.admin_credit_profit_payout(uuid,numeric,text,date,date,text) to authenticated;
