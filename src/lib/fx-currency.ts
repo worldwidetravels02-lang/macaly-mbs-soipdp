@@ -16,7 +16,7 @@ function readCurrency(): CurrencyCode {
 }
 
 function parseAedLabel(label: string): { prefix: string; amount: number } | null {
-  const match = label.match(/^(.*?)(?:AED)\\s*([\\d,.]+)\\s*(M|K)?(.*)$/i)
+  const match = label.match(/^(.*?)(?:AED)\s*([\d,.]+)\s*(M|K)?(.*)$/i)
   if (!match) return null
   const base = Number(match[2].replace(/,/g, ''))
   if (!Number.isFinite(base)) return null
