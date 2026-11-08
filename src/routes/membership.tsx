@@ -77,8 +77,8 @@ function MembershipPage() {
       <main id="main">
         <PageIntro
           eyebrow="Membership"
-          title="Four levels, earned by what you invest."
-          intro="Every registered member starts at Level 1 with an AED 200 sign-in bonus. Approved wallet top-ups move you through the levels, and each level adds access rather than noise."
+          title="Membership levels and benefits."
+          intro="Registered members can progress through the available levels as administrators confirm eligible account activity. Plan benefits and percentages are managed by the administration team; no bonus or return is assumed unless it is explicitly approved and recorded."
           image={IMAGES.tower}
           imageAlt="Msheireb Properties tower at dusk"
         />
