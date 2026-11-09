@@ -188,6 +188,11 @@ function WalletPage() {
     setCurrency(nextCurrency)
   }
 
+  const reservedWithdrawalAmount = withdrawals
+    .filter((row) => row.currency === currency && ['pending', 'submitted', 'under_review', 'approved', 'processing', 'in_progress'].includes(row.status.toLowerCase().replace(/-/g, '_')))
+    .reduce((total, row) => total + (Number(row.amount) || 0), 0)
+  const withdrawableAmount = Math.max(0, balance - reservedWithdrawalAmount)
+
   const currencyTransactions = transactions.filter((row) => row.currency === currency)
   const getTransactionDirection = (row: WalletRow): 'credit' | 'debit' | 'unknown' => {
     const direction = row.direction?.toLowerCase().trim()
@@ -260,7 +265,7 @@ function WalletPage() {
               </form>
               <form id="withdrawals" onSubmit={(event) => { event.preventDefault(); void submitWalletRequest('withdrawal') }} className="grid gap-3 border border-border bg-card p-6">
                 <div><p className="eyebrow text-brass">Withdraw funds</p><h2 className="display mt-2 text-xl">Withdrawal request</h2><p className="mt-2 text-xs leading-6 text-ink-soft">Choose the amount and submit. Your request stays pending until an administrator reviews it. Contact support if you need help.</p></div>
-                <label className="text-xs text-ink-soft">Withdrawal amount ({currency})<input required type="number" min="0.01" max="100000000" step="0.01" className={fieldClass} value={withdrawalAmount} onChange={(event) => setWithdrawalAmount(event.target.value)} placeholder="Enter amount" /></label>
+                <div className="grid gap-2"><p className="text-xs text-ink-soft">Available for a new withdrawal: <strong className="text-foreground">{money(withdrawableAmount, currency)}</strong></p><label className="text-xs text-ink-soft">Withdrawal amount ({currency})<input required type="number" min="0.01" max={withdrawableAmount} step="0.01" className={fieldClass} value={withdrawalAmount} onChange={(event) => setWithdrawalAmount(event.target.value)} placeholder="Enter amount" disabled={withdrawableAmount < 0.01} /></label>{withdrawableAmount < 0.01 ? <p className="text-xs text-ink-soft">No balance is currently available for another withdrawal request.</p> : <p className="text-xs text-ink-soft">Pending and approved withdrawals are deducted from this amount until completed or rejected.</p>}</div>
                 <label className="text-xs text-ink-soft">Payout method<input required maxLength={80} className={fieldClass} value={payoutMethod} onChange={(event) => setPayoutMethod(event.target.value)} placeholder="e.g. Bank transfer" /></label>
                 <label className="text-xs text-ink-soft">Payout details<textarea required maxLength={2000} rows={3} className={fieldClass} value={payoutDetails} onChange={(event) => setPayoutDetails(event.target.value)} placeholder="Enter the details needed to arrange your payout" /></label>
                 <p className="text-xs leading-5 text-ink-soft">Only provide payout information needed for the transfer. An administrator reviews the request and arranges any external transfer separately.</p>
