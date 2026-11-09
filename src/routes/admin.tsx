@@ -201,11 +201,19 @@ function AdminPage() {
       const names = Object.keys(queries)
       const results = await Promise.all(names.map((name) => queries[name]))
       const next: Record<string, Row[]> = {}
+      const failedLoads: string[] = []
       results.forEach((result, index) => {
-        if (result.error) throw result.error
+        if (result.error) {
+          failedLoads.push(`${names[index]}: ${result.error.message}`)
+          next[names[index]] = []
+          return
+        }
         next[names[index]] = (result.data ?? []) as Row[]
       })
       setRows(next)
+      if (failedLoads.length) {
+        setError(`Some admin data could not refresh: ${failedLoads.join(' | ')}`)
+      }
       setFxDrafts(Object.fromEntries((next.fx ?? []).map((row) => [text(row.code), text(row.aed_per_unit)])))
       setPriceDrafts(Object.fromEntries((next.prices ?? []).map((row) => [text(row.id), text(row.price_label)])))
       setPlanDrafts(Object.fromEntries((next.plans ?? []).map((row) => [text(row.id), { name: text(row.name), minimum_amount: text(row.minimum_amount), profit_percent: text(row.profit_percent), commission_percent: text(row.commission_percent), active: Boolean(row.active) }])))
