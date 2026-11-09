@@ -125,7 +125,15 @@ function WalletPage() {
     const rawAmount = kind === 'deposit' ? depositAmount : withdrawalAmount
     const amount = Number(rawAmount)
     if (!Number.isFinite(amount) || amount <= 0 || amount > 100000000) { setError('Enter a valid amount.'); return }
-    if (kind === 'withdrawal' && amount > balance) { setError('Your withdrawal request cannot exceed your available posted balance.'); return }
+    if (kind === 'withdrawal') {
+      const reservedWithdrawals = withdrawals
+        .filter((row) => row.currency === currency && ['pending', 'submitted', 'under_review', 'approved', 'processing', 'in_progress'].includes(row.status.toLowerCase().replace(/-/g, '_')))
+        .reduce((total, row) => total + (Number(row.amount) || 0), 0)
+      if (amount + reservedWithdrawals > balance) {
+        setError(`Your request plus ${money(reservedWithdrawals, currency)} in pending or approved withdrawals would exceed your available posted balance.`)
+        return
+      }
+    }
     setRequestBusy(true); setError(''); setNotice('')
     try {
       const client = requireSupabase()
@@ -228,6 +236,7 @@ function WalletPage() {
                 <p className="eyebrow text-[0.5rem] text-brass">Available posted balance</p>
                 <p data-testid="wallet-balance" className="display mt-3 text-3xl">{money(balance, currency)}</p>
                 <p className="mt-2 text-xs text-ink-soft">Calculated from posted ledger entries only.</p>
+                <p className="mt-2 text-xs text-ink-soft">Reserved in pending or approved withdrawals: {money(withdrawals.filter((row) => row.currency === currency && ['pending', 'submitted', 'under_review', 'approved', 'processing', 'in_progress'].includes(row.status.toLowerCase().replace(/-/g, '_'))).reduce((total, row) => total + (Number(row.amount) || 0), 0), currency)}. New requests are checked against this amount.</p>
               </div>
               <div className="border border-border bg-card p-6">
                 <p className="eyebrow text-[0.5rem] text-ink-soft">Credited profit total</p>
