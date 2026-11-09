@@ -113,7 +113,7 @@ function DashboardPage() {
 
   const submitTaskForReview = async (task: MemberTask) => {
     const currentStatus = normalizeInvestmentStatus(task.status)
-    if (!user?.id || !task.id || !['assigned', 'returned'].includes(currentStatus)) {
+    if (!user?.id || !task.id || !['assigned', 'rejected'].includes(currentStatus)) {
       setTaskMessage('This task is not currently available for submission.')
       return
     }
@@ -122,7 +122,7 @@ function DashboardPage() {
     try {
       const { data: updatedRows, error: updateError } = await requireSupabase().from('member_tasks')
         .update({ status: 'submitted', submitted_at: new Date().toISOString() })
-        .eq('id', task.id).eq('user_id', user.id).in('status', ['assigned', 'returned'])
+        .eq('id', task.id).eq('user_id', user.id).in('status', ['assigned', 'rejected'])
         .select('id')
       if (updateError) throw updateError
       if (!updatedRows?.length) throw new Error('This task has already changed. Refresh the dashboard and check its latest status.')
