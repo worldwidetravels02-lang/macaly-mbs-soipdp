@@ -224,7 +224,8 @@ function AdminPage() {
     const query = investmentSearch.trim().toLowerCase()
     const matchesQuery = !query || [item.customer_name, item.user_id, item.id, item.property_id, item.plan_code, item.reference, item.amount, item.currency]
       .some((value) => text(value).toLowerCase().includes(query))
-    const matchesStatus = investmentStatus === 'all' || text(item.status).toLowerCase() === investmentStatus
+    const normalizeStatus = (value: unknown) => text(value).trim().toLowerCase().replace(/[\\s-]+/g, '_')
+    const matchesStatus = normalizeStatus(investmentStatus) === 'all' || normalizeStatus(item.status) === normalizeStatus(investmentStatus)
     return matchesQuery && matchesStatus
   }
   const filteredInvestmentRequests = useMemo(() => investmentRequestsWithCustomer.filter(investmentRecordMatches), [investmentRequestsWithCustomer, investmentSearch, investmentStatus])
@@ -240,7 +241,8 @@ function AdminPage() {
     const query = commissionSearch.trim().toLowerCase()
     const matchesQuery = !query || [item.customer_name, item.user_id, item.source_customer_name, item.source_user_id, item.commission_type, item.reference, item.description, item.amount, item.currency]
       .some((value) => text(value).toLowerCase().includes(query))
-    const matchesStatus = commissionStatus === 'all' || text(item.status).toLowerCase() === commissionStatus
+    const normalizeStatus = (value: unknown) => text(value).trim().toLowerCase().replace(/[\\s-]+/g, '_')
+    const matchesStatus = normalizeStatus(commissionStatus) === 'all' || normalizeStatus(item.status) === normalizeStatus(commissionStatus)
     return matchesQuery && matchesStatus
   }
   const filteredCommissions = useMemo(() => commissionsWithCustomers.filter(commissionRecordMatches), [commissionsWithCustomers, commissionSearch, commissionStatus])
