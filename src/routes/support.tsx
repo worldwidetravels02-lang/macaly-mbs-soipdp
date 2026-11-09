@@ -1,3 +1,4 @@
+import { WorkspaceSidebar } from '../components/workspace-sidebar'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useCallback, useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
@@ -131,8 +132,9 @@ function SupportPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <WorkspaceSidebar mode="member" />
       <SiteHeader />
-      <main id="main" className="pb-20 pt-28 sm:pt-36">
+      <main id="main" className="pb-20 pt-28 sm:pt-36 lg:ml-64">
         <div className="mx-auto w-full max-w-4xl px-5 sm:px-8">
           {checking ? (
             <div data-testid="support-loading" className="border border-border bg-card p-10 text-center text-sm text-ink-soft">Checking your session…</div>
