@@ -21,8 +21,11 @@ const inputClass =
 function mapError(err: unknown, view: View) {
   const message = err instanceof Error ? err.message : ''
   if (/already registered|already exists/i.test(message)) return 'An account with this email already exists. Please sign in instead.'
+  if (/email signups? (are|is) disabled|signups? not allowed/i.test(message)) return 'New account registration is currently disabled in Supabase. Enable email sign-ups in Authentication settings, then try again.'
   if (/rate|too many/i.test(message)) return 'Too many attempts. Please wait a moment and try again.'
   if (/email not confirmed/i.test(message)) return 'Please confirm your email address before signing in.'
+  if (/invalid email/i.test(message)) return 'Enter a valid email address.'
+  if (/password.*(weak|short)|weak password/i.test(message)) return 'Choose a stronger password with at least 8 characters.'
   if (view === 'signin') return 'Email or password is incorrect. Please try again.'
   if (view === 'reset') return 'That code is invalid or has expired. Please request a new one.'
   return message || 'Something went wrong. Please try again.'
@@ -65,9 +68,14 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
     event.preventDefault()
     clearMessages()
     if (view === 'signup') {
-      if (fullName.trim().length < 2) return setError('Please enter your full name.')
-      if (mobile.replace(/\D/g, '').length < 7) return setError('Please enter a valid mobile number.')
-      if (password.length < 8) return setError('Your password needs at least 8 characters.')
+      const cleanName = fullName.trim().replace(/\s+/g, ' ')
+      const digits = mobile.replace(/\D/g, '')
+      const cleanEmail = email.trim().toLowerCase()
+      if (cleanName.length < 2 || cleanName.length > 120 || /[\u0000-\u001f<>]/.test(cleanName)) return setError('Enter a valid full name between 2 and 120 characters.')
+      if (digits.length < 7 || digits.length > 15 || !/^[+()\d\s.-]+$/.test(mobile.trim())) return setError('Please enter a valid mobile number with 7–15 digits.')
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail) || cleanEmail.length > 254) return setError('Enter a valid email address.')
+      if (referralCode.trim().length > 64) return setError('Referral code must be 64 characters or fewer.')
+      if (password.length < 8 || password.length > 72) return setError('Your password must be between 8 and 72 characters.')
       if (password !== confirmPassword) return setError('The two passwords do not match.')
     }
     setBusy(true)
@@ -79,7 +87,7 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
           password,
           options: {
             data: {
-              full_name: fullName.trim(),
+              full_name: fullName.trim().replace(/\s+/g, ' '),
               mobile: `${phoneCountryCode} ${mobile.replace(/\D/g, '')}`,
               referral_code: referralCode.trim() || null,
             },
