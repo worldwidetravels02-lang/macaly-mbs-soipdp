@@ -20,7 +20,8 @@ const fieldClass = 'mt-2 w-full border border-input bg-background px-4 py-3 text
 function money(value: number | string, currency: Currency) {
   return new Intl.NumberFormat('en', { style: 'currency', currency, maximumFractionDigits: 2 }).format(Number(value || 0))
 }
-function normalizeStatus(value: unknown) { return String(value ?? '').trim().toLowerCase().replace(/[\\s-]+/g, '_') }\nfunction date(value: string) {
+function normalizeStatus(value: unknown) { return String(value ?? '').trim().toLowerCase().replace(/[\s-]+/g, '_') }
+function date(value: string) {
   return new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
 }
 
