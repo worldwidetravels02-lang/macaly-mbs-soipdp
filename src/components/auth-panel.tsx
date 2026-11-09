@@ -31,7 +31,7 @@ function mapError(err: unknown, view: View) {
   return message || 'Something went wrong. Please try again.'
 }
 
-export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
+export function AuthPanel({ mode, adminOnly = false }: { mode: 'login' | 'register'; adminOnly?: boolean }) {
   const navigate = useNavigate()
   const [view, setView] = useState<View>(mode === 'register' ? 'signup' : 'signin')
   const [busy, setBusy] = useState(false)
@@ -122,7 +122,21 @@ export function AuthPanel({ mode }: { mode: 'login' | 'register' }) {
           })
           if (sessionError) throw sessionError
         }
-        await navigate({ to: '/dashboard' })
+        if (adminOnly) {
+          const { data: membership, error: membershipError } = await supabase
+            .from('admin_members')
+            .select('user_id')
+            .eq('user_id', (await supabase.auth.getUser()).data.user?.id ?? '')
+            .maybeSingle()
+          if (membershipError) throw membershipError
+          if (!membership) {
+            await supabase.auth.signOut()
+            throw new Error('This account is not authorized for administrator access.')
+          }
+          await navigate({ to: '/admin' })
+        } else {
+          await navigate({ to: '/dashboard' })
+        }
       }
     } catch (err) {
       setError(mapError(err, view))
