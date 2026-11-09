@@ -84,6 +84,8 @@ function AdminPage() {
   const [walletDirectionFilter, setWalletDirectionFilter] = useState('all')
   const [walletFromDate, setWalletFromDate] = useState('')
   const [walletToDate, setWalletToDate] = useState('')
+  const [financeSearch, setFinanceSearch] = useState('')
+  const [financeStatus, setFinanceStatus] = useState('all')
   const [selectedThread, setSelectedThread] = useState('')
   const [reply, setReply] = useState('')
   const [postDraft, setPostDraft] = useState({ title: '', slug: '', category: 'News', excerpt: '', content: '', cover_image_url: '', author_name: 'Msheireb Properties' })
@@ -187,6 +189,16 @@ function AdminPage() {
   const withdrawalRequestsWithCustomer = useMemo(() => (rows.withdrawals ?? []).map((item) => ({
     ...item, customer_name: customerLabel(item.user_id),
   })), [rows.withdrawals, rows.users])
+
+  const financeRequestMatches = (item: Row) => {
+    const query = financeSearch.trim().toLowerCase()
+    const status = text(item.status).toLowerCase()
+    const matchesQuery = !query || [item.customer_name, item.user_id, item.amount, item.currency, item.payment_reference, item.payout_method, item.payout_details]
+      .some((value) => text(value).toLowerCase().includes(query))
+    return matchesQuery && (financeStatus === 'all' || status === financeStatus)
+  }
+  const filteredTopupRequests = useMemo(() => topupRequestsWithCustomer.filter(financeRequestMatches), [topupRequestsWithCustomer, financeSearch, financeStatus])
+  const filteredWithdrawalRequests = useMemo(() => withdrawalRequestsWithCustomer.filter(financeRequestMatches), [withdrawalRequestsWithCustomer, financeSearch, financeStatus])
 
   const investmentRequestsWithCustomer = useMemo(() => (rows.investmentRequests ?? []).map((item) => ({
     ...item, customer_name: customerLabel(item.user_id),
@@ -724,8 +736,9 @@ function AdminPage() {
                 ['Top-up requests', financeSummary.topups], ['Withdrawal requests', financeSummary.withdrawals], ['Profit credits', financeSummary.profitCredits],
                 ['Pending top-ups', financeSummary.pendingTopups], ['Pending withdrawals', financeSummary.pendingWithdrawals], ['Approved withdrawals awaiting transfer', financeSummary.approvedWithdrawals],
               ].map(([label, value]) => <div key={String(label)} className="border border-border bg-card p-4"><p className="text-xs text-ink-soft">{label}</p><p className="display mt-2 text-2xl">{value}</p></div>)}</section>
-              <DataTable title="Top-up requests" rows={topupRequestsWithCustomer} columns={['customer_name','amount','currency','payment_method','payment_reference','status','admin_note','created_at']} render={(item) => item.status === 'pending' ? <div className="flex gap-2"><button disabled={busy} className={softButton} onClick={() => reviewTopup(text(item.id), true)}>Approve</button><button disabled={busy} className={softButton} onClick={() => reviewTopup(text(item.id), false)}>Reject</button></div> : null} />
-              <DataTable title="Withdrawal requests" rows={withdrawalRequestsWithCustomer} columns={['customer_name','amount','currency','payout_method','payout_details','status','admin_note','created_at']} render={(item) => item.status === 'pending' ? <div className="flex flex-wrap gap-2"><button disabled={busy} className={softButton} onClick={() => reviewWithdrawal(text(item.id), 'approve')}>Approve</button><button disabled={busy} className={softButton} onClick={() => reviewWithdrawal(text(item.id), 'reject')}>Reject</button></div> : item.status === 'approved' ? <button disabled={busy} className={softButton} onClick={() => reviewWithdrawal(text(item.id), 'pay')}>Mark paid after transfer</button> : null} />
+              <section className="grid gap-3 border border-border bg-card p-4 sm:grid-cols-[minmax(0,1fr)_14rem]"><div><label className="eyebrow text-[0.55rem] text-ink-soft" htmlFor="finance-request-search">Find a deposit or withdrawal</label><input id="finance-request-search" className={inputClass} value={financeSearch} onChange={(event) => setFinanceSearch(event.target.value)} placeholder="Customer, account ID, amount or reference" /></div><div><label className="eyebrow text-[0.55rem] text-ink-soft" htmlFor="finance-request-status">Request status</label><select id="finance-request-status" className={inputClass} value={financeStatus} onChange={(event) => setFinanceStatus(event.target.value)}><option value="all">All statuses</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option><option value="paid">Paid</option></select></div><p className="text-xs text-ink-soft sm:col-span-2">Use the same search and status filter for both request lists. Approving a withdrawal does not send money; mark it paid only after the external transfer is completed.</p></section>
+              <DataTable title="Top-up requests" rows={filteredTopupRequests} columns={['customer_name','user_id','amount','currency','payment_method','payment_reference','status','admin_note','created_at']} render={(item) => item.status === 'pending' ? <div className="flex gap-2"><button disabled={busy} className={softButton} onClick={() => reviewTopup(text(item.id), true)}>Approve</button><button disabled={busy} className={softButton} onClick={() => reviewTopup(text(item.id), false)}>Reject</button></div> : null} />
+              <DataTable title="Withdrawal requests" rows={filteredWithdrawalRequests} columns={['customer_name','user_id','amount','currency','payout_method','payout_details','status','admin_note','created_at']} render={(item) => item.status === 'pending' ? <div className="flex flex-wrap gap-2"><button disabled={busy} className={softButton} onClick={() => reviewWithdrawal(text(item.id), 'approve')}>Approve</button><button disabled={busy} className={softButton} onClick={() => reviewWithdrawal(text(item.id), 'reject')}>Reject</button></div> : item.status === 'approved' ? <button disabled={busy} className={softButton} onClick={() => reviewWithdrawal(text(item.id), 'pay')}>Mark paid after transfer</button> : null} />
               <form onSubmit={addWalletBalance} className="border border-brass/40 bg-card p-6">
                 <h2 className="display text-xl">Add amount to customer wallet</h2>
                 <p className="mt-2 text-xs leading-6 text-ink-soft">Administrator-only manual credit. The amount is posted to the customer's internal wallet ledger and recorded in the financial audit history. This does not transfer real money.</p>
