@@ -20,7 +20,7 @@ const fieldClass = 'mt-2 w-full border border-input bg-background px-4 py-3 text
 function money(value: number | string, currency: Currency) {
   return new Intl.NumberFormat('en', { style: 'currency', currency, maximumFractionDigits: 2 }).format(Number(value || 0))
 }
-function date(value: string) {
+function normalizeStatus(value: unknown) { return String(value ?? '').trim().toLowerCase().replace(/[\\s-]+/g, '_') }\nfunction date(value: string) {
   return new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
 }
 
@@ -127,7 +127,7 @@ function WalletPage() {
     if (!Number.isFinite(amount) || amount <= 0 || amount > 100000000) { setError('Enter a valid amount.'); return }
     if (kind === 'withdrawal') {
       const reservedWithdrawals = withdrawals
-        .filter((row) => row.currency === currency && ['pending', 'submitted', 'under_review', 'approved', 'processing', 'in_progress'].includes(row.status.toLowerCase().replace(/-/g, '_')))
+        .filter((row) => row.currency === currency && ['pending', 'submitted', 'under_review', 'approved', 'processing', 'in_progress'].includes(normalizeStatus(row.status)))
         .reduce((total, row) => total + (Number(row.amount) || 0), 0)
       if (amount + reservedWithdrawals > balance) {
         setError(`Your request plus ${money(reservedWithdrawals, currency)} in pending or approved withdrawals would exceed your available posted balance.`)
@@ -204,15 +204,15 @@ function WalletPage() {
   }
 
   const reservedWithdrawalAmount = withdrawals
-    .filter((row) => row.currency === currency && ['pending', 'submitted', 'under_review', 'approved', 'processing', 'in_progress'].includes(row.status.toLowerCase().replace(/-/g, '_')))
+    .filter((row) => row.currency === currency && ['pending', 'submitted', 'under_review', 'approved', 'processing', 'in_progress'].includes(normalizeStatus(row.status)))
     .reduce((total, row) => total + (Number(row.amount) || 0), 0)
   const withdrawableAmount = Math.max(0, balance - reservedWithdrawalAmount)
 
   const currencyTransactions = transactions.filter((row) => row.currency === currency)
   const getTransactionDirection = (row: WalletRow): 'credit' | 'debit' | 'unknown' => {
-    const direction = row.direction?.toLowerCase().trim()
+    const direction = normalizeStatus(row.direction)
     if (direction === 'credit' || direction === 'debit') return direction
-    const type = row.transaction_type?.toLowerCase().replace(/-/g, '_') ?? ''
+    const type = normalizeStatus(row.transaction_type)
     if (/(^|_)(debit|withdrawal|withdraw|payment_out|purchase|charge)(_|$)/.test(type)) return 'debit'
     if (/(^|_)(credit|deposit|topup|top_up|profit|commission|refund|payment_in)(_|$)/.test(type)) return 'credit'
     return 'unknown'
@@ -256,7 +256,7 @@ function WalletPage() {
                 <p className="eyebrow text-[0.5rem] text-brass">Posted wallet balance</p>
                 <p data-testid="wallet-balance" className="display mt-3 text-3xl">{money(balance, currency)}</p>
                 <p className="mt-2 text-xs text-ink-soft">Calculated from posted ledger entries only.</p>
-                <p className="mt-2 text-xs text-ink-soft">Reserved in pending, approved or processing withdrawals: {money(withdrawals.filter((row) => row.currency === currency && ['pending', 'submitted', 'under_review', 'approved', 'processing', 'in_progress'].includes(row.status.toLowerCase().replace(/-/g, '_'))).reduce((total, row) => total + (Number(row.amount) || 0), 0), currency)}. New requests are checked against this amount.</p>
+                <p className="mt-2 text-xs text-ink-soft">Reserved in pending, approved or processing withdrawals: {money(withdrawals.filter((row) => row.currency === currency && ['pending', 'submitted', 'under_review', 'approved', 'processing', 'in_progress'].includes(normalizeStatus(row.status))).reduce((total, row) => total + (Number(row.amount) || 0), 0), currency)}. New requests are checked against this amount.</p>
               </div>
               <div className="border border-border bg-card p-6">
                 <p className="eyebrow text-[0.5rem] text-ink-soft">Credited profit total</p>
