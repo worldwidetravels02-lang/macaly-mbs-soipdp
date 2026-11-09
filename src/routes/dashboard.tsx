@@ -43,6 +43,7 @@ function DashboardPage() {
   const [activity, setActivity] = useState<LedgerItem[]>([])
   const [commissions, setCommissions] = useState<Commission[]>([])
   const [unread, setUnread] = useState(0)
+  const [membershipLevel, setMembershipLevel] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -55,7 +56,7 @@ function DashboardPage() {
       const current = auth.user
       setUser(current)
       if (!current) return
-      const [profile, wallet, projects, requests, ledger, notices, commissionRows] = await Promise.all([
+      const [profile, wallet, projects, requests, ledger, notices, commissionRows, memberProfile] = await Promise.all([
         client.from('profiles').select('full_name,preferred_currency').eq('id', current.id).maybeSingle(),
         client.from('wallet_balances').select('balance').eq('user_id', current.id).eq('currency', currency).maybeSingle(),
         client.from('investments').select('id,amount,currency,status,created_at,reference,property_id').eq('user_id', current.id).order('created_at', { ascending: false }).limit(8),
@@ -63,8 +64,9 @@ function DashboardPage() {
         client.from('wallet_transactions').select('id,amount,currency,transaction_type,direction,status,description,created_at').eq('user_id', current.id).order('created_at', { ascending: false }).limit(8),
         client.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', current.id).is('read_at', null),
         client.from('commission_records').select('id,amount,currency,commission_type,status,description,created_at').eq('user_id', current.id).order('created_at', { ascending: false }).limit(8),
+        client.from('member_profiles').select('membership_level').eq('user_id', current.id).maybeSingle(),
       ])
-      for (const result of [profile, wallet, projects, requests, ledger, notices, commissionRows]) if (result.error) throw result.error
+      for (const result of [profile, wallet, projects, requests, ledger, notices, commissionRows, memberProfile]) if (result.error) throw result.error
       setName(profile.data?.full_name?.trim() || current.user_metadata?.full_name || current.email?.split('@')[0] || 'Member')
       const preferred = profile.data?.preferred_currency
       if (preferred && currencies.includes(preferred as Currency) && preferred !== currency) {
@@ -76,6 +78,7 @@ function DashboardPage() {
       setInvestmentRequests((requests.data ?? []) as InvestmentRequest[])
       setActivity((ledger.data ?? []) as LedgerItem[])
       setCommissions((commissionRows.data ?? []) as Commission[])
+      setMembershipLevel(Number(memberProfile.data?.membership_level ?? 0))
       setUnread(notices.count ?? 0)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not load your dashboard.')
@@ -118,11 +121,16 @@ function DashboardPage() {
               <div className="border border-border bg-card p-6"><p className="eyebrow text-[0.5rem] text-ink-soft">Unread notifications</p><p className="display mt-3 text-2xl">{unread}</p><p className="mt-2 text-xs text-ink-soft">Updates on your account</p></div>
             </section>
 
-            <section className="border border-border bg-card">
+            <section id="investment-level" className="border border-brass/40 bg-brass/5 p-6">
+              <p className="eyebrow text-[0.5rem] text-brass">Your investment level</p>
+              <h2 className="display mt-2 text-2xl">Level {membershipLevel}</h2>
+              <p className="mt-2 text-sm text-ink-soft">Your membership level is assigned and updated by the administration team.</p>
+            </section>
+            <section id="commissions" className="border border-border bg-card">
               <div className="flex items-center justify-between gap-3 border-b border-border px-6 py-5"><h2 className="display text-xl">Your commissions</h2><Link to="/wallet" className="eyebrow text-[0.5rem]">Open wallet <ArrowRight /></Link></div>
               {commissions.length === 0 ? <p className="px-6 py-7 text-sm text-ink-soft">No commission records yet. Approved commissions will appear here.</p> : <ul className="divide-y divide-border">{commissions.map((row) => <li key={row.id} className="flex items-center justify-between gap-4 px-6 py-4"><div><p className="text-sm capitalize">{row.commission_type.replace(/_/g, ' ')} commission</p><p className="mt-1 text-xs text-ink-soft">{formatDate(row.created_at)} · {row.status}{row.description ? ` · ${row.description}` : ''}</p></div><p className="display text-base">{formatMoney(row.amount, row.currency)}</p></li>)}</ul>}
             </section>
-            <section className="border border-border bg-card">
+            <section id="investments" className="border border-border bg-card">
               <div className="flex items-center justify-between gap-3 border-b border-border px-6 py-5"><h2 className="display text-xl">Investment applications</h2><Link to="/residences" className="eyebrow text-[0.5rem]">Explore properties <ArrowRight /></Link></div>
               {investmentRequests.length === 0 ? <p className="px-6 py-7 text-sm text-ink-soft">No investment applications have been submitted yet.</p> : <ul className="divide-y divide-border">{investmentRequests.map((row) => <li key={row.id} className="flex items-center justify-between gap-4 px-6 py-4"><div><p className="text-sm">{row.property_name}</p><p className="mt-1 text-xs text-ink-soft">{formatDate(row.created_at)} · {formatMoney(row.amount, row.currency)}</p></div><span className="eyebrow text-[0.5rem] text-ink-soft">{row.status}</span></li>)}</ul>}
             </section>
