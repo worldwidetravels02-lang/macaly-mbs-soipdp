@@ -235,13 +235,13 @@ function WalletPage() {
 
 
             <section className="grid gap-6 lg:grid-cols-2">
-              <form onSubmit={(event) => { event.preventDefault(); void submitWalletRequest('deposit') }} className="grid gap-3 border border-border bg-card p-6">
+              <form id="deposits" onSubmit={(event) => { event.preventDefault(); void submitWalletRequest('deposit') }} className="grid gap-3 border border-border bg-card p-6">
                 <div><p className="eyebrow text-brass">Add funds</p><h2 className="display mt-2 text-xl">Deposit request</h2><p className="mt-2 text-xs leading-6 text-ink-soft">Enter the amount and submit a request. Then contact customer support for instructions. No payment is taken on this page.</p></div>
                 <label className="text-xs text-ink-soft">Deposit amount ({currency})<input required type="number" min="0.01" max="100000000" step="0.01" className={fieldClass} value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} placeholder="Enter amount" /></label>
                 <button disabled={requestBusy || !depositAmount} className="eyebrow inline-flex items-center justify-center gap-2 bg-primary px-5 py-3 text-[0.6rem] text-primary-foreground disabled:opacity-50">Submit deposit request <ArrowRight /></button>
                 <Link to="/support" className="text-sm text-brass underline underline-offset-4">Contact customer support for deposit instructions</Link>
               </form>
-              <form onSubmit={(event) => { event.preventDefault(); void submitWalletRequest('withdrawal') }} className="grid gap-3 border border-border bg-card p-6">
+              <form id="withdrawals" onSubmit={(event) => { event.preventDefault(); void submitWalletRequest('withdrawal') }} className="grid gap-3 border border-border bg-card p-6">
                 <div><p className="eyebrow text-brass">Withdraw funds</p><h2 className="display mt-2 text-xl">Withdrawal request</h2><p className="mt-2 text-xs leading-6 text-ink-soft">Choose the amount and submit. Your request stays pending until an administrator reviews it. Contact support if you need help.</p></div>
                 <label className="text-xs text-ink-soft">Withdrawal amount ({currency})<input required type="number" min="0.01" max="100000000" step="0.01" className={fieldClass} value={withdrawalAmount} onChange={(event) => setWithdrawalAmount(event.target.value)} placeholder="Enter amount" /></label>
                 <label className="text-xs text-ink-soft">Payout method<input required maxLength={80} className={fieldClass} value={payoutMethod} onChange={(event) => setPayoutMethod(event.target.value)} placeholder="e.g. Bank transfer" /></label>
@@ -252,7 +252,7 @@ function WalletPage() {
               </form>
             </section>
             <section className="grid gap-6 lg:grid-cols-2">
-            {notifications.length > 0 ? <section className="border border-border bg-card">
+            {notifications.length > 0 ? <section id="notifications" className="border border-border bg-card">
               <div className="flex items-center justify-between border-b border-border px-6 py-4">
                 <h2 className="display text-lg">Wallet notifications</h2>
                 <div className="flex items-center gap-3">
@@ -277,7 +277,7 @@ function WalletPage() {
             <section className="grid gap-6 lg:grid-cols-3">
               <History title="Profit credits" rows={profits.filter((row) => row.currency === currency)} />
               <CommissionHistory rows={commissions.filter((row) => row.currency === currency)} />
-              <div className="border border-border bg-card">
+              <div id="transactions" className="border border-border bg-card">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-6 py-4">
                   <h2 className="display text-lg">Wallet activity</h2>
                   <div className="flex gap-2" aria-label="Filter wallet activity">
