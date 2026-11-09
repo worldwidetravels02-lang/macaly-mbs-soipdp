@@ -57,13 +57,15 @@ function MembershipPage() {
   useEffect(() => { void loadTasks() }, [loadTasks])
 
   async function submitTask(task: MemberTask) {
-    if (!taskUser || !['pending', 'rejected'].includes(task.status)) return
+    if (!taskUser || !['assigned', 'rejected'].includes(task.status)) return
     setSubmittingTask(task.id); setTaskError(''); setTaskNotice('')
     try {
-      const { error } = await requireSupabase().from('member_tasks')
+      const { data, error } = await requireSupabase().from('member_tasks')
         .update({ status: 'submitted', submitted_at: new Date().toISOString() })
-        .eq('id', task.id).eq('user_id', taskUser)
+        .eq('id', task.id).eq('user_id', taskUser).in('status', ['assigned', 'rejected'])
+        .select('id')
       if (error) throw error
+      if (!data?.length) throw new Error('This task has already changed. Refresh the page and check its latest status.')
       setTaskNotice('Your task has been submitted to the administration team.')
       await loadTasks()
     } catch (cause) {
@@ -121,7 +123,7 @@ function MembershipPage() {
               {taskError ? <p role="alert" className="mt-5 border border-destructive/40 p-4 text-sm text-destructive">{taskError}</p> : null}
               {taskNotice ? <p role="status" className="mt-5 border border-brass/40 p-4 text-sm text-ink-soft">{taskNotice}</p> : null}
               {taskUser && !taskLoading && tasks.length === 0 ? <p className="mt-5 border border-border bg-card p-5 text-sm text-ink-soft">No tasks have been assigned to you yet.</p> : null}
-              {tasks.length > 0 ? <ul className="mt-6 grid gap-4 md:grid-cols-2">{tasks.map((task) => <li key={task.id} className="border border-border bg-card p-6"><div className="flex items-start justify-between gap-4"><h3 className="display text-lg">{task.title}</h3><span className="eyebrow shrink-0 text-[0.5rem] text-brass">Level {task.target_level}</span></div>{task.detail ? <p className="mt-3 text-sm leading-relaxed text-ink-soft">{task.detail}</p> : null}<p className="mt-4 text-xs text-ink-soft">Status: {task.status.replace(/_/g, ' ')}</p>{task.review_note ? <p className="mt-2 border-l-2 border-brass pl-3 text-xs text-ink-soft">Admin note: {task.review_note}</p> : null}{['pending', 'rejected'].includes(task.status) ? <button type="button" disabled={submittingTask === task.id} onClick={() => void submitTask(task)} className="eyebrow mt-5 bg-primary px-5 py-3 text-[0.55rem] text-primary-foreground disabled:opacity-50">{submittingTask === task.id ? 'Submitting…' : task.status === 'rejected' ? 'Resubmit task' : 'Submit completed task'}</button> : null}</li>)}</ul> : null}
+              {tasks.length > 0 ? <ul className="mt-6 grid gap-4 md:grid-cols-2">{tasks.map((task) => <li key={task.id} className="border border-border bg-card p-6"><div className="flex items-start justify-between gap-4"><h3 className="display text-lg">{task.title}</h3><span className="eyebrow shrink-0 text-[0.5rem] text-brass">Level {task.target_level}</span></div>{task.detail ? <p className="mt-3 text-sm leading-relaxed text-ink-soft">{task.detail}</p> : null}<p className="mt-4 text-xs text-ink-soft">Status: {task.status.replace(/_/g, ' ')}</p>{task.review_note ? <p className="mt-2 border-l-2 border-brass pl-3 text-xs text-ink-soft">Admin note: {task.review_note}</p> : null}{['assigned', 'rejected'].includes(task.status) ? <button type="button" disabled={submittingTask === task.id} onClick={() => void submitTask(task)} className="eyebrow mt-5 bg-primary px-5 py-3 text-[0.55rem] text-primary-foreground disabled:opacity-50">{submittingTask === task.id ? 'Submitting…' : task.status === 'rejected' ? 'Resubmit task' : 'Submit completed task'}</button> : null}</li>)}</ul> : null}
             </section>
 
             <div className="mt-12 grid gap-6 border-t border-border pt-10 lg:grid-cols-12 lg:items-center">
