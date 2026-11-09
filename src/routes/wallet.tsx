@@ -214,7 +214,7 @@ function WalletPage() {
             <div>
               <p className="eyebrow text-brass">Member account</p>
               <h1 className="display mt-3 text-[clamp(1.8rem,4vw,2.6rem)]">Your wallet</h1>
-              <p className="mt-2 text-sm text-ink-soft">Read-only wallet balance and transaction history.</p>
+              <p className="mt-2 text-sm text-ink-soft">View your posted balance, request deposits or withdrawals, and track wallet activity.</p>
             </div>
             <label className="block min-w-36">
               <span className="eyebrow text-[0.5rem] text-ink-soft">Display currency</span>
@@ -238,10 +238,10 @@ function WalletPage() {
           {userId && !loading ? <>
             <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div className="border border-brass/40 bg-brass/5 p-6">
-                <p className="eyebrow text-[0.5rem] text-brass">Available posted balance</p>
+                <p className="eyebrow text-[0.5rem] text-brass">Posted wallet balance</p>
                 <p data-testid="wallet-balance" className="display mt-3 text-3xl">{money(balance, currency)}</p>
                 <p className="mt-2 text-xs text-ink-soft">Calculated from posted ledger entries only.</p>
-                <p className="mt-2 text-xs text-ink-soft">Reserved in pending or approved withdrawals: {money(withdrawals.filter((row) => row.currency === currency && ['pending', 'submitted', 'under_review', 'approved', 'processing', 'in_progress'].includes(row.status.toLowerCase().replace(/-/g, '_'))).reduce((total, row) => total + (Number(row.amount) || 0), 0), currency)}. New requests are checked against this amount.</p>
+                <p className="mt-2 text-xs text-ink-soft">Reserved in pending, approved or processing withdrawals: {money(withdrawals.filter((row) => row.currency === currency && ['pending', 'submitted', 'under_review', 'approved', 'processing', 'in_progress'].includes(row.status.toLowerCase().replace(/-/g, '_'))).reduce((total, row) => total + (Number(row.amount) || 0), 0), currency)}. New requests are checked against this amount.</p>
               </div>
               <div className="border border-border bg-card p-6">
                 <p className="eyebrow text-[0.5rem] text-ink-soft">Credited profit total</p>
