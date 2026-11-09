@@ -1,3 +1,4 @@
+import { WorkspaceSidebar } from '../components/workspace-sidebar'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useCallback, useEffect, useState } from 'react'
 import { ArrowRight, SiteFooter, SiteHeader } from '../components/site-chrome'
@@ -184,8 +185,9 @@ function WalletPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <WorkspaceSidebar mode="member" />
       <SiteHeader />
-      <main id="main" className="pb-20 pt-28 sm:pt-36">
+      <main id="main" className="pb-20 pt-28 sm:pt-36 lg:ml-64">
         <div className="mx-auto grid w-full max-w-6xl gap-8 px-5 sm:px-8">
           <header className="flex flex-col gap-5 border-b border-border pb-8 sm:flex-row sm:items-end sm:justify-between">
             <div>
