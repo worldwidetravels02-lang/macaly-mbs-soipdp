@@ -9,6 +9,7 @@ import siteMetadata from '../metadata.json'
 
 const meta = siteMetadata['/dashboard']
 const currencies = ['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR', 'INR'] as const
+const normalizeInvestmentStatus = (value: unknown) => String(value ?? '').trim().toLowerCase().replace(/[\\s-]+/g, '_')
 type Currency = (typeof currencies)[number]
 type Investment = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; reference: string | null; property_id: string | null }
 type InvestmentRequest = { id: string; property_name: string; plan_code: string | null; amount: number | string; currency: Currency; profit_percent: number | string | null; expected_profit: number | string | null; commission_percent: number | string | null; expected_commission: number | string | null; status: string; created_at: string }
@@ -121,11 +122,11 @@ function DashboardPage() {
     }
   }
 
-  const activeProjects = investments.filter((row) => ['approved', 'funded', 'active', 'completed'].includes(row.status.toLowerCase())).length
-  const pendingProjects = investmentRequests.filter((row) => ['pending', 'approved'].includes(row.status.toLowerCase())).length
-  const fundedTotal = investments.filter((row) => ['funded', 'active', 'approved', 'completed'].includes(row.status.toLowerCase()) && row.currency === currency).reduce((total, row) => total + (Number(row.amount) || 0), 0)
+  const activeProjects = investments.filter((row) => ['approved', 'funded', 'active', 'completed'].includes(normalizeInvestmentStatus(row.status))).length
+  const pendingProjects = investmentRequests.filter((row) => ['pending', 'approved'].includes(normalizeInvestmentStatus(row.status))).length
+  const fundedTotal = investments.filter((row) => ['funded', 'active', 'approved', 'completed'].includes(normalizeInvestmentStatus(row.status)) && row.currency === currency).reduce((total, row) => total + (Number(row.amount) || 0), 0)
   const investmentStatus = (value: string) => {
-    const status = value.toLowerCase()
+    const status = normalizeInvestmentStatus(value)
     if (status === 'pending') return { label: 'Awaiting review', detail: 'Your application is waiting for the administration team to review it.', tone: 'text-ink-soft' }
     if (status === 'approved') return { label: 'Approved', detail: 'Approved by the administration team. Check the funding record and wallet history for the posted transaction.', tone: 'text-brass' }
     if (status === 'funded' || status === 'active') return { label: 'Funded / active', detail: 'Funding has been recorded in the platform. Review your wallet history for the related ledger entry.', tone: 'text-emerald-700' }
@@ -233,9 +234,9 @@ function DashboardPage() {
             <section id="investments" className="border border-border bg-card">
               <div className="flex items-center justify-between gap-3 border-b border-border px-6 py-5"><h2 className="display text-xl">Investment applications</h2><Link to="/residences" className="eyebrow text-[0.5rem]">Explore properties <ArrowRight /></Link></div>
               {investmentRequests.length === 0 ? <p className="px-6 py-7 text-sm text-ink-soft">No investment applications have been submitted yet. Explore properties to find an opportunity and submit an application.</p> : <>
-                <div className="grid gap-3 border-b border-border p-5 sm:grid-cols-3"><div className="border border-border/70 p-3"><p className="eyebrow text-[0.5rem] text-ink-soft">Applications</p><p className="display mt-2 text-2xl">{investmentRequests.length}</p></div><div className="border border-border/70 p-3"><p className="eyebrow text-[0.5rem] text-ink-soft">Awaiting review</p><p className="display mt-2 text-2xl">{investmentRequests.filter((item) => item.status.toLowerCase() === 'pending').length}</p></div><div className="border border-border/70 p-3"><p className="eyebrow text-[0.5rem] text-ink-soft">Funded / active</p><p className="display mt-2 text-2xl">{investmentRequests.filter((item) => ['funded', 'active'].includes(item.status.toLowerCase())).length}</p></div></div>
+                <div className="grid gap-3 border-b border-border p-5 sm:grid-cols-3"><div className="border border-border/70 p-3"><p className="eyebrow text-[0.5rem] text-ink-soft">Applications</p><p className="display mt-2 text-2xl">{investmentRequests.length}</p></div><div className="border border-border/70 p-3"><p className="eyebrow text-[0.5rem] text-ink-soft">Awaiting review</p><p className="display mt-2 text-2xl">{investmentRequests.filter((item) => normalizeInvestmentStatus(item.status) === 'pending').length}</p></div><div className="border border-border/70 p-3"><p className="eyebrow text-[0.5rem] text-ink-soft">Funded / active</p><p className="display mt-2 text-2xl">{investmentRequests.filter((item) => ['funded', 'active'].includes(normalizeInvestmentStatus(item.status))).length}</p></div></div>
                 <ul className="divide-y divide-border">{investmentRequests.map((row) => {
-                  const status = row.status.toLowerCase()
+                  const status = normalizeInvestmentStatus(row.status)
                   const statusLabel = status === 'pending' ? 'Awaiting review' : status === 'approved' ? 'Approved — awaiting wallet funding' : status === 'funded' || status === 'active' ? 'Funded / active' : status === 'rejected' ? 'Not approved' : row.status.replace(/_/g, ' ')
                   const statusClass = status === 'funded' || status === 'active' ? 'text-emerald-700' : status === 'rejected' ? 'text-red-700' : status === 'approved' ? 'text-brass' : 'text-ink-soft'
                   const stages = [{ label: 'Submitted', done: true }, { label: 'Reviewed', done: ['approved', 'funded', 'active', 'completed'].includes(status) }, { label: 'Funded', done: ['funded', 'active', 'completed'].includes(status) }]
