@@ -104,29 +104,33 @@ export function AuthPanel({ mode, adminOnly = false }: { mode: 'login' | 'regist
         setView('signin')
         return
       } else {
+        let signedInUserId = ''
         if (loginMethod === 'email') {
-          const { error: authError } = await supabase.auth.signInWithPassword({
+          const { data: signInData, error: authError } = await supabase.auth.signInWithPassword({
             email: loginIdentifier.trim().toLowerCase(),
             password,
           })
           if (authError) throw authError
+          signedInUserId = signInData.user?.id ?? ''
         } else {
           const { data, error: invokeError } = await supabase.functions.invoke('phone-password-login', {
             body: { mobile: `${phoneCountryCode} ${loginIdentifier.replace(/\D/g, '')}`, password },
           })
           if (invokeError) throw invokeError
           if (!data?.access_token || !data?.refresh_token) throw new Error('Invalid login details.')
-          const { error: sessionError } = await supabase.auth.setSession({
+          const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
             access_token: data.access_token,
             refresh_token: data.refresh_token,
           })
           if (sessionError) throw sessionError
+          signedInUserId = sessionData.user?.id ?? sessionData.session?.user.id ?? ''
         }
+        if (!signedInUserId) throw new Error('Sign-in succeeded but no user session was returned. Please sign in again.')
         if (adminOnly) {
           const { data: membership, error: membershipError } = await supabase
             .from('admin_members')
             .select('user_id')
-            .eq('user_id', (await supabase.auth.getUser()).data.user?.id ?? '')
+            .eq('user_id', signedInUserId)
             .maybeSingle()
           if (membershipError) throw membershipError
           if (!membership) {
