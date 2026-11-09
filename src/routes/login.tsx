@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { AuthPanel } from '../components/auth-panel'
 import { SiteFooter, SiteHeader } from '../components/site-chrome'
 import { IMAGES } from '../data/site'
@@ -41,7 +41,12 @@ function LoginPage() {
             </p>
           </div>
 
-          <AuthPanel mode="login" />
+          <div>
+            <AuthPanel mode="login" />
+            <p className="mt-6 text-center text-xs text-ink-soft">
+              Administrator? <Link to="/admin/login" className="text-brass underline underline-offset-4">Go to admin login</Link>
+            </p>
+          </div>
         </div>
       </main>
       <SiteFooter />
