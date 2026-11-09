@@ -114,7 +114,7 @@ export function ResidenceDetail({ slug }: { slug: ResidenceSlug }) {
         <main id="main">
           <ListingsGate
             title="This residence is reserved for members."
-            intro="Sign in to open the full residence page with prices, floor plans, gallery and payment options."
+            intro="Sign in to view illustrative project descriptions, sample floor plans and enquiry tools. Listing details are placeholders until verified project information is provided."
           />
         </main>
         <SiteFooter />
@@ -141,7 +141,8 @@ export function ResidenceDetail({ slug }: { slug: ResidenceSlug }) {
               <span aria-hidden="true" className="px-2">/</span>
               <span className="text-brass-soft">{residence.name}</span>
             </nav>
-            <h1 className="display mt-5 max-w-3xl text-[clamp(2.2rem,5.2vw,4rem)]">{residence.name}</h1>
+            <p className="eyebrow mt-6 text-brass-soft">Illustrative sample listing · Details to be verified</p>
+            <h1 className="display mt-3 max-w-3xl text-[clamp(2.2rem,5.2vw,4rem)]">{residence.name}</h1>
             <p className="eyebrow mt-4 text-[0.6rem] text-brass-soft">{residence.area}</p>
             <p className="mt-5 max-w-xl text-[1.02rem] leading-relaxed text-on-deep/80">{residence.summary}</p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
@@ -428,16 +429,16 @@ export function ResidenceDetail({ slug }: { slug: ResidenceSlug }) {
         <section id="investment" className="scroll-mt-24 bg-deep py-16 text-on-deep sm:py-20">
           <div className="mx-auto grid w-full max-w-7xl gap-12 px-5 sm:px-8 lg:grid-cols-12 lg:gap-16">
             <Reveal className="lg:col-span-5">
-              <p className="eyebrow text-brass-soft">Investment</p>
-              <h2 className="display mt-4 text-[clamp(1.8rem,3vw,2.6rem)]">Price and payment options</h2>
+              <p className="eyebrow text-brass-soft">Property information</p>
+              <h2 className="display mt-4 text-[clamp(1.8rem,3vw,2.6rem)]">Pricing and investment details</h2>
               <dl className="mt-8 space-y-5 border-t border-on-deep/15 pt-6">
                 <div className="flex items-baseline justify-between gap-6">
-                  <dt className="eyebrow text-[0.5rem] text-on-deep-soft">Entry price</dt>
+                  <dt className="eyebrow text-[0.5rem] text-on-deep-soft">Price guidance</dt>
                   <dd className="display text-xl">{priceFor(residence.slug, residence.investment.entryFrom)}</dd>
                 </div>
                 <div className="flex items-baseline justify-between gap-6">
-                  <dt className="eyebrow text-[0.5rem] text-on-deep-soft">Indicative yield</dt>
-                  <dd className="display text-xl">{residence.investment.yieldPct} net</dd>
+                  <dt className="eyebrow text-[0.5rem] text-on-deep-soft">Rental yield</dt>
+                  <dd className="display text-xl">{residence.investment.yieldPct}</dd>
                 </div>
                 <div className="flex items-baseline justify-between gap-6">
                   <dt className="eyebrow text-[0.5rem] text-on-deep-soft">Wallet</dt>
@@ -464,6 +465,7 @@ export function ResidenceDetail({ slug }: { slug: ResidenceSlug }) {
             </Reveal>
 
             <div className="lg:col-span-7">
+              <p className="mb-5 border border-brass/35 bg-on-deep/5 p-4 text-xs leading-relaxed text-on-deep/75">Illustrative sample content only. Prices, yields, plans, availability and project specifications are not verified offers and do not represent guaranteed returns. Obtain current written documentation before making a decision.</p>
               <ul className="border-t border-on-deep/15">
                 {residence.investment.options.map((option, index) => (
                   <Reveal
@@ -477,8 +479,7 @@ export function ResidenceDetail({ slug }: { slug: ResidenceSlug }) {
                 ))}
               </ul>
               <p className="mt-6 text-xs leading-relaxed text-on-deep/50">
-                Payment plans are subject to approval and are confirmed in writing by the sales
-                gallery. Wallet balances are held in AED and released on administration approval.
+                No payment plan or investment return is being offered through this sample page. Deposit and withdrawal requests are handled by the administration team; contact support for verified instructions.
               </p>
             </div>
           </div>
