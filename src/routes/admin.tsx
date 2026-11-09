@@ -222,7 +222,7 @@ function AdminPage() {
 
   const investmentRecordMatches = (item: Row) => {
     const query = investmentSearch.trim().toLowerCase()
-    const matchesQuery = !query || [item.customer_name, item.user_id, item.id, item.property_id, item.plan_code, item.reference, item.amount, item.currency]
+    const matchesQuery = !query || [item.customer_name, item.user_id, item.id, item.property_id, item.property_name, item.plan_code, item.reference, item.amount, item.currency, item.status, item.created_at]
       .some((value) => text(value).toLowerCase().includes(query))
     const normalizeStatus = (value: unknown) => text(value).trim().toLowerCase().replace(/[\\s-]+/g, '_')
     const matchesStatus = normalizeStatus(investmentStatus) === 'all' || normalizeStatus(item.status) === normalizeStatus(investmentStatus)
@@ -239,7 +239,7 @@ function AdminPage() {
 
   const commissionRecordMatches = (item: Row) => {
     const query = commissionSearch.trim().toLowerCase()
-    const matchesQuery = !query || [item.customer_name, item.user_id, item.source_customer_name, item.source_user_id, item.commission_type, item.reference, item.description, item.amount, item.currency]
+    const matchesQuery = !query || [item.customer_name, item.user_id, item.source_customer_name, item.source_user_id, item.commission_type, item.reference, item.description, item.amount, item.currency, item.status, item.created_at]
       .some((value) => text(value).toLowerCase().includes(query))
     const normalizeStatus = (value: unknown) => text(value).trim().toLowerCase().replace(/[\\s-]+/g, '_')
     const matchesStatus = normalizeStatus(commissionStatus) === 'all' || normalizeStatus(item.status) === normalizeStatus(commissionStatus)
