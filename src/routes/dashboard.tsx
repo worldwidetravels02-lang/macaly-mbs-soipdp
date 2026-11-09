@@ -1,3 +1,4 @@
+import { WorkspaceSidebar } from '../components/workspace-sidebar'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useCallback, useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
@@ -97,8 +98,9 @@ function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <WorkspaceSidebar mode="member" />
       <SiteHeader />
-      <main id="main" className="pb-20 pt-28 sm:pt-36">
+      <main id="main" className="pb-20 pt-28 sm:pt-36 lg:ml-64">
         <div className="mx-auto grid w-full max-w-6xl gap-8 px-5 sm:px-8">
           <header className="flex flex-col gap-4 border-b border-border pb-8 sm:flex-row sm:items-end sm:justify-between">
             <div><p className="eyebrow text-brass">Private member area</p><h1 className="display mt-3 text-[clamp(1.9rem,4vw,2.8rem)]">Welcome, {name.split(' ')[0]}</h1><p className="mt-2 text-sm text-ink-soft">Your account, property requests and wallet overview.</p></div>
