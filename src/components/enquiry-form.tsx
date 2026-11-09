@@ -32,6 +32,32 @@ export function EnquiryForm({
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError(null)
+    const name = form.name.trim().replace(/\\s+/g, ' ')
+    const mobile = form.mobile.trim()
+    const digits = mobile.replace(/\\D/g, '')
+    const email = form.email.trim().toLowerCase()
+    const message = form.message.trim()
+    const selectedResidence = form.residence.trim()
+    if (name.length < 2 || name.length > 120 || /[\\u0000-\\u001f<>]/.test(name)) {
+      setError('Enter a valid name between 2 and 120 characters.')
+      setStatus('error')
+      return
+    }
+    if (digits.length < 7 || digits.length > 15 || !/^[+()\\d\\s.-]+$/.test(mobile)) {
+      setError('Enter a valid mobile number with 7–15 digits.')
+      setStatus('error')
+      return
+    }
+    if (email && (email.length > 254 || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email))) {
+      setError('Enter a valid email address.')
+      setStatus('error')
+      return
+    }
+    if (selectedResidence.length > 180 || message.length > 3000 || source.length > 80) {
+      setError('Please shorten the enquiry details and try again.')
+      setStatus('error')
+      return
+    }
     setStatus('sending')
     try {
       await supabaseRest<unknown[]>('enquiries', {
@@ -45,7 +71,7 @@ export function EnquiryForm({
             `Interested in: ${form.residence.trim() || 'General enquiry'}`,
             form.message.trim(),
           ].filter(Boolean).join('\n\n'),
-          source,
+          source: source.trim(),
         }),
       })
       setStatus('sent')
