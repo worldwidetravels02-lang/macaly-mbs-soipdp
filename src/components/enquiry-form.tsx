@@ -70,7 +70,7 @@ export function EnquiryForm({
           message: [
             `Interested in: ${selectedResidence || 'General enquiry'}`,
             message,
-          ].filter(Boolean).join('\\n\\n'),
+          ].filter(Boolean).join('\n\n'),
           source: source.trim(),
         }),
       })
