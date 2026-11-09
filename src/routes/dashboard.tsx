@@ -165,11 +165,13 @@ function DashboardPage() {
                   const unlocked = Number(plan.level) <= membershipLevel
                   const levelTasks = memberTasks.filter((task) => Number(task.target_level ?? 0) === Number(plan.level))
                   const approved = levelTasks.filter((task) => task.status === 'approved').length
+                  const progress = levelTasks.length ? Math.round((approved / levelTasks.length) * 100) : 0
                   return <article key={plan.id} className={['border p-5', unlocked ? 'border-brass/50 bg-brass/5' : 'border-border bg-card'].join(' ')}>
                     <div className="flex items-center justify-between gap-3"><p className="eyebrow text-[0.5rem] text-brass">Achievement level {plan.level}</p><span className="text-xs">{unlocked ? 'Unlocked' : '🔒 Locked'}</span></div>
                     <h3 className="display mt-3 text-xl">{plan.name}</h3>
                     <p className="mt-2 text-xs text-ink-soft">Minimum investment: {formatMoney(plan.minimum_amount, currency)}</p>
-                    <p className="mt-1 text-xs text-ink-soft">Tasks approved: {approved}/{levelTasks.length}</p>
+                    <p className="mt-1 text-xs text-ink-soft">Approved tasks: {approved}/{levelTasks.length}</p>
+                    {levelTasks.length > 0 ? <div className="mt-3"><div className="mb-1 flex justify-between text-[0.65rem] text-ink-soft"><span>Assigned-task completion</span><span>{progress}%</span></div><div className="h-2 overflow-hidden rounded-full bg-border"><div className="h-full rounded-full bg-brass" style={{ width: progress + '%' }} /></div></div> : <p className="mt-3 text-xs text-ink-soft">No tasks have been assigned for this level yet.</p>}
                     {!unlocked ? <p className="mt-3 text-xs text-ink-soft">This level has not yet been assigned to your account.</p> : <p className="mt-3 text-xs text-brass">Achievement unlocked on your account.</p>}
                   </article>
                 })}
