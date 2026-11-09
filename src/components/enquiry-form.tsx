@@ -119,6 +119,8 @@ export function EnquiryForm({
           <input
             type="text"
             required
+            maxLength={120}
+            autoComplete="name"
             value={form.name}
             onChange={update('name')}
             disabled={status === 'sending'}
@@ -132,6 +134,8 @@ export function EnquiryForm({
           <input
             type="tel"
             required
+            maxLength={32}
+            autoComplete="tel"
             value={form.mobile}
             onChange={update('mobile')}
             disabled={status === 'sending'}
@@ -146,6 +150,8 @@ export function EnquiryForm({
         <span className="eyebrow text-[0.5rem] text-ink-soft">Email (optional)</span>
         <input
           type="email"
+          maxLength={254}
+          autoComplete="email"
           value={form.email}
           onChange={update('email')}
           disabled={status === 'sending'}
@@ -180,6 +186,7 @@ export function EnquiryForm({
         <span className="eyebrow text-[0.5rem] text-ink-soft">Message</span>
         <textarea
           rows={4}
+          maxLength={3000}
           value={form.message}
           onChange={update('message')}
           disabled={status === 'sending'}
