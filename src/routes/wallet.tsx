@@ -137,9 +137,9 @@ function WalletPage() {
     const rawAmount = kind === 'deposit' ? depositAmount : withdrawalAmount
     const amount = Number(rawAmount)
     if (!Number.isFinite(amount) || amount <= 0 || amount > 100000000 || !/^\\d+(?:\\.\\d{1,2})?$/.test(rawAmount.trim())) { setError('Enter a valid amount with no more than 2 decimal places (maximum 100,000,000).'); return }
+    const method = payoutMethod.trim()
+    const details = payoutDetails.trim()
     if (kind === 'withdrawal') {
-      const method = payoutMethod.trim()
-      const details = payoutDetails.trim()
       if (!['Bank transfer', 'Other'].includes(method)) { setError('Choose a supported withdrawal method.'); return }
       if (!details || details.length > 1000) { setError('Enter payout instructions between 1 and 1,000 characters.'); return }
       const reservedWithdrawals = withdrawals
@@ -307,7 +307,7 @@ function WalletPage() {
                 <div><p className="eyebrow text-brass">Withdraw funds</p><h2 className="display mt-2 text-xl">Withdrawal request</h2><p className="mt-2 text-xs leading-6 text-ink-soft">Choose the amount and submit. Your request stays pending until an administrator reviews it. Contact support if you need help.</p></div>
                 <div className="grid gap-2"><p className="text-xs text-ink-soft">Available for a new withdrawal: <strong className="text-foreground">{money(withdrawableAmount, currency)}</strong></p><label className="text-xs text-ink-soft">Withdrawal amount ({currency})<input required type="number" min="0.01" max={withdrawableAmount} step="0.01" className={fieldClass} value={withdrawalAmount} onChange={(event) => setWithdrawalAmount(event.target.value)} placeholder="Enter amount" disabled={withdrawableAmount < 0.01} /></label>{withdrawableAmount < 0.01 ? <p className="text-xs text-ink-soft">No balance is currently available for another withdrawal request.</p> : <p className="text-xs text-ink-soft">Pending and approved withdrawals are deducted from this amount until completed or rejected.</p>}</div>
                 <label className="text-xs text-ink-soft">Payout method<input required maxLength={80} className={fieldClass} value={payoutMethod} onChange={(event) => setPayoutMethod(event.target.value)} placeholder="e.g. Bank transfer" /></label>
-                <label className="text-xs text-ink-soft">Payout details<textarea required maxLength={2000} rows={3} className={fieldClass} value={payoutDetails} onChange={(event) => setPayoutDetails(event.target.value)} placeholder="Enter the details needed to arrange your payout" /></label>
+                <label className="text-xs text-ink-soft">Payout details<textarea required maxLength={1000} rows={3} className={fieldClass} value={payoutDetails} onChange={(event) => setPayoutDetails(event.target.value)} placeholder="Enter the details needed to arrange your payout" /></label>
                 <p className="text-xs leading-5 text-ink-soft">Only provide payout information needed for the transfer. An administrator reviews the request and arranges any external transfer separately.</p>
                 <button disabled={requestBusy || !withdrawalAmount || !payoutMethod.trim() || !payoutDetails.trim()} className="eyebrow inline-flex items-center justify-center gap-2 bg-primary px-5 py-3 text-[0.6rem] text-primary-foreground disabled:opacity-50">Apply for withdrawal <ArrowRight /></button>
                 <Link to="/support" className="text-sm text-brass underline underline-offset-4">Contact customer support</Link>
