@@ -11,7 +11,7 @@ const meta = siteMetadata['/dashboard']
 const currencies = ['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR', 'INR'] as const
 type Currency = (typeof currencies)[number]
 type Investment = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; reference: string | null; property_id: string | null }
-type InvestmentRequest = { id: string; property_name: string; amount: number | string; currency: Currency; status: string; created_at: string }
+type InvestmentRequest = { id: string; property_name: string; plan_code: string | null; amount: number | string; currency: Currency; profit_percent: number | string | null; expected_profit: number | string | null; commission_percent: number | string | null; expected_commission: number | string | null; status: string; created_at: string }
 type LedgerItem = { id: string; amount: number | string; currency: Currency; transaction_type: string; direction: string; status: string; description: string | null; created_at: string }
 type Commission = { id: string; amount: number | string; currency: Currency; commission_type: string; status: string; description: string | null; created_at: string }
 type MemberTask = { id: string; title: string; detail: string | null; target_level: number | null; status: string; created_at: string; reviewed_at?: string | null; review_note?: string | null }
@@ -66,7 +66,7 @@ function DashboardPage() {
         client.from('profiles').select('full_name,preferred_currency').eq('id', current.id).maybeSingle(),
         client.from('wallet_balances').select('balance').eq('user_id', current.id).eq('currency', currency).maybeSingle(),
         client.from('investments').select('id,amount,currency,status,created_at,reference,property_id').eq('user_id', current.id).order('created_at', { ascending: false }).limit(8),
-        client.from('investment_requests').select('id,property_name,amount,currency,status,created_at').eq('user_id', current.id).order('created_at', { ascending: false }).limit(8),
+        client.from('investment_requests').select('id,property_name,plan_code,amount,currency,profit_percent,expected_profit,commission_percent,expected_commission,status,created_at').eq('user_id', current.id).order('created_at', { ascending: false }).limit(8),
         client.from('wallet_transactions').select('id,amount,currency,transaction_type,direction,status,description,created_at').eq('user_id', current.id).order('created_at', { ascending: false }).limit(8),
         client.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', current.id).is('read_at', null),
         client.from('commission_records').select('id,amount,currency,commission_type,status,description,created_at').eq('user_id', current.id).order('created_at', { ascending: false }).limit(8),
@@ -196,7 +196,16 @@ function DashboardPage() {
             </section>
             <section id="investments" className="border border-border bg-card">
               <div className="flex items-center justify-between gap-3 border-b border-border px-6 py-5"><h2 className="display text-xl">Investment applications</h2><Link to="/residences" className="eyebrow text-[0.5rem]">Explore properties <ArrowRight /></Link></div>
-              {investmentRequests.length === 0 ? <p className="px-6 py-7 text-sm text-ink-soft">No investment applications have been submitted yet.</p> : <ul className="divide-y divide-border">{investmentRequests.map((row) => <li key={row.id} className="flex items-center justify-between gap-4 px-6 py-4"><div><p className="text-sm">{row.property_name}</p><p className="mt-1 text-xs text-ink-soft">{formatDate(row.created_at)} · {formatMoney(row.amount, row.currency)}</p></div><span className="eyebrow text-[0.5rem] text-ink-soft">{row.status}</span></li>)}</ul>}
+              {investmentRequests.length === 0 ? <p className="px-6 py-7 text-sm text-ink-soft">No investment applications have been submitted yet.</p> : <ul className="divide-y divide-border">{investmentRequests.map((row) => {
+                const status = row.status.toLowerCase()
+                const statusLabel = status === 'pending' ? 'Awaiting review' : status === 'approved' ? 'Approved — awaiting wallet funding' : status === 'funded' || status === 'active' ? 'Funded / active' : status === 'rejected' ? 'Not approved' : row.status.replace(/_/g, ' ')
+                const statusClass = status === 'funded' || status === 'active' ? 'text-emerald-700' : status === 'rejected' ? 'text-red-700' : status === 'approved' ? 'text-brass' : 'text-ink-soft'
+                return <li key={row.id} className="px-6 py-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-sm">{row.property_name}</p><p className="mt-1 text-xs text-ink-soft">{formatDate(row.created_at)} · {formatMoney(row.amount, row.currency)}{row.plan_code ? ` · ${row.plan_code}` : ''}</p></div><span className={`eyebrow text-[0.55rem] ${statusClass}`}>{statusLabel}</span></div>
+                  {row.expected_profit !== null && row.expected_profit !== undefined ? <p className="mt-2 text-xs text-ink-soft">Estimated profit: {formatMoney(row.expected_profit, row.currency)}{row.profit_percent !== null ? ` (${row.profit_percent}%)` : ''}</p> : null}
+                  <p className="mt-1 text-[0.65rem] text-ink-soft">{status === 'pending' ? 'Your application is waiting for an administrator to review it.' : status === 'approved' ? 'Your application is approved. Funding is still subject to wallet balance and administrator processing.' : status === 'funded' || status === 'active' ? 'Your investment has been funded and recorded.' : status === 'rejected' ? 'This application was not approved. Contact support if you need clarification.' : 'Check this application status for the latest update.'}</p>
+                </li>
+              })}</ul>}
             </section>
             <section className="grid gap-6 lg:grid-cols-2">
               <div className="border border-border bg-card"><div className="flex items-center justify-between gap-3 border-b border-border px-6 py-5"><h2 className="display text-xl">Your property requests</h2><Link to="/residences" className="eyebrow text-[0.5rem]">Explore projects <ArrowRight /></Link></div>
