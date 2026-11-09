@@ -42,7 +42,7 @@ export function WorkspaceSidebar({ mode, active, onSelect }: Props) {
         {items.map((item) => {
           const id = item[0]
           const label = item[1]
-          const href = isAdmin ? undefined : item[2]
+          const href = isAdmin ? undefined : (item as readonly [string, string, string])[2]
           const selected = isAdmin ? active === id : location.pathname === href
           const cls = ['flex w-full items-center gap-3 rounded-sm px-4 py-3 text-left text-sm transition-colors', selected ? 'border-l-2 border-[#d8b56d] bg-white/10 text-[#e7c77f]' : 'border-l-2 border-transparent text-white/75 hover:bg-white/5 hover:text-white'].join(' ')
           return isAdmin ? <button key={id} type="button" className={cls} onClick={() => { onSelect?.(id); setOpen(false) }}><span className="w-5 text-center text-[#d8b56d]">◇</span>{label}</button>
