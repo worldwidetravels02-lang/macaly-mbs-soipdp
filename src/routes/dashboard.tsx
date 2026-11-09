@@ -108,11 +108,20 @@ function DashboardPage() {
   }, [load])
 
   const submitTaskForReview = async (task: MemberTask) => {
+    const currentStatus = normalizeInvestmentStatus(task.status)
+    if (!user?.id || !task.id || !['assigned', 'returned'].includes(currentStatus)) {
+      setTaskMessage('This task is not currently available for submission.')
+      return
+    }
     setTaskBusy(task.id)
     setTaskMessage('')
     try {
-      const { error: updateError } = await requireSupabase().from('member_tasks').update({ status: 'submitted', submitted_at: new Date().toISOString() }).eq('id', task.id).eq('user_id', user?.id)
+      const { data: updatedRows, error: updateError } = await requireSupabase().from('member_tasks')
+        .update({ status: 'submitted', submitted_at: new Date().toISOString() })
+        .eq('id', task.id).eq('user_id', user.id).in('status', ['assigned', 'returned'])
+        .select('id')
       if (updateError) throw updateError
+      if (!updatedRows?.length) throw new Error('This task has already changed. Refresh the dashboard and check its latest status.')
       setMemberTasks((current) => current.map((item) => item.id === task.id ? { ...item, status: 'submitted' } : item))
       setTaskMessage('Task submitted to the administration team for review.')
     } catch (cause) {
