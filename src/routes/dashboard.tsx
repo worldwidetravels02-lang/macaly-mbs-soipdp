@@ -238,7 +238,6 @@ function DashboardPage() {
                   const status = row.status.toLowerCase()
                   const statusLabel = status === 'pending' ? 'Awaiting review' : status === 'approved' ? 'Approved — awaiting wallet funding' : status === 'funded' || status === 'active' ? 'Funded / active' : status === 'rejected' ? 'Not approved' : row.status.replace(/_/g, ' ')
                   const statusClass = status === 'funded' || status === 'active' ? 'text-emerald-700' : status === 'rejected' ? 'text-red-700' : status === 'approved' ? 'text-brass' : 'text-ink-soft'
-                  const progress = status === 'rejected' ? -1 : ['pending', 'approved', 'funded', 'active', 'completed'].indexOf(status)
                   const stages = [{ label: 'Submitted', done: true }, { label: 'Reviewed', done: ['approved', 'funded', 'active', 'completed'].includes(status) }, { label: 'Funded', done: ['funded', 'active', 'completed'].includes(status) }]
                   return <li key={row.id} className="px-6 py-5">
                     <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-sm">{row.property_name}</p><p className="mt-1 text-xs text-ink-soft">{formatDate(row.created_at)} · {formatMoney(row.amount, row.currency)}{row.plan_code ? ` · ${row.plan_code}` : ''}</p><p className="mt-1 text-[0.6rem] text-ink-soft">Application reference: {row.id.slice(0, 8).toUpperCase()}</p></div><span className={`eyebrow text-[0.55rem] ${statusClass}`}>{statusLabel}</span></div>
