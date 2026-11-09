@@ -324,7 +324,7 @@ function RequestHistory({ title, rows }: { title: string; rows: RequestRow[] }) 
 
 function CommissionHistory({ rows }: { rows: CommissionRow[] }) {
   return (
-    <div className="border border-border bg-card">
+    <div id="commissions" className="border border-border bg-card">
       <h2 className="display border-b border-border px-6 py-4 text-lg">Commission history</h2>
       {rows.length === 0 ? <p className="px-6 py-6 text-sm text-ink-soft">No commission records yet.</p> : (
         <ul className="divide-y divide-border">
