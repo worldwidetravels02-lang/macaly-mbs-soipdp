@@ -678,10 +678,15 @@ function AdminPage() {
 
   const savePromotion = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    const title = promotionDraft.title.trim()
+    if (!title) { setError('Enter a promotion title.'); return }
+    if (title.length > 160 || promotionDraft.description.trim().length > 2000 || promotionDraft.property_slug.trim().length > 180) { setError('Promotion title, description or property reference exceeds the allowed length.'); return }
+    if (promotionDraft.image_url.trim() && !/^https:\/\//i.test(promotionDraft.image_url.trim())) { setError('Promotion image must use a secure HTTPS URL.'); return }
+    const payload = { ...promotionDraft, title, description: promotionDraft.description.trim(), image_url: promotionDraft.image_url.trim(), property_slug: promotionDraft.property_slug.trim() }
     await run(async () => {
       const query = editingPromotionId
-        ? requireSupabase().from('promotions').update({ ...promotionDraft, updated_at: new Date().toISOString() }).eq('id', editingPromotionId)
-        : requireSupabase().from('promotions').insert(promotionDraft)
+        ? requireSupabase().from('promotions').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', editingPromotionId)
+        : requireSupabase().from('promotions').insert(payload)
       const { error: saveError } = await query
       if (saveError) throw saveError
       setEditingPromotionId('')
@@ -835,8 +840,13 @@ function AdminPage() {
 
   const savePost = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    const title = postDraft.title.trim()
+    const slug = postDraft.slug.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    if (!title || !slug) { setError('Enter a journal title and a valid URL slug.'); return }
+    if (title.length > 180 || slug.length > 180 || postDraft.category.trim().length > 80 || postDraft.excerpt.trim().length > 500 || postDraft.author_name.trim().length > 120 || postDraft.content.length > 100000) { setError('One or more journal fields exceed their allowed length.'); return }
+    if (postDraft.cover_image_url.trim() && !/^https:\/\//i.test(postDraft.cover_image_url.trim())) { setError('Cover image must use a secure HTTPS URL.'); return }
     await run(async () => {
-      const payload = { ...postDraft, slug: postDraft.slug.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''), updated_by: user?.id }
+      const payload = { ...postDraft, title, slug, category: postDraft.category.trim(), excerpt: postDraft.excerpt.trim(), author_name: postDraft.author_name.trim(), cover_image_url: postDraft.cover_image_url.trim(), updated_by: user?.id }
       const { error: saveError } = await requireSupabase().from('posts').insert(payload)
       if (saveError) throw saveError
       setPostDraft({ title: '', slug: '', category: 'News', excerpt: '', content: '', cover_image_url: '', author_name: 'Msheireb Properties' })
