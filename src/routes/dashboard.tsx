@@ -134,6 +134,22 @@ function DashboardPage() {
     return { label: value.replace(/_/g, ' '), detail: 'The administration team may update this status as the request is processed.', tone: 'text-ink-soft' }
   }
 
+  const commissionTotals = commissions.reduce<Record<string, { total: number; pending: number; approved: number; credited: number; rejected: number; count: number }>>((totals, row) => {
+    const key = row.currency
+    const current = totals[key] ?? { total: 0, pending: 0, approved: 0, credited: 0, rejected: 0, count: 0 }
+    const amount = Number(row.amount) || 0
+    const status = row.status.toLowerCase()
+    current.total += amount
+    current.count += 1
+    if (status === 'pending') current.pending += amount
+    else if (status === 'approved') current.approved += amount
+    else if (['credited', 'paid', 'completed'].includes(status)) current.credited += amount
+    else if (status === 'rejected') current.rejected += amount
+    totals[key] = current
+    return totals
+  }, {})
+  const commissionCurrencyRows = Object.entries(commissionTotals).sort(([a], [b]) => a.localeCompare(b))
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <WorkspaceSidebar mode="member" />
@@ -202,7 +218,8 @@ function DashboardPage() {
 
             <section id="commissions" className="border border-border bg-card">
               <div className="flex items-center justify-between gap-3 border-b border-border px-6 py-5"><h2 className="display text-xl">Your commissions</h2><Link to="/wallet" className="eyebrow text-[0.5rem]">Open wallet <ArrowRight /></Link></div>
-              {commissions.length === 0 ? <p className="px-6 py-7 text-sm text-ink-soft">No commission records yet. Approved commissions will appear here.</p> : <ul className="divide-y divide-border">{commissions.map((row) => {
+              {commissionCurrencyRows.length > 0 ? <div className="grid gap-3 border-b border-border p-5 sm:grid-cols-2">{commissionCurrencyRows.map(([code, totals]) => <div key={code} className="border border-border/70 p-4"><div className="flex items-center justify-between gap-3"><p className="eyebrow text-[0.5rem] text-brass">Commission summary · {code}</p><span className="text-[0.65rem] text-ink-soft">{totals.count} records</span></div><p className="display mt-2 text-xl">{formatMoney(totals.total, code as Currency)}</p><div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs"><div><p className="text-ink-soft">Pending review</p><p className="mt-1">{formatMoney(totals.pending, code as Currency)}</p></div><div><p className="text-ink-soft">Approved, not yet credited</p><p className="mt-1">{formatMoney(totals.approved, code as Currency)}</p></div><div><p className="text-ink-soft">Credited to wallet</p><p className="mt-1 text-emerald-700">{formatMoney(totals.credited, code as Currency)}</p></div><div><p className="text-ink-soft">Rejected</p><p className="mt-1 text-red-700">{formatMoney(totals.rejected, code as Currency)}</p></div></div></div>)}</div> : null}
+              {commissions.length === 0 ? <p className="px-6 py-7 text-sm text-ink-soft">No commission records yet. Approved commissions will appear here.</p> : <><p className="px-6 py-3 text-xs text-ink-soft">Amounts are grouped by currency. Pending and approved commissions are not available in your wallet until credited.</p><ul className="divide-y divide-border">{commissions.map((row) => {
                 const status = row.status.toLowerCase()
                 const completed = ['credited', 'paid', 'completed'].includes(status)
                 const rejected = status === 'rejected'
@@ -211,7 +228,7 @@ function DashboardPage() {
                 const statusClass = completed ? 'text-emerald-700' : rejected ? 'text-red-700' : approved ? 'text-brass' : 'text-ink-soft'
                 const statusDetail = status === 'pending' ? 'This commission is waiting for administrator review.' : completed ? 'This commission has been credited. Check your wallet transactions for the entry.' : rejected ? 'This commission was rejected and has not been credited.' : approved ? 'This commission is approved. Check your wallet balance and transaction history for the credit.' : 'The commission status will update when it is reviewed.'
                 return <li key={row.id} className="flex flex-wrap items-start justify-between gap-3 px-6 py-4"><div><p className="text-sm capitalize">{row.commission_type.replace(/_/g, ' ')} commission</p><p className="mt-1 text-xs text-ink-soft">{formatDate(row.created_at)}{row.description ? ` · ${row.description}` : ''}</p><p className={`eyebrow mt-2 text-[0.55rem] ${statusClass}`}>{statusLabel}</p><p className="mt-1 text-[0.65rem] text-ink-soft">{statusDetail}</p></div><p className="display text-base">{formatMoney(row.amount, row.currency)}</p></li>
-              })}</ul>}
+              })}</ul></>}
             </section>
             <section id="investments" className="border border-border bg-card">
               <div className="flex items-center justify-between gap-3 border-b border-border px-6 py-5"><h2 className="display text-xl">Investment applications</h2><Link to="/residences" className="eyebrow text-[0.5rem]">Explore properties <ArrowRight /></Link></div>
