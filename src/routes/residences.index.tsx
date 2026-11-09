@@ -19,6 +19,8 @@ type Project = {
   location: string | null
   description: string | null
   price_label: string
+  price_amount: number | null
+  order_percentages: number[]
   cover_image_url: string | null
   project_level: string
   set_number: number
@@ -45,6 +47,7 @@ function ResidencesPage() {
   const [selectedSet, setSelectedSet] = useState<number>(1)
   const [loadingProjects, setLoadingProjects] = useState(false)
   const [busyProject, setBusyProject] = useState('')
+  const [orderSelections, setOrderSelections] = useState<Record<string, { quantity: number; percentage: number }>>({})
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
 
@@ -70,7 +73,7 @@ function ResidencesPage() {
     ;(async () => {
       const client = requireSupabase()
       const [propertyResult, requestResult, userResult, accessResult] = await Promise.all([
-        client.from('properties').select('id,slug,name,location,description,price_label,cover_image_url,project_level,set_number,sort_order').eq('status', 'published').not('project_level', 'is', null).order('sort_order', { ascending: true }),
+        client.from('properties').select('id,slug,name,location,description,price_label,price_amount,order_percentages,cover_image_url,project_level,set_number,sort_order').eq('status', 'published').not('project_level', 'is', null).order('sort_order', { ascending: true }),
         client.from('investment_requests').select('property_id,status').order('created_at', { ascending: false }),
         client.auth.getUser(),
         client.from('customer_project_level_access').select('user_id,level_name,is_unlocked'),
@@ -104,10 +107,15 @@ function ResidencesPage() {
   const setIsUnlocked = (setNo: number) => setNo === 1 || (setNo === 2 && completedSets.has(1)) || (setNo === 3 && completedSets.has(2))
 
   async function requestProject(project: Project) {
-    const amountText = project.price_label.replace(/,/g, '').match(/[0-9]+(?:\.[0-9]{1,2})?/)
-    const amount = amountText ? Number(amountText[0]) : 0
-    if (!amount || !Number.isFinite(amount) || amount <= 0) {
-      setError('This sample project is not ready for orders. Ask the administrator to enter and publish its confirmed price first.')
+    const selection = orderSelections[project.id] ?? { quantity: 1, percentage: (project.order_percentages?.[0] ?? 10) }
+    const basePrice = Number(project.price_amount || 0)
+    const amount = Math.round(basePrice * selection.quantity * selection.percentage) / 100
+    if (!basePrice || !Number.isFinite(basePrice) || basePrice <= 0 || !Number.isFinite(amount) || amount <= 0) {
+      setError('This project is not ready for orders. Ask the administrator to set its confirmed numeric price first.')
+      return
+    }
+    if (!project.order_percentages?.includes(selection.percentage)) {
+      setError('Please choose one of the percentage options enabled by the administrator.')
       return
     }
     setBusyProject(project.id); setError(''); setNotice('')
@@ -123,7 +131,7 @@ function ResidencesPage() {
         plan_code: 'project_order',
         amount,
         currency: 'AED',
-        note: 'Project order request submitted from the project catalogue.',
+        note: `Project order · Quantity: ${selection.quantity} · Allocation: ${selection.percentage}% · Base price: AED ${basePrice.toFixed(2)} · Total: AED ${amount.toFixed(2)}`, 
       })
       if (insertError) throw insertError
       setRequests((current) => [...current, { property_id: project.id, status: 'pending' }])
@@ -169,7 +177,7 @@ function ResidencesPage() {
                         const image = project?.cover_image_url || SAMPLE_IMAGES[index % SAMPLE_IMAGES.length]
                         return <article key={project?.id || index} className="group flex h-full flex-col overflow-hidden border border-border bg-card">
                           <div className="relative overflow-hidden"><img src={image} alt={project?.name || `Sample project ${index + 1}`} loading="lazy" className="aspect-[4/3] w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]" /><span className="eyebrow absolute left-3 top-3 bg-deep/85 px-3 py-1.5 text-[0.48rem] text-on-deep">Project {String(index + 1).padStart(2, '0')}</span></div>
-                          <div className="flex flex-1 flex-col p-4"><h3 className="display text-xl">{project?.name || `Sample Project ${String(index + 1).padStart(2, '0')}`}</h3><p className="mt-2 text-xs text-ink-soft">{project?.location || 'Dubai, UAE'}</p><p className="mt-3 text-sm text-ink-soft">{project?.price_label || 'Sample — price to be set by admin'}</p><p className="mt-2 line-clamp-2 text-xs text-ink-soft">{project?.description || 'Sample project card. The administrator can replace the image and all project details.'}</p><button type="button" disabled={!project || busyProject === project.id || !project.price_label.match(/[0-9]/)} onClick={() => project && void requestProject(project)} className="eyebrow mt-5 w-full bg-primary px-4 py-3 text-[0.55rem] text-primary-foreground disabled:cursor-not-allowed disabled:opacity-40">{busyProject === project?.id ? 'Sending…' : project?.price_label.match(/[0-9]/) ? 'Order project' : 'Awaiting admin price'}</button></div>
+                          <div className="flex flex-1 flex-col p-4"><h3 className="display text-xl">{project?.name || `Sample Project ${String(index + 1).padStart(2, '0')}`}</h3><p className="mt-2 text-xs text-ink-soft">{project?.location || 'Dubai, UAE'}</p><p className="mt-3 text-sm text-ink-soft">{project?.price_label || 'Sample — price to be set by admin'}</p>{project?.price_amount ? <p className="mt-1 text-sm font-medium">Base price: AED {Number(project.price_amount).toLocaleString('en', { maximumFractionDigits: 2 })}</p> : null}<p className="mt-2 line-clamp-2 text-xs text-ink-soft">{project?.description || 'Sample project card. The administrator can replace the image and all project details.'}</p>{project?.price_amount && project.price_amount > 0 ? <div className="mt-4 grid gap-3 border-t border-border pt-3"><div><span className="eyebrow text-[0.5rem] text-ink-soft">Quantity</span><div className="mt-2 flex items-center gap-3"><button type="button" aria-label="Decrease quantity" disabled={(orderSelections[project.id]?.quantity ?? 1) <= 1} onClick={() => setOrderSelections((current) => ({ ...current, [project.id]: { quantity: Math.max(1, (current[project.id]?.quantity ?? 1) - 1), percentage: current[project.id]?.percentage ?? (project.order_percentages?.[0] ?? 10) } }))} className="border border-border px-3 py-2">−</button><span className="min-w-8 text-center text-sm">{orderSelections[project.id]?.quantity ?? 1}</span><button type="button" aria-label="Increase quantity" disabled={(orderSelections[project.id]?.quantity ?? 1) >= 20} onClick={() => setOrderSelections((current) => ({ ...current, [project.id]: { quantity: Math.min(20, (current[project.id]?.quantity ?? 1) + 1), percentage: current[project.id]?.percentage ?? (project.order_percentages?.[0] ?? 10) } }))} className="border border-border px-3 py-2">+</button></div></div><div><span className="eyebrow text-[0.5rem] text-ink-soft">Select percentage</span><div className="mt-2 flex flex-wrap gap-2">{(project.order_percentages?.length ? project.order_percentages : []).map((percent) => <button key={percent} type="button" onClick={() => setOrderSelections((current) => ({ ...current, [project.id]: { quantity: current[project.id]?.quantity ?? 1, percentage: percent } }))} className={`border px-3 py-2 text-xs ${(orderSelections[project.id]?.percentage ?? (project.order_percentages?.[0] ?? 10)) === percent ? 'border-brass bg-brass/10' : 'border-border'}`}>{percent}%</button>)}</div></div><p className="text-xs text-ink-soft">Order total: <strong className="text-foreground">AED {(Number(project.price_amount) * (orderSelections[project.id]?.quantity ?? 1) * (orderSelections[project.id]?.percentage ?? (project.order_percentages?.[0] ?? 10)) / 100).toLocaleString('en', { maximumFractionDigits: 2 })}</strong></p><button type="button" disabled={busyProject === project.id || !project.order_percentages?.length} onClick={() => void requestProject(project)} className="eyebrow w-full bg-primary px-4 py-3 text-[0.55rem] text-primary-foreground disabled:cursor-not-allowed disabled:opacity-40">{busyProject === project.id ? 'Sending…' : 'Order project'}</button></div> : <p className="mt-5 border border-dashed border-border p-3 text-xs text-ink-soft">Awaiting admin price and order settings</p>}</div>
                         </article>
                       })}
                     </div>
