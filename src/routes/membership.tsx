@@ -80,7 +80,7 @@ function MembershipPage() {
         <PageIntro
           eyebrow="Membership"
           title="Membership levels and benefits."
-          intro="Registered members can progress through the available levels as administrators confirm eligible account activity. Plan benefits and percentages are managed by the administration team; no bonus or return is assumed unless it is explicitly approved and recorded."
+          intro="This page shows illustrative membership levels and account features. Thresholds, project allowances and benefits are sample defaults until confirmed by the administrator. No bonus, profit or investment return is guaranteed."
           image={IMAGES.tower}
           imageAlt="Msheireb Properties tower at dusk"
         />
