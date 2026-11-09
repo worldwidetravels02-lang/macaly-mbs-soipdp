@@ -9,7 +9,7 @@ import siteMetadata from '../metadata.json'
 
 const meta = siteMetadata['/dashboard']
 const currencies = ['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR', 'INR'] as const
-const normalizeInvestmentStatus = (value: unknown) => String(value ?? '').trim().toLowerCase().replace(/[\\s-]+/g, '_')
+const normalizeInvestmentStatus = (value: unknown) => String(value ?? '').trim().toLowerCase().replace(/[\s-]+/g, '_')
 type Currency = (typeof currencies)[number]
 type Investment = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; reference: string | null; property_id: string | null }
 type InvestmentRequest = { id: string; property_name: string; plan_code: string | null; amount: number | string; currency: Currency; profit_percent: number | string | null; expected_profit: number | string | null; commission_percent: number | string | null; expected_commission: number | string | null; status: string; created_at: string }
@@ -19,10 +19,14 @@ type MemberTask = { id: string; title: string; detail: string | null; target_lev
 type MembershipPlan = { id: string; level: number; name: string; minimum_amount: number | string; profit_percent: number | string; commission_percent: number | string; active: boolean }
 
 function formatMoney(amount: number | string, currency: Currency) {
-  return new Intl.NumberFormat('en', { style: 'currency', currency, maximumFractionDigits: 2 }).format(Number(amount || 0))
+  const numeric = Number(amount)
+  return new Intl.NumberFormat('en', { style: 'currency', currency, maximumFractionDigits: 2 }).format(Number.isFinite(numeric) ? numeric : 0)
 }
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat('en', { dateStyle: 'medium' }).format(new Date(value))
+  const timestamp = Date.parse(value)
+  return Number.isFinite(timestamp)
+    ? new Intl.DateTimeFormat('en', { dateStyle: 'medium' }).format(timestamp)
+    : 'Date unavailable'
 }
 
 export const Route = createFileRoute('/dashboard')({
