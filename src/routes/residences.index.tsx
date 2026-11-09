@@ -92,7 +92,7 @@ function ResidencesPage() {
 
   const currentLevelUnlocked = levelSettings.find((item) => item.level_name === selectedLevel)?.is_unlocked ?? selectedLevel === 'Junior Trial'
   const levelProjects = useMemo(() => projects.filter((project) => project.project_level === selectedLevel), [projects, selectedLevel])
-  const setProjects = useMemo(() => levelProjects.filter((project) => Number(project.set_number) === selectedSet), [levelProjects, selectedSet])
+  const selectedSetProjects = useMemo(() => levelProjects.filter((project) => Number(project.set_number) === selectedSet), [levelProjects, selectedSet])
   const completedSets = useMemo(() => {
     const completedIds = new Set(requests.filter((request) => ['funded', 'approved', 'completed'].includes(String(request.status).toLowerCase())).map((request) => request.property_id).filter(Boolean))
     return new Set(SETS.filter((setNo) => {
@@ -164,7 +164,7 @@ function ResidencesPage() {
                   {!setIsUnlocked(selectedSet) ? <p className="mt-5 text-sm text-ink-soft">Complete all 20 projects in the previous set before this set opens.</p> : loadingProjects ? <p className="mt-8 text-sm text-ink-soft">Loading projects…</p> : (
                     <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                       {Array.from({ length: 20 }, (_, index) => {
-                        const project = setProjects[index]
+                        const project = selectedSetProjects[index]
                         const image = project?.cover_image_url || SAMPLE_IMAGES[index % SAMPLE_IMAGES.length]
                         return <article key={project?.id || index} className="group flex h-full flex-col overflow-hidden border border-border bg-card">
                           <div className="relative overflow-hidden"><img src={image} alt={project?.name || `Sample project ${index + 1}`} loading="lazy" className="aspect-[4/3] w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]" /><span className="eyebrow absolute left-3 top-3 bg-deep/85 px-3 py-1.5 text-[0.48rem] text-on-deep">Project {String(index + 1).padStart(2, '0')}</span></div>
