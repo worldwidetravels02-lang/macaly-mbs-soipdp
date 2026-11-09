@@ -62,9 +62,9 @@ function DashboardPage() {
     setError('')
     try {
       const client = requireSupabase()
-      const { data: auth, error: authError } = await client.auth.getUser()
+      const { data: auth, error: authError } = await client.auth.getSession()
       if (authError) throw authError
-      const current = auth.user
+      const current = auth.session?.user ?? null
       setUser(current)
       if (!current) return
       const [profile, wallet, projects, requests, ledger, notices, commissionRows, memberProfile, taskRows, planRows] = await Promise.all([
