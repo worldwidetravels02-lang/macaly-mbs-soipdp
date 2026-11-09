@@ -18,7 +18,8 @@ type WalletNotification = { id: string; title: string; body: string; read_at: st
 const fieldClass = 'mt-2 w-full border border-input bg-background px-4 py-3 text-[0.95rem] outline-none transition-colors placeholder:text-ink-soft/60 focus:border-brass disabled:opacity-60'
 
 function money(value: number | string, currency: Currency) {
-  return new Intl.NumberFormat('en', { style: 'currency', currency, maximumFractionDigits: 2 }).format(Number(value || 0))
+  const numeric = Number(value)
+  return new Intl.NumberFormat('en', { style: 'currency', currency, maximumFractionDigits: 2 }).format(Number.isFinite(numeric) ? numeric : 0)
 }
 function normalizeStatus(value: unknown) { return String(value ?? '').trim().toLowerCase().replace(/[\s-]+/g, '_') }
 function displayStatus(value: unknown) {
@@ -26,7 +27,10 @@ function displayStatus(value: unknown) {
   return status ? status.replace(/_/g, ' ') : 'status unavailable'
 }
 function date(value: string) {
-  return new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
+  const timestamp = Date.parse(value)
+  return Number.isFinite(timestamp)
+    ? new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeStyle: 'short' }).format(timestamp)
+    : 'Date unavailable'
 }
 
 export const Route = createFileRoute('/wallet')({
