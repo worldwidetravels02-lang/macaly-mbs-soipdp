@@ -29,6 +29,7 @@ Apply the SQL files in `supabase/migrations/` in filename order using the Supaba
 - `202611090001_investment_commission_ledger.sql` adds the administrator-reviewed investment and commission ledger.
 - `202611090002_member_task_workflow_states.sql` defines the task assignment, submission, review and resubmission states.
 - `202611090003_identity_document_cleanup_policy.sql` allows customers to remove their own private identity uploads when a submission needs cleanup.
+- `202611090004_reconcile_returned_task_state.sql` aligns the database task states with the customer resubmission workflow.
 
 After creating the owner account through Supabase Auth, add that account to `public.admin_members` from the SQL Editor using its Auth user UUID:
 
