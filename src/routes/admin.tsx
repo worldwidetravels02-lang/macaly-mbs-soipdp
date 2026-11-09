@@ -546,6 +546,27 @@ function AdminPage() {
     approvedWithdrawals: (rows.withdrawals ?? []).filter((row) => normalizeAdminStatus(row.status) === 'approved').length,
   }), [rows])
 
+  const recentAdminActivity = useMemo(() => {
+    const entries = [
+      ...(rows.enquiries ?? []).map((item) => ({ id: `enquiry-${item.id}`, kind: 'Enquiry received', detail: text(item.full_name) || text(item.mobile) || 'New customer enquiry', created_at: item.created_at, section: 'enquiries' as Section })),
+      ...(rows.investmentRequests ?? []).map((item) => ({ id: `investment-${item.id}`, kind: 'Investment application', detail: customerLabel(item.user_id), created_at: item.created_at, section: 'investments' as Section })),
+      ...(rows.topups ?? []).map((item) => ({ id: `topup-${item.id}`, kind: 'Deposit request', detail: `${customerLabel(item.user_id)} · ${money(item.amount, text(item.currency) || 'AED')}`, created_at: item.created_at, section: 'finance' as Section })),
+      ...(rows.withdrawals ?? []).map((item) => ({ id: `withdrawal-${item.id}`, kind: 'Withdrawal request', detail: `${customerLabel(item.user_id)} · ${money(item.amount, text(item.currency) || 'AED')}`, created_at: item.created_at, section: 'finance' as Section })),
+      ...(rows.verifications ?? []).map((item) => ({ id: `verification-${item.id}`, kind: 'Identity check submitted', detail: customerLabel(item.user_id), created_at: item.submitted_at || item.created_at, section: 'verifications' as Section })),
+      ...(rows.threads ?? []).map((item) => ({ id: `support-${item.id}`, kind: 'Support conversation updated', detail: customerLabel(item.user_id), created_at: item.updated_at || item.created_at, section: 'support' as Section })),
+    ]
+    return entries.filter((item) => item.created_at).sort((a, b) => new Date(text(b.created_at)).getTime() - new Date(text(a.created_at)).getTime()).slice(0, 8)
+  }, [rows.enquiries, rows.investmentRequests, rows.topups, rows.withdrawals, rows.verifications, rows.threads, rows.users])
+
+  const adminAlerts = useMemo(() => [
+    { label: 'Financial requests awaiting review', count: stats.pending, section: 'finance' as Section },
+    { label: 'Investment applications awaiting review', count: stats.pendingInvestmentReviews, section: 'investments' as Section },
+    { label: 'Approved investments awaiting funding', count: stats.approvedInvestmentFunding, section: 'investments' as Section },
+    { label: 'Commissions awaiting review', count: stats.pendingCommissionReviews, section: 'commissions' as Section },
+    { label: 'Approved commissions awaiting credit', count: stats.approvedCommissionCredits, section: 'commissions' as Section },
+    { label: 'Identity checks awaiting review', count: stats.pendingIdentityReviews, section: 'verifications' as Section },
+  ].filter((item) => item.count > 0), [stats])
+
   const financePendingByCurrency = useMemo(() => {
     const totals = new Map<string, { topups: number; withdrawals: number; approvedWithdrawals: number }>()
     for (const item of rows.topups ?? []) {
@@ -934,6 +955,16 @@ function AdminPage() {
                 ].map(([label, value]) => <div key={label} className="border border-border bg-card p-6"><p className="eyebrow text-[0.5rem] text-ink-soft">{label}</p><p className="display mt-3 text-3xl">{value}</p></div>)}
               </div>
               <section className="mt-6 grid gap-4 border border-brass/40 bg-card p-5"><div><h2 className="display text-xl">Financial review queue</h2><p className="mt-1 text-xs leading-5 text-ink-soft">These counts are based on the records currently loaded. Review each item before approving, funding or crediting any customer account.</p></div><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"><button type="button" onClick={() => setSection('investments')} className="border border-border p-4 text-left hover:border-brass"><span className="eyebrow text-[0.5rem] text-ink-soft">Investment applications</span><strong className="display mt-2 block text-2xl">{stats.pendingInvestmentReviews}</strong><span className="mt-1 block text-xs text-ink-soft">Pending review · Open investments</span></button><button type="button" onClick={() => setSection('investments')} className="border border-border p-4 text-left hover:border-brass"><span className="eyebrow text-[0.5rem] text-ink-soft">Investment funding</span><strong className="display mt-2 block text-2xl">{stats.approvedInvestmentFunding}</strong><span className="mt-1 block text-xs text-ink-soft">Approved · Awaiting wallet funding</span></button><button type="button" onClick={() => setSection('commissions')} className="border border-border p-4 text-left hover:border-brass"><span className="eyebrow text-[0.5rem] text-ink-soft">Commission review</span><strong className="display mt-2 block text-2xl">{stats.pendingCommissionReviews}</strong><span className="mt-1 block text-xs text-ink-soft">Pending · Open commissions</span></button><button type="button" onClick={() => setSection('commissions')} className="border border-border p-4 text-left hover:border-brass"><span className="eyebrow text-[0.5rem] text-ink-soft">Commission credits</span><strong className="display mt-2 block text-2xl">{stats.approvedCommissionCredits}</strong><span className="mt-1 block text-xs text-ink-soft">Approved · Awaiting credit</span></button><button type="button" onClick={() => setSection('verifications')} className="border border-border p-4 text-left hover:border-brass"><span className="eyebrow text-[0.5rem] text-ink-soft">Identity checks</span><strong className="display mt-2 block text-2xl">{stats.pendingIdentityReviews}</strong><span className="mt-1 block text-xs text-ink-soft">Pending · Open identity checks</span></button></div></section>
+              <div className="mt-6 grid gap-6 xl:grid-cols-2">
+                <section className="border border-border bg-card p-6">
+                  <div className="flex items-center justify-between gap-3"><div><h2 className="display text-xl">Admin alerts</h2><p className="mt-1 text-xs text-ink-soft">Items that need an administrator's attention</p></div><span className="eyebrow text-brass">{adminAlerts.reduce((total, item) => total + item.count, 0)} pending</span></div>
+                  {adminAlerts.length ? <div className="mt-4 divide-y divide-border">{adminAlerts.map((item) => <button key={item.label} type="button" onClick={() => setSection(item.section)} className="flex w-full items-center justify-between gap-4 py-3 text-left hover:text-brass"><span className="text-sm">{item.label}</span><span className="display text-xl">{item.count}</span></button>)}</div> : <p className="mt-4 text-sm text-ink-soft">No pending admin alerts in the records currently loaded.</p>}
+                </section>
+                <section className="border border-border bg-card p-6">
+                  <h2 className="display text-xl">Recent activity</h2><p className="mt-1 text-xs text-ink-soft">Latest activity from the records currently loaded</p>
+                  {recentAdminActivity.length ? <div className="mt-4 divide-y divide-border">{recentAdminActivity.map((item) => <button key={item.id} type="button" onClick={() => setSection(item.section)} className="flex w-full items-start justify-between gap-4 py-3 text-left hover:text-brass"><span className="min-w-0"><b className="block text-sm font-medium">{item.kind}</b><span className="mt-1 block truncate text-xs text-ink-soft">{item.detail}</span></span><time className="shrink-0 text-[0.65rem] text-ink-soft">{date(item.created_at)}</time></button>)}</div> : <p className="mt-4 text-sm text-ink-soft">No recent activity is available.</p>}
+                </section>
+              </div>
               <div className="mt-6 border border-border bg-card p-6"><h2 className="display text-xl">Quick actions</h2><div className="mt-4 flex flex-wrap gap-3">{SECTIONS.filter((item) => item.id !== 'overview').map((item) => <button key={item.id} onClick={() => setSection(item.id)} className={softButton}>{item.label} <ArrowRight /></button>)}</div></div>
               <div className="mt-6"><DataTable title="Latest customer enquiries" rows={(rows.enquiries ?? []).slice(0, 5).map((item) => { const relatedProperty = Array.isArray(item.properties) ? item.properties[0] : item.properties; return { ...item, property_name: relatedProperty?.name || 'General enquiry' } })} columns={['full_name','mobile','property_name','status','created_at']} render={(item) => <button className={softButton} onClick={() => setSection('enquiries')}>Open enquiries <ArrowRight /></button>} /></div>
             </section> : null}
