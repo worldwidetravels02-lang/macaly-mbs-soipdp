@@ -252,7 +252,7 @@ function AdminPage() {
     for (const item of investmentRequestsWithCustomer) {
       const currency = text(item.currency) || 'AED'
       const key = `${text(item.user_id)}:${currency}`
-      const status = text(item.status).toLowerCase()
+      const status = text(item.status).trim().toLowerCase().replace(/[\\s-]+/g, '_')
       const entry = grouped.get(key) ?? {
         customer_name: item.customer_name, user_id: item.user_id, currency,
         request_count: 0, requested_amount: 0, pending_count: 0,
@@ -274,7 +274,7 @@ function AdminPage() {
     for (const item of commissionsWithCustomers) {
       const currency = text(item.currency) || 'AED'
       const key = `${text(item.user_id)}:${currency}`
-      const status = text(item.status).toLowerCase()
+      const status = text(item.status).trim().toLowerCase().replace(/[\\s-]+/g, '_')
       const entry = grouped.get(key) ?? {
         customer_name: item.customer_name, user_id: item.user_id, currency,
         commission_count: 0, total_commission: 0, pending_amount: 0,
