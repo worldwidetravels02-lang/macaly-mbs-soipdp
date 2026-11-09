@@ -132,8 +132,12 @@ function WalletPage() {
   async function submitWalletRequest(kind: 'deposit' | 'withdrawal') {
     const rawAmount = kind === 'deposit' ? depositAmount : withdrawalAmount
     const amount = Number(rawAmount)
-    if (!Number.isFinite(amount) || amount <= 0 || amount > 100000000) { setError('Enter a valid amount.'); return }
+    if (!Number.isFinite(amount) || amount <= 0 || amount > 100000000 || !/^\\d+(?:\\.\\d{1,2})?$/.test(rawAmount.trim())) { setError('Enter a valid amount with no more than 2 decimal places (maximum 100,000,000).'); return }
     if (kind === 'withdrawal') {
+      const method = payoutMethod.trim()
+      const details = payoutDetails.trim()
+      if (!['Bank transfer', 'Other'].includes(method)) { setError('Choose a supported withdrawal method.'); return }
+      if (!details || details.length > 1000) { setError('Enter payout instructions between 1 and 1,000 characters.'); return }
       const reservedWithdrawals = withdrawals
         .filter((row) => row.currency === currency && ['pending', 'submitted', 'under_review', 'approved', 'processing', 'in_progress'].includes(normalizeStatus(row.status)))
         .reduce((total, row) => total + (Number(row.amount) || 0), 0)
@@ -165,7 +169,7 @@ function WalletPage() {
       }
       const table = kind === 'deposit' ? 'topup_requests' : 'withdrawal_requests'
       const requestPayload = kind === 'withdrawal'
-        ? { user_id: authData.user.id, amount, currency, status: 'pending', payout_method: payoutMethod.trim(), payout_details: { instructions: payoutDetails.trim() } }
+        ? { user_id: authData.user.id, amount, currency, status: 'pending', payout_method: method, payout_details: { instructions: details } }
         : { user_id: authData.user.id, amount, currency, status: 'pending' }
       const { error: insertError } = await client.from(table).insert(requestPayload)
       if (insertError) throw insertError
