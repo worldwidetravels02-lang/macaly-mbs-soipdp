@@ -90,8 +90,15 @@ function AccountPage() {
 
   const save = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!user || name.trim().length < 2 || mobile.replace(/\D/g, '').length < 7) {
-      setError('Enter your full name and a valid mobile number.')
+    const cleanName = name.trim().replace(/\s+/g, ' ')
+    const cleanMobile = mobile.trim()
+    const mobileDigits = cleanMobile.replace(/\D/g, '')
+    if (!user || cleanName.length < 2 || cleanName.length > 120 || /[\u0000-\u001f<>]/.test(cleanName)) {
+      setError('Enter a valid full name between 2 and 120 characters.')
+      return
+    }
+    if (cleanMobile.length > 32 || mobileDigits.length < 7 || mobileDigits.length > 15 || !/^[+()\d\s.-]+$/.test(cleanMobile)) {
+      setError('Enter a valid mobile number with 7–15 digits.')
       return
     }
     setSaving(true)
@@ -100,7 +107,7 @@ function AccountPage() {
     try {
       const { data, error: saveError } = await requireSupabase()
         .from('profiles')
-        .upsert({ id: user.id, full_name: name.trim(), mobile: mobile.trim() })
+        .upsert({ id: user.id, full_name: cleanName, mobile: cleanMobile })
         .select('full_name,mobile,preferred_language,preferred_currency')
         .single()
       if (saveError) throw saveError
