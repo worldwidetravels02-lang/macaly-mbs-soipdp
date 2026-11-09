@@ -140,6 +140,21 @@ function WalletPage() {
       const { data: authData, error: authError } = await client.auth.getUser()
       if (authError) throw authError
       if (!authData.user) throw new Error('Please sign in again.')
+      if (kind === 'withdrawal') {
+        const { data: latestWithdrawals, error: latestError } = await client
+          .from('withdrawal_requests')
+          .select('amount, currency, status')
+          .eq('user_id', authData.user.id)
+          .eq('currency', currency)
+        if (latestError) throw latestError
+        const activeStatuses = ['pending', 'submitted', 'under_review', 'approved', 'processing', 'in_progress']
+        const latestReserved = (latestWithdrawals ?? [])
+          .filter((row) => activeStatuses.includes(String(row.status ?? '').toLowerCase().replace(/-/g, '_')))
+          .reduce((total, row) => total + (Number(row.amount) || 0), 0)
+        if (amount + latestReserved > balance) {
+          throw new Error(`Your available balance has changed. Existing active withdrawals reserve ${money(latestReserved, currency)}. Refresh your wallet and try again.`)
+        }
+      }
       const table = kind === 'deposit' ? 'topup_requests' : 'withdrawal_requests'
       const requestPayload = kind === 'withdrawal'
         ? { user_id: authData.user.id, amount, currency, status: 'pending', payout_method: payoutMethod.trim(), payout_details: { instructions: payoutDetails.trim() } }
