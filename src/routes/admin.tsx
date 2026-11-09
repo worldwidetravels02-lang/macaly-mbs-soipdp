@@ -147,11 +147,12 @@ function AdminPage() {
     setError('')
     try {
       const client = requireSupabase()
-      const { data: auth, error: authError } = await client.auth.getUser()
+      const { data: auth, error: authError } = await client.auth.getSession()
       if (authError) throw authError
-      setUser(auth.user)
-      if (!auth.user) { setAuthorized(false); return }
-      const { data: membership, error: membershipError } = await client.from('admin_members').select('role').eq('user_id', auth.user.id).maybeSingle()
+      const currentUser = auth.session?.user ?? null
+      setUser(currentUser)
+      if (!currentUser) { setAuthorized(false); return }
+      const { data: membership, error: membershipError } = await client.from('admin_members').select('role').eq('user_id', currentUser.id).maybeSingle()
       if (membershipError || !membership) { setAuthorized(false); setAdminRole(''); return }
       setAdminRole(membership.role === 'owner' ? 'owner' : 'admin')
       if (membership.role === 'owner') {
@@ -160,7 +161,7 @@ function AdminPage() {
         setOwnerPinSet(Boolean(pinSet))
         // Keep owner verification for this browser tab across refreshes.
         // sessionStorage is cleared when the tab/session is closed.
-        const ownerVerificationKey = `msheireb-owner-verified:${auth.user.id}`
+        const ownerVerificationKey = `msheireb-owner-verified:${currentUser.id}`
         setOwnerVerified(typeof window !== 'undefined' && window.sessionStorage.getItem(ownerVerificationKey) === '1')
       } else {
         setOwnerPinSet(false)
