@@ -369,28 +369,58 @@ function WalletPage() {
 
 
 function RequestHistory({ title, rows, kind }: { title: string; rows: RequestRow[]; kind: 'deposit' | 'withdrawal' }) {
+  const [search, setSearch] = useState('')
+  const [filter, setFilter] = useState<'all' | 'active' | 'completed' | 'not_approved'>('all')
   const statusInfo = (rawStatus: string) => {
-    const status = rawStatus.toLowerCase().replace(/-/g, '_')
-    if (status === 'pending' || status === 'submitted' || status === 'under_review') {
-      return { label: 'Pending administrator review', detail: kind === 'deposit' ? 'Your request is recorded. Contact customer support for deposit instructions; funds are not added until an administrator processes it.' : 'Your request is waiting for administrator review. The amount has not been paid out.', tone: 'text-brass' }
+    const status = normalizeStatus(rawStatus)
+    if (['pending', 'submitted', 'under_review'].includes(status)) {
+      return { group: 'active' as const, label: 'Pending administrator review', detail: kind === 'deposit' ? 'Your request is recorded. Contact customer support for deposit instructions; funds are not added until an administrator processes it.' : 'Your request is waiting for administrator review. The amount has not been paid out.', tone: 'text-brass' }
     }
-    if (status === 'approved' || status === 'processing' || status === 'in_progress') {
-      return { label: status === 'approved' ? 'Approved' : 'Processing', detail: kind === 'deposit' ? 'Your request has been approved. Check your wallet activity after the administrator posts the credit.' : 'Your withdrawal is approved but is not confirmed as paid yet.', tone: 'text-brass' }
+    if (['approved', 'processing', 'in_progress'].includes(status)) {
+      return { group: 'active' as const, label: status === 'approved' ? 'Approved' : 'Processing', detail: kind === 'deposit' ? 'Your request has been approved. Check your wallet activity after the administrator posts the credit.' : 'Your withdrawal is approved but is not confirmed as paid yet.', tone: 'text-brass' }
     }
     if (['paid', 'completed', 'credited', 'successful', 'succeeded'].includes(status)) {
-      return { label: kind === 'deposit' ? 'Completed / credited' : 'Paid / completed', detail: 'This request is marked complete. Check wallet activity for the posted transaction where applicable.', tone: 'text-emerald-700' }
+      return { group: 'completed' as const, label: kind === 'deposit' ? 'Completed / credited' : 'Paid / completed', detail: 'This request is marked complete. Check wallet activity for the posted transaction where applicable.', tone: 'text-emerald-700' }
     }
     if (['rejected', 'declined', 'cancelled', 'canceled', 'failed'].includes(status)) {
-      return { label: 'Not approved', detail: 'This request was not completed. Contact customer support if you need an explanation.', tone: 'text-red-700' }
+      return { group: 'not_approved' as const, label: 'Not approved', detail: 'This request was not completed. Contact customer support if you need an explanation.', tone: 'text-red-700' }
     }
-    return { label: rawStatus.replace(/_/g, ' '), detail: 'The administrator has updated this request. Contact customer support if you need clarification.', tone: 'text-ink-soft' }
+    return { group: 'other' as const, label: rawStatus.replace(/_/g, ' '), detail: 'The administrator has updated this request. Contact customer support if you need clarification.', tone: 'text-ink-soft' }
   }
+  const counts = rows.reduce((result, row) => {
+    const group = statusInfo(row.status).group
+    result[group] += 1
+    return result
+  }, { active: 0, completed: 0, not_approved: 0, other: 0 })
+  const visibleRows = rows.filter((row) => {
+    const group = statusInfo(row.status).group
+    const matchesFilter = filter === 'all' || (filter === 'active' ? group === 'active' : filter === 'completed' ? group === 'completed' : group === 'not_approved')
+    const query = search.trim().toLowerCase()
+    const matchesSearch = !query || [row.id, row.amount, row.currency, row.status, row.created_at, row.admin_note, row.payout_method]
+      .some((value) => String(value ?? '').toLowerCase().includes(query))
+    return matchesFilter && matchesSearch
+  })
   return (
     <div className="border border-border bg-card">
-      <h2 className="display border-b border-border px-6 py-4 text-lg">{title}</h2>
-      {rows.length === 0 ? <p className="px-6 py-6 text-sm text-ink-soft">No requests submitted yet.</p> : (
+      <div className="grid gap-3 border-b border-border px-6 py-4">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="display text-lg">{title}</h2>
+          <span className="text-xs text-ink-soft">{rows.length} {rows.length === 1 ? 'request' : 'requests'}</span>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          <div className="bg-background px-3 py-2"><p className="text-[0.6rem] text-ink-soft">Awaiting / active</p><p className="display mt-1 text-xl">{counts.active}</p></div>
+          <div className="bg-background px-3 py-2"><p className="text-[0.6rem] text-ink-soft">Completed</p><p className="display mt-1 text-xl">{counts.completed}</p></div>
+          <div className="bg-background px-3 py-2"><p className="text-[0.6rem] text-ink-soft">Not approved</p><p className="display mt-1 text-xl">{counts.not_approved}</p></div>
+        </div>
+        <label className="block"><span className="sr-only">Search {title.toLowerCase()}</span><input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search amount, date, status or reference" className={fieldClass} /></label>
+        <div className="flex flex-wrap gap-2" aria-label={`Filter ${title.toLowerCase()}`}>
+          {(['all', 'active', 'completed', 'not_approved'] as const).map((value) => <button key={value} type="button" aria-pressed={filter === value} onClick={() => setFilter(value)} className={`border px-3 py-2 text-xs transition-colors ${filter === value ? 'border-brass bg-brass/10 text-brass' : 'border-border text-ink-soft hover:border-brass'}`}>{value === 'all' ? `All (${rows.length})` : value === 'active' ? `Active (${counts.active})` : value === 'completed' ? `Completed (${counts.completed})` : `Not approved (${counts.not_approved})`}</button>)}
+          <button type="button" onClick={() => { setSearch(''); setFilter('all') }} disabled={!search && filter === 'all'} className="border border-border px-3 py-2 text-xs text-ink-soft disabled:opacity-50">Clear</button>
+        </div>
+      </div>
+      {rows.length === 0 ? <p className="px-6 py-6 text-sm text-ink-soft">No requests submitted yet.</p> : visibleRows.length === 0 ? <p className="px-6 py-6 text-sm text-ink-soft">No matching requests found.</p> : (
         <ul className="divide-y divide-border">
-          {rows.map((row) => {
+          {visibleRows.map((row) => {
             const info = statusInfo(row.status)
             return <li key={row.id} className="px-6 py-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -408,6 +438,7 @@ function RequestHistory({ title, rows, kind }: { title: string; rows: RequestRow
           })}
         </ul>
       )}
+      {rows.length > 0 ? <p className="border-t border-border px-6 py-3 text-xs text-ink-soft">Showing {visibleRows.length} of {rows.length} requests.</p> : null}
     </div>
   )
 }
