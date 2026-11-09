@@ -1,3 +1,4 @@
+import { WorkspaceSidebar } from '../components/workspace-sidebar'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import type { User } from '@supabase/supabase-js'
@@ -549,8 +550,9 @@ function AdminPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <WorkspaceSidebar mode="admin" active={section} onSelect={(id) => setSection(id as Section)} />
       <SiteHeader />
-      <main id="main" className="pb-20 pt-28 sm:pt-36">
+      <main id="main" className="pb-20 pt-28 sm:pt-36 lg:ml-64">
         <div className="mx-auto w-full max-w-7xl px-5 sm:px-8">
           <header className="mb-8 flex flex-col gap-4 border-b border-border pb-7 sm:flex-row sm:items-end sm:justify-between">
             <div><p className="eyebrow text-brass">Private workspace</p><h1 className="display mt-3 text-3xl sm:text-4xl">Administration</h1><p className="mt-2 text-sm text-ink-soft">Msheireb Properties · Secure Supabase workspace</p></div>
