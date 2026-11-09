@@ -14,6 +14,8 @@ type Investment = { id: string; amount: number | string; currency: Currency; sta
 type InvestmentRequest = { id: string; property_name: string; amount: number | string; currency: Currency; status: string; created_at: string }
 type LedgerItem = { id: string; amount: number | string; currency: Currency; transaction_type: string; direction: string; status: string; description: string | null; created_at: string }
 type Commission = { id: string; amount: number | string; currency: Currency; commission_type: string; status: string; description: string | null; created_at: string }
+type MemberTask = { id: string; title: string; detail: string | null; target_level: number | null; status: string; created_at: string; reviewed_at?: string | null; review_note?: string | null }
+type MembershipPlan = { id: string; level: number; name: string; minimum_amount: number | string; profit_percent: number | string; commission_percent: number | string; active: boolean }
 
 function formatMoney(amount: number | string, currency: Currency) {
   return new Intl.NumberFormat('en', { style: 'currency', currency, maximumFractionDigits: 2 }).format(Number(amount || 0))
@@ -44,6 +46,10 @@ function DashboardPage() {
   const [commissions, setCommissions] = useState<Commission[]>([])
   const [unread, setUnread] = useState(0)
   const [membershipLevel, setMembershipLevel] = useState(0)
+  const [memberTasks, setMemberTasks] = useState<MemberTask[]>([])
+  const [membershipPlans, setMembershipPlans] = useState<MembershipPlan[]>([])
+  const [taskBusy, setTaskBusy] = useState<string | null>(null)
+  const [taskMessage, setTaskMessage] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -56,7 +62,7 @@ function DashboardPage() {
       const current = auth.user
       setUser(current)
       if (!current) return
-      const [profile, wallet, projects, requests, ledger, notices, commissionRows, memberProfile] = await Promise.all([
+      const [profile, wallet, projects, requests, ledger, notices, commissionRows, memberProfile, taskRows, planRows] = await Promise.all([
         client.from('profiles').select('full_name,preferred_currency').eq('id', current.id).maybeSingle(),
         client.from('wallet_balances').select('balance').eq('user_id', current.id).eq('currency', currency).maybeSingle(),
         client.from('investments').select('id,amount,currency,status,created_at,reference,property_id').eq('user_id', current.id).order('created_at', { ascending: false }).limit(8),
@@ -65,8 +71,10 @@ function DashboardPage() {
         client.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', current.id).is('read_at', null),
         client.from('commission_records').select('id,amount,currency,commission_type,status,description,created_at').eq('user_id', current.id).order('created_at', { ascending: false }).limit(8),
         client.from('member_profiles').select('membership_level').eq('user_id', current.id).maybeSingle(),
+        client.from('member_tasks').select('*').eq('user_id', current.id).order('created_at', { ascending: false }).limit(100),
+        client.from('membership_plans').select('*').eq('active', true).order('level', { ascending: true }),
       ])
-      for (const result of [profile, wallet, projects, requests, ledger, notices, commissionRows, memberProfile]) if (result.error) throw result.error
+      for (const result of [profile, wallet, projects, requests, ledger, notices, commissionRows, memberProfile, taskRows, planRows]) if (result.error) throw result.error
       setName(profile.data?.full_name?.trim() || current.user_metadata?.full_name || current.email?.split('@')[0] || 'Member')
       const preferred = profile.data?.preferred_currency
       if (preferred && currencies.includes(preferred as Currency) && preferred !== currency) {
@@ -79,6 +87,8 @@ function DashboardPage() {
       setActivity((ledger.data ?? []) as LedgerItem[])
       setCommissions((commissionRows.data ?? []) as Commission[])
       setMembershipLevel(Number(memberProfile.data?.membership_level ?? 0))
+      setMemberTasks((taskRows.data ?? []) as MemberTask[])
+      setMembershipPlans((planRows.data ?? []) as MembershipPlan[])
       setUnread(notices.count ?? 0)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not load your dashboard.')
@@ -95,6 +105,21 @@ function DashboardPage() {
     const { data: listener } = client.auth.onAuthStateChange(() => { void run() })
     return () => { active = false; listener.subscription.unsubscribe() }
   }, [load])
+
+  const submitTaskForReview = async (task: MemberTask) => {
+    setTaskBusy(task.id)
+    setTaskMessage('')
+    try {
+      const { error: updateError } = await requireSupabase().from('member_tasks').update({ status: 'submitted' }).eq('id', task.id).eq('user_id', user?.id)
+      if (updateError) throw updateError
+      setMemberTasks((current) => current.map((item) => item.id === task.id ? { ...item, status: 'submitted' } : item))
+      setTaskMessage('Task submitted to the administration team for review.')
+    } catch (cause) {
+      setTaskMessage(cause instanceof Error ? cause.message : 'Could not submit this task.')
+    } finally {
+      setTaskBusy(null)
+    }
+  }
 
   const activeProjects = investments.filter((row) => ['approved', 'funded', 'completed'].includes(row.status)).length
   const pendingProjects = investmentRequests.filter((row) => ['pending', 'approved'].includes(row.status)).length
@@ -126,6 +151,43 @@ function DashboardPage() {
               <h2 className="display mt-2 text-2xl">Level {membershipLevel}</h2>
               <p className="mt-2 text-sm text-ink-soft">Your membership level is assigned and updated by the administration team.</p>
             </section>
+            <section id="tasks-achievements" className="grid gap-6">
+              <div className="border border-brass/40 bg-brass/5 p-6 sm:p-8">
+                <p className="eyebrow text-[0.5rem] text-brass">Tasks & achievements</p>
+                <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
+                  <div><h2 className="display text-2xl">Level {membershipLevel}</h2><p className="mt-2 text-sm text-ink-soft">Your current achievement level is managed by the administration team.</p></div>
+                  <span className="eyebrow border border-brass/40 px-3 py-2 text-[0.5rem] text-brass">{memberTasks.filter((task) => task.status === 'approved').length} tasks approved</span>
+                </div>
+                {taskMessage ? <p role="status" className="mt-4 border border-brass/30 px-4 py-3 text-sm">{taskMessage}</p> : null}
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {membershipPlans.map((plan) => {
+                  const unlocked = Number(plan.level) <= membershipLevel
+                  const levelTasks = memberTasks.filter((task) => Number(task.target_level ?? 0) === Number(plan.level))
+                  const approved = levelTasks.filter((task) => task.status === 'approved').length
+                  return <article key={plan.id} className={['border p-5', unlocked ? 'border-brass/50 bg-brass/5' : 'border-border bg-card'].join(' ')}>
+                    <div className="flex items-center justify-between gap-3"><p className="eyebrow text-[0.5rem] text-brass">Achievement level {plan.level}</p><span className="text-xs">{unlocked ? 'Unlocked' : '🔒 Locked'}</span></div>
+                    <h3 className="display mt-3 text-xl">{plan.name}</h3>
+                    <p className="mt-2 text-xs text-ink-soft">Minimum investment: {formatMoney(plan.minimum_amount, currency)}</p>
+                    <p className="mt-1 text-xs text-ink-soft">Tasks approved: {approved}/{levelTasks.length}</p>
+                    {!unlocked ? <p className="mt-3 text-xs text-ink-soft">This level has not yet been assigned to your account.</p> : <p className="mt-3 text-xs text-brass">Achievement unlocked on your account.</p>}
+                  </article>
+                })}
+                {membershipPlans.length === 0 ? <p className="border border-border bg-card p-5 text-sm text-ink-soft">Achievement levels will appear here when the administration team activates membership plans.</p> : null}
+              </div>
+              <div className="border border-border bg-card">
+                <div className="border-b border-border px-6 py-5"><h2 className="display text-xl">Your assigned tasks</h2><p className="mt-1 text-xs text-ink-soft">Submit completed tasks for administrator review. Returned tasks can be submitted again.</p></div>
+                {memberTasks.length === 0 ? <p className="px-6 py-7 text-sm text-ink-soft">No tasks have been assigned to your account yet.</p> : <ul className="divide-y divide-border">{memberTasks.map((task) => {
+                  const returned = ['rejected', 'returned'].includes(task.status)
+                  const canSubmit = ['assigned', 'pending', 'rejected', 'returned'].includes(task.status)
+                  return <li key={task.id} className="flex flex-col gap-3 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h3 className="text-sm font-semibold">{task.title}</h3><span className="eyebrow text-[0.48rem] text-brass">{task.status.replace(/_/g, ' ')}</span></div><p className="mt-2 whitespace-pre-wrap text-sm text-ink-soft">{task.detail || 'No additional task details.'}</p><p className="mt-2 text-xs text-ink-soft">Target level: {task.target_level ?? '—'} · Assigned {formatDate(task.created_at)}</p>{task.review_note ? <p className="mt-2 text-xs text-ink-soft">Admin note: {task.review_note}</p> : null}{returned ? <p className="mt-2 text-xs text-brass">This task was returned. Review the note and resubmit when complete.</p> : null}</div>
+                    {canSubmit ? <button type="button" disabled={taskBusy === task.id} onClick={() => void submitTaskForReview(task)} className="eyebrow shrink-0 border border-brass/50 px-4 py-3 text-[0.52rem] disabled:opacity-50">{taskBusy === task.id ? 'Submitting…' : returned ? 'Resubmit task' : 'Submit for review'}</button> : null}
+                  </li>
+                })}</ul>}
+              </div>
+            </section>
+
             <section id="commissions" className="border border-border bg-card">
               <div className="flex items-center justify-between gap-3 border-b border-border px-6 py-5"><h2 className="display text-xl">Your commissions</h2><Link to="/wallet" className="eyebrow text-[0.5rem]">Open wallet <ArrowRight /></Link></div>
               {commissions.length === 0 ? <p className="px-6 py-7 text-sm text-ink-soft">No commission records yet. Approved commissions will appear here.</p> : <ul className="divide-y divide-border">{commissions.map((row) => <li key={row.id} className="flex items-center justify-between gap-4 px-6 py-4"><div><p className="text-sm capitalize">{row.commission_type.replace(/_/g, ' ')} commission</p><p className="mt-1 text-xs text-ink-soft">{formatDate(row.created_at)} · {row.status}{row.description ? ` · ${row.description}` : ''}</p></div><p className="display text-base">{formatMoney(row.amount, row.currency)}</p></li>)}</ul>}
