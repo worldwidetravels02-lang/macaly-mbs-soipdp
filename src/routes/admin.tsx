@@ -838,6 +838,8 @@ function AdminPage() {
     const commission = Number(newPlanDraft.commission_percent)
     const code = newPlanDraft.code.trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-|-$/g, '')
     if (!code || !newPlanDraft.name.trim()) { setError('Enter a plan name and unique plan code.'); return }
+    if (code.length > 48 || newPlanDraft.name.trim().length > 100) { setError('Plan code must be 48 characters or fewer and plan name 100 characters or fewer.'); return }
+    if ((rows.plans ?? []).some((plan) => text(plan.code).trim().toLowerCase() === code)) { setError('That plan code already exists. Choose a different code.'); return }
     if (!Number.isInteger(level) || level < 0 || ![minimum, profit, commission].every(Number.isFinite) || minimum < 0 || profit < 0 || profit > 100 || commission < 0 || commission > 100) {
       setError('Enter a valid level, minimum amount and percentages from 0 to 100.')
       return
