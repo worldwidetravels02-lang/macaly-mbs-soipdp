@@ -40,6 +40,8 @@ function ResidencesPage() {
   const [signedIn, setSignedIn] = useState(false)
   const [projects, setProjects] = useState<Project[]>([])
   const [levelSettings, setLevelSettings] = useState<LevelSetting[]>([])
+  const [customerLevelAccess, setCustomerLevelAccess] = useState<{ user_id: string; level_name: string; is_unlocked: boolean }[]>([])
+  const [currentUserId, setCurrentUserId] = useState('')
   const [requests, setRequests] = useState<ProjectRequest[]>([])
   const [selectedLevel, setSelectedLevel] = useState<string>('Junior Trial')
   const [selectedSet, setSelectedSet] = useState<number>(1)
@@ -69,28 +71,32 @@ function ResidencesPage() {
     setLoadingProjects(true)
     ;(async () => {
       const client = requireSupabase()
-      const [propertyResult, levelResult, requestResult, userResult] = await Promise.all([
+      const [propertyResult, levelResult, requestResult, userResult, accessResult] = await Promise.all([
         client.from('properties').select('id,slug,name,location,description,price_label,cover_image_url,project_level,set_number,sort_order').eq('status', 'published').not('project_level', 'is', null).order('sort_order', { ascending: true }),
         client.from('project_level_settings').select('level_name,is_unlocked').order('display_order'),
         client.from('investment_requests').select('property_id,status').order('created_at', { ascending: false }),
         client.auth.getUser(),
+        client.from('customer_project_level_access').select('user_id,level_name,is_unlocked'),
       ])
       if (propertyResult.error) throw propertyResult.error
       if (levelResult.error) throw levelResult.error
       if (userResult.error) throw userResult.error
       if (requestResult.error) throw requestResult.error
+      if (accessResult.error) throw accessResult.error
       if (!userResult.data.user) throw new Error('Please sign in to view the project catalogue.')
       if (!active) return
       setProjects((propertyResult.data ?? []) as Project[])
       setLevelSettings((levelResult.data ?? []) as LevelSetting[])
       setRequests((requestResult.data ?? []) as ProjectRequest[])
+      setCurrentUserId(userResult.data.user.id)
+      setCustomerLevelAccess((accessResult.data ?? []) as { user_id: string; level_name: string; is_unlocked: boolean }[])
     })().catch((cause) => {
       if (active) setError(cause instanceof Error ? cause.message : 'Could not load the project catalogue.')
     }).finally(() => { if (active) setLoadingProjects(false) })
     return () => { active = false }
   }, [signedIn])
 
-  const currentLevelUnlocked = levelSettings.find((item) => item.level_name === selectedLevel)?.is_unlocked ?? selectedLevel === 'Junior Trial'
+  const currentLevelUnlocked = customerLevelAccess.find((item) => item.user_id === currentUserId && item.level_name === selectedLevel)?.is_unlocked ?? selectedLevel === 'Junior Trial'
   const levelProjects = useMemo(() => projects.filter((project) => project.project_level === selectedLevel), [projects, selectedLevel])
   const selectedSetProjects = useMemo(() => levelProjects.filter((project) => Number(project.set_number) === selectedSet), [levelProjects, selectedSet])
   const completedSets = useMemo(() => {
@@ -144,7 +150,7 @@ function ResidencesPage() {
               {notice ? <p role="status" className="mb-5 border border-brass/40 p-4 text-sm text-ink-soft">{notice}</p> : null}
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 {LEVELS.map((level) => {
-                  const unlocked = levelSettings.find((item) => item.level_name === level)?.is_unlocked ?? level === 'Junior Trial'
+                  const unlocked = customerLevelAccess.find((item) => item.user_id === currentUserId && item.level_name === level)?.is_unlocked ?? level === 'Junior Trial'
                   return <button key={level} type="button" disabled={!unlocked} onClick={() => { setSelectedLevel(level); setSelectedSet(1); setError(''); setNotice('') }} className={`border p-5 text-left transition-colors ${selectedLevel === level ? 'border-brass bg-card' : 'border-border bg-card'} ${!unlocked ? 'cursor-not-allowed opacity-50' : 'hover:border-brass'}`}>
                     <span className="eyebrow text-[0.5rem] text-brass">{unlocked ? 'Available' : 'Locked by admin'}</span>
                     <span className="display mt-2 block text-xl">{level}</span>
