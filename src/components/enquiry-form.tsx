@@ -68,7 +68,7 @@ export function EnquiryForm({
           mobile,
           email: email || null,
           message: [
-            \`Interested in: \${selectedResidence || 'General enquiry'}\`,
+            `Interested in: ${selectedResidence || 'General enquiry'}`,
             message,
           ].filter(Boolean).join('\\n\\n'),
           source: source.trim(),
