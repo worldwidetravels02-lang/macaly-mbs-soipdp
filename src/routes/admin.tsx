@@ -402,6 +402,27 @@ function AdminPage() {
     approvedWithdrawals: (rows.withdrawals ?? []).filter((row) => row.status === 'approved').length,
   }), [rows])
 
+  const financePendingByCurrency = useMemo(() => {
+    const totals = new Map<string, { topups: number; withdrawals: number; approvedWithdrawals: number }>()
+    for (const item of rows.topups ?? []) {
+      if (text(item.status).toLowerCase() !== 'pending') continue
+      const code = text(item.currency) || 'AED'
+      const entry = totals.get(code) ?? { topups: 0, withdrawals: 0, approvedWithdrawals: 0 }
+      entry.topups += Number(item.amount || 0)
+      totals.set(code, entry)
+    }
+    for (const item of rows.withdrawals ?? []) {
+      const status = text(item.status).toLowerCase()
+      if (status !== 'pending' && status !== 'approved') continue
+      const code = text(item.currency) || 'AED'
+      const entry = totals.get(code) ?? { topups: 0, withdrawals: 0, approvedWithdrawals: 0 }
+      if (status === 'pending') entry.withdrawals += Number(item.amount || 0)
+      if (status === 'approved') entry.approvedWithdrawals += Number(item.amount || 0)
+      totals.set(code, entry)
+    }
+    return [...totals.entries()].sort(([a], [b]) => a.localeCompare(b))
+  }, [rows.topups, rows.withdrawals])
+
   const run = async (work: () => Promise<unknown>, success: string) => {
     setBusy(true); setError(''); setNotice('')
     try { await work(); setNotice(success); await load() }
@@ -772,6 +793,11 @@ function AdminPage() {
                 ['Top-up requests', financeSummary.topups], ['Withdrawal requests', financeSummary.withdrawals], ['Profit credits', financeSummary.profitCredits],
                 ['Pending top-ups', financeSummary.pendingTopups], ['Pending withdrawals', financeSummary.pendingWithdrawals], ['Approved withdrawals awaiting transfer', financeSummary.approvedWithdrawals],
               ].map(([label, value]) => <div key={String(label)} className="border border-border bg-card p-4"><p className="text-xs text-ink-soft">{label}</p><p className="display mt-2 text-2xl">{value}</p></div>)}</section>
+              <section className="border border-border bg-card p-5">
+                <h2 className="display text-lg">Outstanding request amounts by currency</h2>
+                <p className="mt-1 text-xs leading-5 text-ink-soft">Pending deposits are requests only and are not wallet credits. Approved withdrawals still require an external transfer before they can be marked paid.</p>
+                {financePendingByCurrency.length === 0 ? <p className="mt-4 text-sm text-ink-soft">No pending deposit or withdrawal amounts.</p> : <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{financePendingByCurrency.map(([code, totals]) => <div key={code} className="border border-border/70 p-3"><p className="eyebrow text-[0.55rem] text-ink-soft">{code}</p><p className="mt-3 text-xs text-ink-soft">Pending deposits</p><p className="display text-lg">{money(totals.topups, code)}</p><p className="mt-2 text-xs text-ink-soft">Pending withdrawals</p><p className="display text-lg">{money(totals.withdrawals, code)}</p><p className="mt-2 text-xs text-ink-soft">Approved, awaiting transfer</p><p className="display text-lg">{money(totals.approvedWithdrawals, code)}</p></div>)}</div>}
+              </section>
               <section className="grid gap-3 border border-border bg-card p-4 sm:grid-cols-[minmax(0,1fr)_14rem]"><div><label className="eyebrow text-[0.55rem] text-ink-soft" htmlFor="finance-request-search">Find a deposit or withdrawal</label><input id="finance-request-search" className={inputClass} value={financeSearch} onChange={(event) => setFinanceSearch(event.target.value)} placeholder="Customer, account ID, amount or reference" /></div><div><label className="eyebrow text-[0.55rem] text-ink-soft" htmlFor="finance-request-status">Request status</label><select id="finance-request-status" className={inputClass} value={financeStatus} onChange={(event) => setFinanceStatus(event.target.value)}><option value="all">All statuses</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option><option value="paid">Paid</option></select></div><p className="text-xs text-ink-soft sm:col-span-2">Use the same search and status filter for both request lists. Approving a withdrawal does not send money; mark it paid only after the external transfer is completed.</p></section>
               <DataTable title="Top-up requests" rows={filteredTopupRequests} columns={['customer_name','user_id','amount','currency','payment_method','payment_reference','status','admin_note','created_at']} render={(item) => item.status === 'pending' ? <div className="flex gap-2"><button disabled={busy} className={softButton} onClick={() => reviewTopup(text(item.id), true)}>Approve</button><button disabled={busy} className={softButton} onClick={() => reviewTopup(text(item.id), false)}>Reject</button></div> : null} />
               <DataTable title="Withdrawal requests" rows={filteredWithdrawalRequests} columns={['customer_name','user_id','amount','currency','payout_method','payout_details','status','admin_note','created_at']} render={(item) => item.status === 'pending' ? <div className="flex flex-wrap gap-2"><button disabled={busy} className={softButton} onClick={() => reviewWithdrawal(text(item.id), 'approve')}>Approve</button><button disabled={busy} className={softButton} onClick={() => reviewWithdrawal(text(item.id), 'reject')}>Reject</button></div> : item.status === 'approved' ? <button disabled={busy} className={softButton} onClick={() => reviewWithdrawal(text(item.id), 'pay')}>Mark paid after transfer</button> : null} />
