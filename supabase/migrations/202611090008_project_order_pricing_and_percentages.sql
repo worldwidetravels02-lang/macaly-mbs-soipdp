@@ -22,3 +22,14 @@ comment on column public.properties.price_amount is
   'Administrator-set base project price in AED for catalogue order calculations.';
 comment on column public.properties.order_percentages is
   'Administrator-enabled customer order allocation buttons, chosen from 10, 25, 50, 75 and 100 percent.';
+
+-- Give project orders a valid review plan so the existing admin approval workflow can process them.
+insert into public.membership_plans
+  (code, level, name, minimum_amount, profit_percent, commission_percent, active, updated_at)
+values
+  ('project_order', 0, 'Project Order', 0, 0, 0, true, now())
+on conflict (code) do update
+set name = excluded.name,
+    minimum_amount = 0,
+    active = true,
+    updated_at = now();
