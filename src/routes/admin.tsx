@@ -901,8 +901,20 @@ function AdminPage() {
 
   const savePaymentDetails = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    const fields = [
+      ['Bank name', paymentDetailsDraft.bank_name, 120],
+      ['Account name', paymentDetailsDraft.account_name, 160],
+      ['Account number', paymentDetailsDraft.account_number, 64],
+      ['IBAN', paymentDetailsDraft.iban, 64],
+      ['SWIFT / BIC', paymentDetailsDraft.swift, 24],
+      ['Payment note', paymentDetailsDraft.note, 500],
+    ] as const
+    const invalidField = fields.find(([, value, limit]) => value.trim().length > limit)
+    if (invalidField) { setError(`${invalidField[0]} must be ${invalidField[2]} characters or fewer.`); return }
+    if (paymentDetailsDraft.swift.trim() && !/^[A-Za-z0-9]{8}(?:[A-Za-z0-9]{3})?$/.test(paymentDetailsDraft.swift.trim())) { setError('Enter a valid 8- or 11-character SWIFT / BIC code.'); return }
+    if (paymentDetailsDraft.iban.trim() && !/^[A-Za-z0-9 ]{15,34}$/.test(paymentDetailsDraft.iban.trim())) { setError('Enter an IBAN containing 15–34 letters, numbers or spaces.'); return }
     await run(async () => {
-      const payload = { bank_name: paymentDetailsDraft.bank_name, account_name: paymentDetailsDraft.account_name, account_number: paymentDetailsDraft.account_number, iban: paymentDetailsDraft.iban, swift: paymentDetailsDraft.swift, note: paymentDetailsDraft.note, updated_by: user?.id, updated_at: new Date().toISOString() }
+      const payload = { bank_name: paymentDetailsDraft.bank_name.trim(), account_name: paymentDetailsDraft.account_name.trim(), account_number: paymentDetailsDraft.account_number.trim(), iban: paymentDetailsDraft.iban.trim().replace(/\\s+/g, '').toUpperCase(), swift: paymentDetailsDraft.swift.trim().toUpperCase(), note: paymentDetailsDraft.note.trim(), updated_by: user?.id, updated_at: new Date().toISOString() }
       const existing = rows.paymentDetails?.[0]
       const query = existing?.id ? requireSupabase().from('payment_details').update(payload).eq('id', existing.id) : requireSupabase().from('payment_details').insert(payload)
       const { error: saveError } = await query
