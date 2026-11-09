@@ -123,18 +123,21 @@ function AccountPage() {
     setUploadingDocument(true); setError(null); setNotice(null)
     try {
       const client = requireSupabase()
-      const safeName = documentFile.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-      const objectPath = user.id + '/' + crypto.randomUUID() + '-' + safeName
-      const { error: uploadError } = await client.storage.from('identity-documents').upload(objectPath, documentFile, { contentType: documentFile.type, upsert: false })
-      if (uploadError) throw uploadError
-      const { data: existing, error: existingError } = await client.from('verifications').select('id,status').eq('user_id', user.id).in('status', ['pending']).limit(1).maybeSingle()
+      const { data: existing, error: existingError } = await client.from('verifications').select('id,status').eq('user_id', user.id).in('status', ['pending', 'submitted', 'under_review']).limit(1).maybeSingle()
       if (existingError) throw existingError
       if (existing) throw new Error('You already have a verification awaiting review. Please wait for the result before submitting another document.')
       const { data: approved, error: approvedError } = await client.from('verifications').select('id').eq('user_id', user.id).eq('status', 'approved').limit(1).maybeSingle()
       if (approvedError) throw approvedError
       if (approved) throw new Error('Your identity verification is already approved.')
-      const { error: insertError } = await client.from('verifications').insert({ user_id: user.id, status: 'pending', document_url: objectPath, document_name: documentFile.name, document_type: documentType })
-      if (insertError) throw insertError
+      const safeName = documentFile.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-120) || 'identity-document'
+      const objectPath = user.id + '/' + crypto.randomUUID() + '-' + safeName
+      const { error: uploadError } = await client.storage.from('identity-documents').upload(objectPath, documentFile, { contentType: documentFile.type, upsert: false })
+      if (uploadError) throw uploadError
+      const { error: insertError } = await client.from('verifications').insert({ user_id: user.id, status: 'pending', document_url: objectPath, document_name: documentFile.name.slice(0, 255), document_type: documentType })
+      if (insertError) {
+        await client.storage.from('identity-documents').remove([objectPath])
+        throw insertError
+      }
       setVerification({ status: 'pending', document_type: documentType, document_name: documentFile.name, review_note: null, submitted_at: new Date().toISOString() })
       setDocumentFile(null); setNotice('Your identity document was uploaded privately and submitted for administrator review.')
     } catch (err) { setError(err instanceof Error ? err.message : 'Could not submit your identity document.') }
