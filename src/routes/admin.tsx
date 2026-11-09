@@ -386,6 +386,11 @@ function AdminPage() {
     closedEnquiries: (rows.enquiries ?? []).filter((row) => row.status === 'closed').length,
     customers: (rows.users ?? []).length,
     pending: (rows.topups ?? []).filter((row) => row.status === 'pending').length + (rows.withdrawals ?? []).filter((row) => row.status === 'pending').length,
+    pendingInvestmentReviews: (rows.investmentRequests ?? []).filter((row) => text(row.status).toLowerCase() === 'pending').length,
+    approvedInvestmentFunding: (rows.investmentRequests ?? []).filter((row) => text(row.status).toLowerCase() === 'approved').length,
+    pendingCommissionReviews: (rows.commissions ?? []).filter((row) => text(row.status).toLowerCase() === 'pending').length,
+    approvedCommissionCredits: (rows.commissions ?? []).filter((row) => text(row.status).toLowerCase() === 'approved').length,
+    pendingIdentityReviews: (rows.verifications ?? []).filter((row) => text(row.status).toLowerCase() === 'pending').length,
   }), [rows])
 
   const financeSummary = useMemo(() => ({
@@ -729,8 +734,14 @@ function AdminPage() {
                   ['Closed enquiries', stats.closedEnquiries],
                   ['Customer accounts', stats.customers],
                   ['Pending financial requests', stats.pending],
+                  ['Investment applications to review', stats.pendingInvestmentReviews],
+                  ['Approved investments awaiting funding', stats.approvedInvestmentFunding],
+                  ['Commissions awaiting review', stats.pendingCommissionReviews],
+                  ['Approved commissions awaiting credit', stats.approvedCommissionCredits],
+                  ['Identity checks awaiting review', stats.pendingIdentityReviews],
                 ].map(([label, value]) => <div key={label} className="border border-border bg-card p-6"><p className="eyebrow text-[0.5rem] text-ink-soft">{label}</p><p className="display mt-3 text-3xl">{value}</p></div>)}
               </div>
+              <section className="mt-6 grid gap-4 border border-brass/40 bg-card p-5"><div><h2 className="display text-xl">Financial review queue</h2><p className="mt-1 text-xs leading-5 text-ink-soft">These counts are based on the records currently loaded. Review each item before approving, funding or crediting any customer account.</p></div><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"><button type="button" onClick={() => setSection('investments')} className="border border-border p-4 text-left hover:border-brass"><span className="eyebrow text-[0.5rem] text-ink-soft">Investment applications</span><strong className="display mt-2 block text-2xl">{stats.pendingInvestmentReviews}</strong><span className="mt-1 block text-xs text-ink-soft">Pending review · Open investments</span></button><button type="button" onClick={() => setSection('investments')} className="border border-border p-4 text-left hover:border-brass"><span className="eyebrow text-[0.5rem] text-ink-soft">Investment funding</span><strong className="display mt-2 block text-2xl">{stats.approvedInvestmentFunding}</strong><span className="mt-1 block text-xs text-ink-soft">Approved · Awaiting wallet funding</span></button><button type="button" onClick={() => setSection('commissions')} className="border border-border p-4 text-left hover:border-brass"><span className="eyebrow text-[0.5rem] text-ink-soft">Commission review</span><strong className="display mt-2 block text-2xl">{stats.pendingCommissionReviews}</strong><span className="mt-1 block text-xs text-ink-soft">Pending · Open commissions</span></button><button type="button" onClick={() => setSection('commissions')} className="border border-border p-4 text-left hover:border-brass"><span className="eyebrow text-[0.5rem] text-ink-soft">Commission credits</span><strong className="display mt-2 block text-2xl">{stats.approvedCommissionCredits}</strong><span className="mt-1 block text-xs text-ink-soft">Approved · Awaiting credit</span></button><button type="button" onClick={() => setSection('verifications')} className="border border-border p-4 text-left hover:border-brass"><span className="eyebrow text-[0.5rem] text-ink-soft">Identity checks</span><strong className="display mt-2 block text-2xl">{stats.pendingIdentityReviews}</strong><span className="mt-1 block text-xs text-ink-soft">Pending · Open identity checks</span></button></div></section>
               <div className="mt-6 border border-border bg-card p-6"><h2 className="display text-xl">Quick actions</h2><div className="mt-4 flex flex-wrap gap-3">{SECTIONS.filter((item) => item.id !== 'overview').map((item) => <button key={item.id} onClick={() => setSection(item.id)} className={softButton}>{item.label} <ArrowRight /></button>)}</div></div>
               <div className="mt-6"><DataTable title="Latest customer enquiries" rows={(rows.enquiries ?? []).slice(0, 5).map((item) => { const relatedProperty = Array.isArray(item.properties) ? item.properties[0] : item.properties; return { ...item, property_name: relatedProperty?.name || 'General enquiry' } })} columns={['full_name','mobile','property_name','status','created_at']} render={(item) => <button className={softButton} onClick={() => setSection('enquiries')}>Open enquiries <ArrowRight /></button>} /></div>
             </section> : null}
