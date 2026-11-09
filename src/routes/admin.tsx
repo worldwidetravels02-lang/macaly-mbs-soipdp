@@ -202,10 +202,12 @@ function AdminPage() {
 
   const financeRequestMatches = (item: Row) => {
     const query = financeSearch.trim().toLowerCase()
-    const status = text(item.status).toLowerCase()
+    const normalizeStatus = (value: unknown) => text(value).trim().toLowerCase().replace(/[\\s-]+/g, '_')
+    const status = normalizeStatus(item.status)
+    const selectedStatus = normalizeStatus(financeStatus)
     const matchesQuery = !query || [item.customer_name, item.user_id, item.id, item.amount, item.currency, item.payment_reference, item.payout_method, item.payout_details, item.admin_note, item.created_at]
       .some((value) => text(value).toLowerCase().includes(query))
-    return matchesQuery && (financeStatus === 'all' || status === financeStatus)
+    return matchesQuery && (selectedStatus === 'all' || status === selectedStatus)
   }
   const filteredTopupRequests = useMemo(() => topupRequestsWithCustomer.filter(financeRequestMatches), [topupRequestsWithCustomer, financeSearch, financeStatus])
   const filteredWithdrawalRequests = useMemo(() => withdrawalRequestsWithCustomer.filter(financeRequestMatches), [withdrawalRequestsWithCustomer, financeSearch, financeStatus])
