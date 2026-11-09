@@ -44,6 +44,7 @@ function WalletPage() {
   const [transactions, setTransactions] = useState<WalletRow[]>([])
   const [transactionLimit, setTransactionLimit] = useState(30)
   const [transactionFilter, setTransactionFilter] = useState<'all' | 'credit' | 'debit'>('all')
+  const [transactionSearch, setTransactionSearch] = useState('')
   const [profits, setProfits] = useState<ProfitRow[]>([])
   const [commissions, setCommissions] = useState<CommissionRow[]>([])
   const [topups, setTopups] = useState<RequestRow[]>([])
@@ -218,7 +219,13 @@ function WalletPage() {
     if (/(^|_)(credit|deposit|topup|top_up|profit|commission|refund|payment_in)(_|$)/.test(type)) return 'credit'
     return 'unknown'
   }
-  const visibleTransactions = currencyTransactions.filter((row) => transactionFilter === 'all' || getTransactionDirection(row) === transactionFilter)
+  const visibleTransactions = currencyTransactions.filter((row) => {
+    const matchesDirection = transactionFilter === 'all' || getTransactionDirection(row) === transactionFilter
+    const query = transactionSearch.trim().toLowerCase()
+    const matchesSearch = !query || [row.id, row.description, row.transaction_type, row.status, row.amount, row.created_at]
+      .some((value) => String(value ?? '').toLowerCase().includes(query))
+    return matchesDirection && matchesSearch
+  })
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -318,11 +325,15 @@ function WalletPage() {
               <div id="transactions" className="border border-border bg-card">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-6 py-4">
                   <h2 className="display text-lg">Wallet activity</h2>
+                  <div className="w-full sm:w-64">
+                    <label className="sr-only" htmlFor="wallet-activity-search">Search wallet activity</label>
+                    <input id="wallet-activity-search" type="search" value={transactionSearch} onChange={(event) => setTransactionSearch(event.target.value)} placeholder="Search description, type, status or amount" className={fieldClass} />
+                  </div>
                   <div className="flex gap-2" aria-label="Filter wallet activity">
                     {(['all', 'credit', 'debit'] as const).map((filter) => <button key={filter} type="button" aria-pressed={transactionFilter === filter} onClick={() => setTransactionFilter(filter)} className={`border px-3 py-2 text-xs capitalize transition-colors ${transactionFilter === filter ? 'border-brass bg-brass/10 text-brass' : 'border-border text-ink-soft hover:border-brass'}`}>{filter === 'all' ? 'All' : filter === 'credit' ? 'Credits' : 'Debits'}</button>)}
                   </div>
                 </div>
-                {currencyTransactions.length === 0 ? <p className="px-6 py-6 text-sm text-ink-soft">No posted wallet activity yet.</p> : visibleTransactions.length === 0 ? <p className="px-6 py-6 text-sm text-ink-soft">No {transactionFilter} transactions found in {currency}.</p> : <><ul data-testid="wallet-transactions" className="divide-y divide-border">{visibleTransactions.map((row) => { const direction = getTransactionDirection(row); const sign = direction === 'debit' ? '−' : direction === 'credit' ? '+' : ''; const amountTone = direction === 'debit' ? 'text-destructive' : direction === 'credit' ? 'text-emerald-700' : 'text-foreground'; const label = row.transaction_type?.replace(/_/g, ' ') || 'Wallet transaction'; return <li key={row.id} className="flex items-start justify-between gap-4 px-6 py-4"><div className="min-w-0"><p className="truncate text-sm font-medium">{row.description || label}</p><p className="mt-1 text-xs capitalize text-ink-soft">{label} · {direction === 'unknown' ? 'Direction not specified' : direction}</p><p className="mt-1 text-xs text-ink-soft">{date(row.created_at)} · {row.status.replace(/_/g, ' ')}</p></div><p className={`display shrink-0 text-lg ${amountTone}`}>{sign}{money(row.amount, row.currency)}</p></li> })}</ul><div className="border-t border-border px-6 py-3"><p className="text-xs text-ink-soft">Showing {visibleTransactions.length} of {currencyTransactions.length} transactions in this view.</p>{transactions.length === transactionLimit ? <button type="button" onClick={() => setTransactionLimit((current) => current + 30)} className="mt-3 text-xs text-brass underline underline-offset-4">Load 30 more {transactionFilter === 'all' ? '' : `${transactionFilter} `}transactions</button> : null}</div></>}
+                {currencyTransactions.length === 0 ? <p className="px-6 py-6 text-sm text-ink-soft">No posted wallet activity yet.</p> : visibleTransactions.length === 0 ? <p className="px-6 py-6 text-sm text-ink-soft">No matching wallet activity found in {currency}.</p> : <><ul data-testid="wallet-transactions" className="divide-y divide-border">{visibleTransactions.map((row) => { const direction = getTransactionDirection(row); const sign = direction === 'debit' ? '−' : direction === 'credit' ? '+' : ''; const amountTone = direction === 'debit' ? 'text-destructive' : direction === 'credit' ? 'text-emerald-700' : 'text-foreground'; const label = row.transaction_type?.replace(/_/g, ' ') || 'Wallet transaction'; return <li key={row.id} className="flex items-start justify-between gap-4 px-6 py-4"><div className="min-w-0"><p className="truncate text-sm font-medium">{row.description || label}</p><p className="mt-1 text-xs capitalize text-ink-soft">{label} · {direction === 'unknown' ? 'Direction not specified' : direction}</p><p className="mt-1 text-xs text-ink-soft">{date(row.created_at)} · {row.status.replace(/_/g, ' ')}</p></div><p className={`display shrink-0 text-lg ${amountTone}`}>{sign}{money(row.amount, row.currency)}</p></li> })}</ul><div className="border-t border-border px-6 py-3"><p className="text-xs text-ink-soft">Showing {visibleTransactions.length} matching transactions from {currencyTransactions.length} loaded {currency} records.</p>{transactions.length === transactionLimit ? <button type="button" onClick={() => setTransactionLimit((current) => current + 30)} className="mt-3 text-xs text-brass underline underline-offset-4">Load 30 more {transactionFilter === 'all' ? '' : `${transactionFilter} `}transactions</button> : null}</div></>}
               </div>
             </section>
             <p className="text-xs leading-relaxed text-ink-soft">Wallet entries and profit credits shown here are internal platform records. They are not proof of a bank transfer, regulated investment return, or external payment settlement.</p>
