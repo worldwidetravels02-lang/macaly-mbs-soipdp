@@ -522,11 +522,19 @@ function AdminPage() {
     if (rpcError) throw rpcError
   }, approve ? 'Top-up approved and ledger credited.' : 'Top-up rejected.')
 
-  const reviewWithdrawal = (id: string, action: 'approve' | 'reject' | 'pay') => run(async () => {
+  const reviewWithdrawal = (id: string, action: 'approve' | 'reject' | 'pay') => {
+    const confirmation = action === 'pay'
+      ? 'Confirm that the external bank/payment transfer has already been completed. Only then mark this withdrawal as paid.'
+      : action === 'approve'
+        ? 'Approve this withdrawal request? This does not transfer money; the external payout must still be completed.'
+        : 'Reject this withdrawal request?'
+    if (!window.confirm(confirmation)) return
+    return run(async () => {
     const note = action === 'pay' ? 'External payout confirmed by administrator' : action === 'approve' ? 'Approved by administrator; external payout still required' : 'Rejected by administrator'
     const { error: rpcError } = await requireSupabase().rpc('admin_review_withdrawal', { p_request_id: id, p_action: action, p_admin_note: note })
     if (rpcError) throw rpcError
-  }, action === 'pay' ? 'Withdrawal marked paid in the internal ledger.' : action === 'approve' ? 'Withdrawal approved; no bank transfer was made.' : 'Withdrawal rejected.')
+    }, action === 'pay' ? 'Withdrawal marked paid in the internal ledger.' : action === 'approve' ? 'Withdrawal approved; no bank transfer was made.' : 'Withdrawal rejected.')
+  }
 
   const addWalletBalance = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
