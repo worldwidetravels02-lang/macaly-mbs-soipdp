@@ -27,5 +27,8 @@ jobs:
         run: npm install
       - name: Run automated tests
         run: npm run test
+      - name: Diagnose TSX syntax
+        run: |
+          node -e "const ts=require('typescript'); const fs=require('fs'); const f='src/routes/admin.tsx'; const s=ts.createSourceFile(f,fs.readFileSync(f,'utf8'),ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX); function walk(n){ if(ts.isJsxElement(n)){ const a=n.openingElement.tagName.getText(s), b=n.closingElement.tagName.getText(s); if(a!==b) console.log('JSX mismatch:',a,'closed by',b,'at',s.getLineAndCharacterOfPosition(n.pos).line+1); } ts.forEachChild(n,walk); } walk(s); for(const d of s.parseDiagnostics){const p=s.getLineAndCharacterOfPosition(d.start||0); console.log('TSX parse:',p.line+1,p.character+1,ts.flattenDiagnosticMessageText(d.messageText,' '));} if(s.parseDiagnostics.length) process.exit(1)"
       - name: Build application
         run: npm run build
