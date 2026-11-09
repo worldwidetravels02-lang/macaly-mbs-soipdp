@@ -22,10 +22,13 @@ Never put a Supabase `service_role` key in browser variables or commit real cred
 
 ## Supabase setup
 
-Apply the SQL files in `supabase/migrations/` in filename order using the Supabase SQL Editor. This includes the final migrations:
+Apply the SQL files in `supabase/migrations/` in filename order using the Supabase SQL Editor. Apply every migration in filename order, including these later workflow and security updates:
 
 - `202611050010_disable_card_and_crypto_payment_workflows.sql` removes legacy card and cryptocurrency submission/finalization paths.
-- `202611050011_enforce_withdrawal_available_balance.sql` adds a database trigger that rejects withdrawal requests exceeding the customer's available wallet balance, accounting for pending and approved withdrawals.
+- `202611050011_enforce_withdrawal_available_balance.sql` rejects withdrawal requests that exceed the customer's available wallet balance, including pending and approved withdrawals.
+- `202611090001_investment_commission_ledger.sql` adds the administrator-reviewed investment and commission ledger.
+- `202611090002_member_task_workflow_states.sql` defines the task assignment, submission, review and resubmission states.
+- `202611090003_identity_document_cleanup_policy.sql` allows customers to remove their own private identity uploads when a submission needs cleanup.
 
 After creating the owner account through Supabase Auth, add that account to `public.admin_members` from the SQL Editor using its Auth user UUID:
 
