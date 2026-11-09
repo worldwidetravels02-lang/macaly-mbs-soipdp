@@ -23,10 +23,10 @@ const memberItems = [
 ] as const
 const adminItems = [
   ['overview','Overview'],['properties','Properties'],['enquiries','Enquiries'],
-  ['users','Customers'],['promotions','Promotions'],['finance','Wallet & finance'],
-  ['investments','Investments'],['commissions','Commissions'],['verifications','Identity checks'],
-  ['tasks','Tasks & levels'],['payments','Payment records'],['content','Content & journal'],
-  ['team','Administrators'],['support','Support'],['settings','Settings'],
+  ['users','Customers'],['promotions','Promotions'],['finance','Wallet'],
+  ['investments','Investments'],['commissions','Commissions'],['verifications','ID Checks'],
+  ['tasks','Tasks'],['payments','Payments'],['content','Journal'],
+  ['team','Admin Team'],['support','Support'],['settings','Settings'],
 ] as const
 
 export function WorkspaceSidebar({ mode, active, onSelect }: Props) {
