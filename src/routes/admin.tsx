@@ -29,10 +29,17 @@ const SECTIONS: { id: Section; label: string }[] = [
 ]
 const CURRENCIES = ['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR', 'INR']
 const meta = siteMetadata['/admin']
-const money = (value: unknown, currency = 'AED') => new Intl.NumberFormat('en', { style: 'currency', currency, maximumFractionDigits: 2 }).format(Number(value || 0))
-const date = (value: unknown) => value ? new Date(String(value)).toLocaleString() : '—'
+const money = (value: unknown, currency = 'AED') => {
+  const amount = Number(value)
+  return new Intl.NumberFormat('en', { style: 'currency', currency, maximumFractionDigits: 2 }).format(Number.isFinite(amount) ? amount : 0)
+}
+const date = (value: unknown) => {
+  if (!value) return '—'
+  const timestamp = Date.parse(String(value))
+  return Number.isFinite(timestamp) ? new Date(timestamp).toLocaleString() : 'Date unavailable'
+}
 const text = (value: unknown) => String(value ?? '')
-const normalizeAdminStatus = (value: unknown) => text(value).trim().toLowerCase().replace(/[\\s-]+/g, '_')
+const normalizeAdminStatus = (value: unknown) => text(value).trim().toLowerCase().replace(/[\s-]+/g, '_')
 const inputClass = 'w-full border border-input bg-background px-3 py-3 text-sm outline-none focus:border-brass'
 const buttonClass = 'eyebrow inline-flex items-center justify-center gap-2 bg-primary px-5 py-3 text-[0.56rem] text-primary-foreground disabled:opacity-50'
 const softButton = 'eyebrow border border-border px-4 py-2.5 text-[0.52rem] transition-colors hover:border-brass disabled:opacity-50'
@@ -227,7 +234,7 @@ function AdminPage() {
 
   const financeRequestMatches = (item: Row) => {
     const query = financeSearch.trim().toLowerCase()
-    const normalizeStatus = (value: unknown) => text(value).trim().toLowerCase().replace(/[\\s-]+/g, '_')
+    const normalizeStatus = (value: unknown) => text(value).trim().toLowerCase().replace(/[\s-]+/g, '_')
     const status = normalizeStatus(item.status)
     const selectedStatus = normalizeStatus(financeStatus)
     const matchesQuery = !query || [item.customer_name, item.customer_mobile, item.user_id, item.id, item.amount, item.currency, item.payment_reference, item.payout_method, item.payout_details, item.admin_note, item.created_at]
@@ -291,7 +298,7 @@ function AdminPage() {
     const query = investmentSearch.trim().toLowerCase()
     const matchesQuery = !query || [item.customer_name, item.user_id, item.id, item.property_id, item.property_name, item.plan_code, item.reference, item.amount, item.currency, item.status, item.created_at]
       .some((value) => text(value).toLowerCase().includes(query))
-    const normalizeStatus = (value: unknown) => text(value).trim().toLowerCase().replace(/[\\s-]+/g, '_')
+    const normalizeStatus = (value: unknown) => text(value).trim().toLowerCase().replace(/[\s-]+/g, '_')
     const matchesStatus = normalizeStatus(investmentStatus) === 'all' || normalizeStatus(item.status) === normalizeStatus(investmentStatus)
     const created = text(item.created_at).slice(0, 10)
     const matchesFrom = !investmentFromDate || (created && created >= investmentFromDate)
@@ -311,7 +318,7 @@ function AdminPage() {
     const query = commissionSearch.trim().toLowerCase()
     const matchesQuery = !query || [item.customer_name, item.user_id, item.source_customer_name, item.source_user_id, item.commission_type, item.reference, item.description, item.amount, item.currency, item.status, item.created_at]
       .some((value) => text(value).toLowerCase().includes(query))
-    const normalizeStatus = (value: unknown) => text(value).trim().toLowerCase().replace(/[\\s-]+/g, '_')
+    const normalizeStatus = (value: unknown) => text(value).trim().toLowerCase().replace(/[\s-]+/g, '_')
     const matchesStatus = normalizeStatus(commissionStatus) === 'all' || normalizeStatus(item.status) === normalizeStatus(commissionStatus)
     const created = text(item.created_at).slice(0, 10)
     const matchesFrom = !commissionFromDate || (created && created >= commissionFromDate)
