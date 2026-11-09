@@ -440,22 +440,22 @@ function AdminPage() {
     topups: (rows.topups ?? []).length,
     withdrawals: (rows.withdrawals ?? []).length,
     profitCredits: (rows.profits ?? []).length,
-    pendingTopups: (rows.topups ?? []).filter((row) => row.status === 'pending').length,
-    pendingWithdrawals: (rows.withdrawals ?? []).filter((row) => row.status === 'pending').length,
-    approvedWithdrawals: (rows.withdrawals ?? []).filter((row) => row.status === 'approved').length,
+    pendingTopups: (rows.topups ?? []).filter((row) => normalizeAdminStatus(row.status) === 'pending').length,
+    pendingWithdrawals: (rows.withdrawals ?? []).filter((row) => normalizeAdminStatus(row.status) === 'pending').length,
+    approvedWithdrawals: (rows.withdrawals ?? []).filter((row) => normalizeAdminStatus(row.status) === 'approved').length,
   }), [rows])
 
   const financePendingByCurrency = useMemo(() => {
     const totals = new Map<string, { topups: number; withdrawals: number; approvedWithdrawals: number }>()
     for (const item of rows.topups ?? []) {
-      if (text(item.status).toLowerCase() !== 'pending') continue
+      if (normalizeAdminStatus(item.status) !== 'pending') continue
       const code = text(item.currency) || 'AED'
       const entry = totals.get(code) ?? { topups: 0, withdrawals: 0, approvedWithdrawals: 0 }
       entry.topups += Number(item.amount || 0)
       totals.set(code, entry)
     }
     for (const item of rows.withdrawals ?? []) {
-      const status = text(item.status).toLowerCase()
+      const status = normalizeAdminStatus(item.status)
       if (status !== 'pending' && status !== 'approved') continue
       const code = text(item.currency) || 'AED'
       const entry = totals.get(code) ?? { topups: 0, withdrawals: 0, approvedWithdrawals: 0 }
