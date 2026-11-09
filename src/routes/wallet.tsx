@@ -279,8 +279,8 @@ function WalletPage() {
                 </li>)}
               </ul>
             </section> : null}
-              <RequestHistory title="Deposit requests" rows={topups} />
-              <RequestHistory title="Withdrawal requests" rows={withdrawals} />
+              <RequestHistory title="Deposit requests" rows={topups} kind="deposit" />
+              <RequestHistory title="Withdrawal requests" rows={withdrawals} kind="withdrawal" />
             </section>
             <section className="grid gap-6 lg:grid-cols-3">
               <History title="Profit credits" rows={profits.filter((row) => row.currency === currency)} />
@@ -307,28 +307,49 @@ function WalletPage() {
 
 
 
-function RequestHistory({ title, rows }: { title: string; rows: RequestRow[] }) {
+function RequestHistory({ title, rows, kind }: { title: string; rows: RequestRow[]; kind: 'deposit' | 'withdrawal' }) {
+  const statusInfo = (rawStatus: string) => {
+    const status = rawStatus.toLowerCase().replace(/-/g, '_')
+    if (status === 'pending' || status === 'submitted' || status === 'under_review') {
+      return { label: 'Pending administrator review', detail: kind === 'deposit' ? 'Your request is recorded. Contact customer support for deposit instructions; funds are not added until an administrator processes it.' : 'Your request is waiting for administrator review. The amount has not been paid out.', tone: 'text-brass' }
+    }
+    if (status === 'approved' || status === 'processing' || status === 'in_progress') {
+      return { label: status === 'approved' ? 'Approved' : 'Processing', detail: kind === 'deposit' ? 'Your request has been approved. Check your wallet activity after the administrator posts the credit.' : 'Your withdrawal is approved but is not confirmed as paid yet.', tone: 'text-brass' }
+    }
+    if (['paid', 'completed', 'credited', 'successful', 'succeeded'].includes(status)) {
+      return { label: kind === 'deposit' ? 'Completed / credited' : 'Paid / completed', detail: 'This request is marked complete. Check wallet activity for the posted transaction where applicable.', tone: 'text-emerald-700' }
+    }
+    if (['rejected', 'declined', 'cancelled', 'canceled', 'failed'].includes(status)) {
+      return { label: 'Not approved', detail: 'This request was not completed. Contact customer support if you need an explanation.', tone: 'text-red-700' }
+    }
+    return { label: rawStatus.replace(/_/g, ' '), detail: 'The administrator has updated this request. Contact customer support if you need clarification.', tone: 'text-ink-soft' }
+  }
   return (
     <div className="border border-border bg-card">
       <h2 className="display border-b border-border px-6 py-4 text-lg">{title}</h2>
       {rows.length === 0 ? <p className="px-6 py-6 text-sm text-ink-soft">No requests submitted yet.</p> : (
         <ul className="divide-y divide-border">
-          {rows.map((row) => (
-            <li key={row.id} className="flex items-start justify-between gap-4 px-6 py-4">
-              <div className="min-w-0">
-                <p className="text-sm">{date(row.created_at)}</p>
-                <p className="mt-1 text-xs capitalize text-ink-soft">{row.status.replace(/_/g, ' ')}</p>
-                {row.payout_method ? <p className="mt-2 text-xs text-ink-soft">Payout method: {row.payout_method}</p> : null}
+          {rows.map((row) => {
+            const info = statusInfo(row.status)
+            return <li key={row.id} className="px-6 py-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm">{date(row.created_at)}</p>
+                  <p className={`eyebrow mt-2 text-[0.55rem] ${info.tone}`}>{info.label}</p>
+                  <p className="mt-1 max-w-xl text-xs leading-5 text-ink-soft">{info.detail}</p>
+                  <p className="mt-2 text-[0.6rem] text-ink-soft">Request reference: {row.id.slice(0, 8).toUpperCase()}</p>
+                  {row.payout_method ? <p className="mt-1 text-xs text-ink-soft">Payout method: {row.payout_method}</p> : null}
+                  {row.admin_note ? <p className="mt-2 border-l-2 border-brass/60 pl-3 text-xs leading-5 text-ink-soft">Administrator note: {row.admin_note}</p> : null}
+                </div>
+                <p className="display shrink-0 text-lg">{money(row.amount, row.currency)}</p>
               </div>
-              <p className="display shrink-0 text-lg">{money(row.amount, row.currency)}</p>
             </li>
-          ))}
+          })}
         </ul>
       )}
     </div>
   )
 }
-
 
 function CommissionHistory({ rows }: { rows: CommissionRow[] }) {
   return (
