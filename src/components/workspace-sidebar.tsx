@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation } from '@tanstack/react-router'
+import { requireSupabase } from '../lib/supabase-client'
 
 type Props = {
   mode: 'member' | 'admin'
@@ -9,9 +10,13 @@ type Props = {
 const memberItems = [
   ['dashboard','Dashboard','/dashboard'],
   ['residences','Explore Properties','/residences'],
+  ['investment-level','Investment Level','/dashboard#investment-level'],
   ['investments','My Investments','/dashboard#investments'],
   ['wallet','My Wallet','/wallet'],
+  ['deposits','Deposits','/wallet#deposits'],
+  ['withdrawals','Withdrawals','/wallet#withdrawals'],
   ['commissions','Commissions','/wallet#commissions'],
+  ['transactions','Transactions','/wallet#transactions'],
   ['notifications','Notifications','/wallet#notifications'],
   ['account','My Profile','/account'],
   ['support','Support','/support'],
@@ -26,8 +31,41 @@ const adminItems = [
 
 export function WorkspaceSidebar({ mode, active, onSelect }: Props) {
   const [open, setOpen] = useState(false)
+  const [authReady, setAuthReady] = useState(mode === 'admin')
+  const [authenticated, setAuthenticated] = useState(mode === 'admin')
   const location = useLocation()
   const isAdmin = mode === 'admin'
+
+  useEffect(() => {
+    if (isAdmin) return
+    const client = requireSupabase()
+    let mounted = true
+    void client.auth.getUser().then(({ data }) => {
+      if (mounted) {
+        setAuthenticated(Boolean(data.user))
+        setAuthReady(true)
+      }
+    }).catch(() => {
+      if (mounted) {
+        setAuthenticated(false)
+        setAuthReady(true)
+      }
+    })
+    const { data: listener } = client.auth.onAuthStateChange((_event, session) => {
+      if (mounted) {
+        setAuthenticated(Boolean(session?.user))
+        setAuthReady(true)
+        if (!session?.user) setOpen(false)
+      }
+    })
+    return () => {
+      mounted = false
+      listener.subscription.unsubscribe()
+    }
+  }, [isAdmin])
+
+  if (!isAdmin && (!authReady || !authenticated)) return null
+
   const items = isAdmin ? adminItems : memberItems
   return <>
     <button type="button" aria-label="Open workspace navigation" onClick={() => setOpen(true)}
@@ -43,7 +81,7 @@ export function WorkspaceSidebar({ mode, active, onSelect }: Props) {
           const id = item[0]
           const label = item[1]
           const href = isAdmin ? undefined : (item as readonly [string, string, string])[2]
-          const selected = isAdmin ? active === id : location.pathname === href
+          const selected = isAdmin ? active === id : location.pathname === href?.split('#')[0] && (href?.includes('#') ? location.hash === '#' + href.split('#')[1] : true)
           const cls = ['flex w-full items-center gap-3 rounded-sm px-4 py-3 text-left text-sm transition-colors', selected ? 'border-l-2 border-[#d8b56d] bg-white/10 text-[#e7c77f]' : 'border-l-2 border-transparent text-white/75 hover:bg-white/5 hover:text-white'].join(' ')
           return isAdmin ? <button key={id} type="button" className={cls} onClick={() => { onSelect?.(id); setOpen(false) }}><span className="w-5 text-center text-[#d8b56d]">◇</span>{label}</button>
             : <Link key={id} to={href as any} onClick={() => setOpen(false)} className={cls}><span className="w-5 text-center text-[#d8b56d]">◇</span>{label}</Link>
