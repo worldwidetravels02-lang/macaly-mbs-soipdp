@@ -825,7 +825,7 @@ const EXTRA_RESIDENCES: Residence[] = LISTING_SEEDS.map((seed) => ({
       { name: 'Mortgage assisted', detail: 'Introductions to three UAE lenders, up to 75% loan to value.' },
       { name: 'Payment plan', detail: '40% during construction, 60% on handover.' },
     ],
-    note: 'Prices are indicative and confirmed by the sales gallery at reservation.',
+    note: 'Illustrative preview only. No verified price, rental yield, service charge, payment plan or investment return is represented. Confirm all details before publication.',
   },
 }))
 
