@@ -157,7 +157,10 @@ function AdminPage() {
         const { data: pinSet, error: pinStatusError } = await client.rpc('owner_pin_is_set')
         if (pinStatusError) throw pinStatusError
         setOwnerPinSet(Boolean(pinSet))
-        setOwnerVerified(false)
+        // Keep owner verification for this browser tab across refreshes.
+        // sessionStorage is cleared when the tab/session is closed.
+        const ownerVerificationKey = `msheireb-owner-verified:${auth.user.id}`
+        setOwnerVerified(typeof window !== 'undefined' && window.sessionStorage.getItem(ownerVerificationKey) === '1')
       } else {
         setOwnerPinSet(false)
         setOwnerVerified(true)
@@ -963,6 +966,7 @@ function AdminPage() {
         if (verifyError) throw verifyError
         if (!verified) throw new Error('Owner code was saved, but verification did not complete. Please sign in again.')
         setOwnerPinSet(true); setOwnerVerified(true)
+        if (user?.id && typeof window !== 'undefined') window.sessionStorage.setItem(`msheireb-owner-verified:${user.id}`, '1')
         const { data: adminDirectory, error: directoryError } = await client.rpc('admin_manage_access', { p_action: 'list', p_email: null, p_user_id: null })
         if (directoryError) throw directoryError
         setRows((current) => ({ ...current, admins: (adminDirectory ?? []) as Row[] }))
@@ -973,6 +977,7 @@ function AdminPage() {
         if (verifyError) throw verifyError
         if (!verified) throw new Error('Incorrect code. Please try again.')
         setOwnerVerified(true); setOwnerPin('')
+        if (user?.id && typeof window !== 'undefined') window.sessionStorage.setItem(`msheireb-owner-verified:${user.id}`, '1')
         const { data: adminDirectory, error: directoryError } = await client.rpc('admin_manage_access', { p_action: 'list', p_email: null, p_user_id: null })
         if (directoryError) throw directoryError
         setRows((current) => ({ ...current, admins: (adminDirectory ?? []) as Row[] }))
@@ -994,6 +999,7 @@ function AdminPage() {
   }
 
   const signOut = async () => {
+    if (user?.id && typeof window !== 'undefined') window.sessionStorage.removeItem(`msheireb-owner-verified:${user.id}`)
     await requireSupabase().auth.signOut()
     setUser(null); setAuthorized(false); setOwnerVerified(false); setAdminRole('')
   }
