@@ -510,20 +510,32 @@ function AdminPage() {
     return Array.from(grouped.values()).sort((a, b) => text(a.currency).localeCompare(text(b.currency)))
   }, [profileCustomerId, rows])
 
-  const stats = useMemo(() => ({
-    properties: (rows.properties ?? []).filter((row) => row.status === 'published').length,
-    enquiries: (rows.enquiries ?? []).filter((row) => !row.status || row.status === 'new').length,
-    totalEnquiries: (rows.enquiries ?? []).length,
-    contactedEnquiries: (rows.enquiries ?? []).filter((row) => row.status === 'contacted').length,
-    closedEnquiries: (rows.enquiries ?? []).filter((row) => row.status === 'closed').length,
-    customers: (rows.users ?? []).length,
-    pending: (rows.topups ?? []).filter((row) => row.status === 'pending').length + (rows.withdrawals ?? []).filter((row) => row.status === 'pending').length,
-    pendingInvestmentReviews: (rows.investmentRequests ?? []).filter((row) => normalizeAdminStatus(row.status) === 'pending').length,
-    approvedInvestmentFunding: (rows.investmentRequests ?? []).filter((row) => normalizeAdminStatus(row.status) === 'approved').length,
-    pendingCommissionReviews: (rows.commissions ?? []).filter((row) => text(row.status).toLowerCase() === 'pending').length,
-    approvedCommissionCredits: (rows.commissions ?? []).filter((row) => text(row.status).toLowerCase() === 'approved').length,
-    pendingIdentityReviews: (rows.verifications ?? []).filter((row) => normalizeAdminStatus(row.status) === 'pending').length,
-  }), [rows])
+  const stats = useMemo(() => {
+    const properties = rows.properties ?? []
+    const enquiries = rows.enquiries ?? []
+    const topups = rows.topups ?? []
+    const withdrawals = rows.withdrawals ?? []
+    const investmentRequests = rows.investmentRequests ?? []
+    const commissions = rows.commissions ?? []
+    const verifications = rows.verifications ?? []
+    const isPending = (value: unknown) => ['pending', 'submitted', 'under_review', 'in_review'].includes(normalizeAdminStatus(value))
+    const isApproved = (value: unknown) => ['approved', 'accepted'].includes(normalizeAdminStatus(value))
+    const enquiryStatus = (row: Row) => normalizeAdminStatus(row.status || 'new')
+    return {
+      properties: properties.filter((row) => normalizeAdminStatus(row.status) === 'published').length,
+      enquiries: enquiries.filter((row) => ['new', ''].includes(enquiryStatus(row))).length,
+      totalEnquiries: enquiries.length,
+      contactedEnquiries: enquiries.filter((row) => ['contacted', 'in_progress', 'follow_up', 'followup'].includes(enquiryStatus(row))).length,
+      closedEnquiries: enquiries.filter((row) => ['closed', 'resolved', 'completed'].includes(enquiryStatus(row))).length,
+      customers: (rows.users ?? []).length,
+      pending: topups.filter((row) => isPending(row.status)).length + withdrawals.filter((row) => isPending(row.status)).length,
+      pendingInvestmentReviews: investmentRequests.filter((row) => isPending(row.status)).length,
+      approvedInvestmentFunding: investmentRequests.filter((row) => isApproved(row.status)).length,
+      pendingCommissionReviews: commissions.filter((row) => isPending(row.status)).length,
+      approvedCommissionCredits: commissions.filter((row) => isApproved(row.status)).length,
+      pendingIdentityReviews: verifications.filter((row) => isPending(row.status)).length,
+    }
+  }, [rows])
 
   const financeSummary = useMemo(() => ({
     topups: (rows.topups ?? []).length,
