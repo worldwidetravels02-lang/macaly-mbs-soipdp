@@ -24,7 +24,6 @@ type Project = {
   set_number: number
   sort_order: number
 }
-type LevelSetting = { level_name: string; is_unlocked: boolean }
 type ProjectRequest = { property_id: string | null; status: string }
 
 export const Route = createFileRoute('/residences/')({
@@ -39,7 +38,6 @@ function ResidencesPage() {
   const [checkingSession, setCheckingSession] = useState(true)
   const [signedIn, setSignedIn] = useState(false)
   const [projects, setProjects] = useState<Project[]>([])
-  const [levelSettings, setLevelSettings] = useState<LevelSetting[]>([])
   const [customerLevelAccess, setCustomerLevelAccess] = useState<{ user_id: string; level_name: string; is_unlocked: boolean }[]>([])
   const [currentUserId, setCurrentUserId] = useState('')
   const [requests, setRequests] = useState<ProjectRequest[]>([])
@@ -71,22 +69,19 @@ function ResidencesPage() {
     setLoadingProjects(true)
     ;(async () => {
       const client = requireSupabase()
-      const [propertyResult, levelResult, requestResult, userResult, accessResult] = await Promise.all([
+      const [propertyResult, requestResult, userResult, accessResult] = await Promise.all([
         client.from('properties').select('id,slug,name,location,description,price_label,cover_image_url,project_level,set_number,sort_order').eq('status', 'published').not('project_level', 'is', null).order('sort_order', { ascending: true }),
-        client.from('project_level_settings').select('level_name,is_unlocked').order('display_order'),
         client.from('investment_requests').select('property_id,status').order('created_at', { ascending: false }),
         client.auth.getUser(),
         client.from('customer_project_level_access').select('user_id,level_name,is_unlocked'),
       ])
       if (propertyResult.error) throw propertyResult.error
-      if (levelResult.error) throw levelResult.error
       if (userResult.error) throw userResult.error
       if (requestResult.error) throw requestResult.error
       if (accessResult.error) throw accessResult.error
       if (!userResult.data.user) throw new Error('Please sign in to view the project catalogue.')
       if (!active) return
       setProjects((propertyResult.data ?? []) as Project[])
-      setLevelSettings((levelResult.data ?? []) as LevelSetting[])
       setRequests((requestResult.data ?? []) as ProjectRequest[])
       setCurrentUserId(userResult.data.user.id)
       setCustomerLevelAccess((accessResult.data ?? []) as { user_id: string; level_name: string; is_unlocked: boolean }[])
