@@ -352,10 +352,11 @@ function AdminPage() {
     const customers = rows.users ?? []
     return (rows.walletTransactions ?? []).filter((item) => {
       const customer = customers.find((profile) => profile.id === item.user_id)
-      const matchesSearch = !query || [item.user_id, customer?.full_name, customer?.mobile, item.description, item.transaction_type]
+      const matchesSearch = !query || [item.user_id, customer?.full_name, customer?.mobile, item.description, item.transaction_type, item.status, item.amount, item.currency, item.created_at]
         .some((value) => text(value).toLowerCase().includes(query))
-      const matchesCurrency = walletCurrencyFilter === 'all' || text(item.currency) === walletCurrencyFilter
-      const matchesDirection = walletDirectionFilter === 'all' || text(item.direction).toLowerCase() === walletDirectionFilter
+      const matchesCurrency = walletCurrencyFilter === 'all' || text(item.currency).toUpperCase() === walletCurrencyFilter
+      const direction = normalizeAdminStatus(item.direction)
+      const matchesDirection = walletDirectionFilter === 'all' || direction === normalizeAdminStatus(walletDirectionFilter)
       const created = item.created_at ? new Date(item.created_at).getTime() : 0
       const afterFrom = !walletFromDate || created >= new Date(walletFromDate + 'T00:00:00').getTime()
       const beforeTo = !walletToDate || created <= new Date(walletToDate + 'T23:59:59.999').getTime()
@@ -686,10 +687,14 @@ function AdminPage() {
 
   const addWalletBalance = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    const amount = Number(manualWalletDraft.amount)
+    if (!manualWalletDraft.user_id || !(rows.users ?? []).some((profile) => profile.id === manualWalletDraft.user_id)) { setError('Select a valid customer account before adding wallet funds.'); return }
+    if (!Number.isFinite(amount) || amount <= 0 || amount > 100000000) { setError('Enter a wallet credit greater than zero and no more than 100,000,000.'); return }
+    if (!manualWalletDraft.description.trim() || manualWalletDraft.description.trim().length > 240) { setError('Enter a transaction description of 1–240 characters.'); return }
     await run(async () => {
       const { error: rpcError } = await requireSupabase().rpc('admin_add_wallet_balance', {
         p_user_id: manualWalletDraft.user_id,
-        p_amount: Number(manualWalletDraft.amount),
+        p_amount: amount,
         p_currency: manualWalletDraft.currency,
         p_description: manualWalletDraft.description,
       })
