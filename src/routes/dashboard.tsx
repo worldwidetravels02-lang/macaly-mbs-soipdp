@@ -122,7 +122,7 @@ function DashboardPage() {
     try {
       const { data: updatedRows, error: updateError } = await requireSupabase().from('member_tasks')
         .update({ status: 'submitted', submitted_at: new Date().toISOString() })
-        .eq('id', task.id).eq('user_id', user.id).in('status', ['assigned', 'rejected'])
+        .eq('id', task.id).eq('user_id', user.id).in('status', ['assigned', 'rejected', 'returned'])
         .select('id')
       if (updateError) throw updateError
       if (!updatedRows?.length) throw new Error('This task has already changed. Refresh the dashboard and check its latest status.')
@@ -221,7 +221,7 @@ function DashboardPage() {
                 <div className="border-b border-border px-6 py-5"><h2 className="display text-xl">Your assigned tasks</h2><p className="mt-1 text-xs text-ink-soft">Submit completed tasks for administrator review. Returned tasks can be submitted again.</p></div>
                 {memberTasks.length === 0 ? <p className="px-6 py-7 text-sm text-ink-soft">No tasks have been assigned to your account yet.</p> : <ul className="divide-y divide-border">{memberTasks.map((task) => {
                   const returned = ['rejected', 'returned'].includes(task.status)
-                  const canSubmit = ['assigned', 'rejected'].includes(task.status)
+                  const canSubmit = ['assigned', 'rejected', 'returned'].includes(task.status)
                   return <li key={task.id} className="flex flex-col gap-3 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h3 className="text-sm font-semibold">{task.title}</h3><span className="eyebrow text-[0.48rem] text-brass">{task.status.replace(/_/g, ' ')}</span></div><p className="mt-2 whitespace-pre-wrap text-sm text-ink-soft">{task.detail || 'No additional task details.'}</p><p className="mt-2 text-xs text-ink-soft">Target level: {task.target_level ?? '—'} · Assigned {formatDate(task.created_at)}</p>{task.review_note ? <p className="mt-2 text-xs text-ink-soft">Admin note: {task.review_note}</p> : null}{returned ? <p className="mt-2 text-xs text-brass">This task was returned. Review the note and resubmit when complete.</p> : null}</div>
                     {canSubmit ? <button type="button" disabled={taskBusy === task.id} onClick={() => void submitTaskForReview(task)} className="eyebrow shrink-0 border border-brass/50 px-4 py-3 text-[0.52rem] disabled:opacity-50">{taskBusy === task.id ? 'Submitting…' : returned ? 'Resubmit task' : 'Submit for review'}</button> : null}
