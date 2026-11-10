@@ -244,6 +244,7 @@ function ResidencesPage() {
                 {visibleLevels.length === 0 ? <p className="rounded-lg border border-[#e8e4dc] bg-white p-5 text-sm text-[#777]">No project groups match your search.</p> : null}
               </div>
               </> : null}
+              {search.level ? <>
               <div id="project-group-details" className="mt-6 scroll-mt-24 flex flex-wrap items-end justify-between gap-4">
                 <div><p className="eyebrow text-brass">Selected group</p><h2 className="display mt-2 text-3xl">{selectedLevel === "Junior Trial" ? "Junior (Trial)" : selectedLevel}</h2></div>
                 <p className="text-xs text-ink-soft">20 projects in each set · displayed in admin order</p>
@@ -291,6 +292,7 @@ function ResidencesPage() {
                   )}
                 </>
               )}
+              </> : null}
             </div>
           </section>
         )}
