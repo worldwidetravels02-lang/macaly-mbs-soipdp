@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..800;1,6..96,400..600&family=Jost:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..800;1,6..96,400..600&family=Jost:wght@300;400;500;600&family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap');
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
@@ -412,4 +412,28 @@ body vite-error-overlay {
 
 .soft-shadow {
   box-shadow: 0 20px 50px -30px hsl(var(--deep) / 0.45);
+}
+
+
+/* Customer dashboard typography */
+.customer-dashboard {
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  font-size: 16.5px;
+}
+
+.customer-dashboard .display {
+  font-family: 'Playfair Display', Georgia, serif;
+}
+
+.customer-dashboard .eyebrow {
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.16em;
+}
+
+.customer-dashboard .text-xs {
+  font-size: 0.82rem;
+}
+
+.customer-dashboard .text-sm {
+  font-size: 0.96rem;
 }
