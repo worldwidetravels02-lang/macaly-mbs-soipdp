@@ -67,7 +67,7 @@ export function WorkspaceSidebar({ mode, active, onSelect, isOwner = false }: Pr
 
   if (!isAdmin && (!authReady || !authenticated)) return null
 
-  const items = isAdmin ? adminItems.filter(([id]) => id !== 'team' || isOwner) : memberItems
+  const items = isAdmin ? adminItems : memberItems
   return <>
     <button type="button" aria-label="Open workspace navigation" onClick={() => setOpen(true)}
       className="fixed left-4 top-4 z-[70] flex h-11 w-11 items-center justify-center border border-brass/50 bg-[#101d35] text-xl text-[#d8b56d] shadow-lg lg:hidden">☰</button>
