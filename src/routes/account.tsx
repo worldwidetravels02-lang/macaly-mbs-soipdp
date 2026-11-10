@@ -90,7 +90,7 @@ function AccountPage() {
       setMobile(profile.data?.mobile || auth.user.user_metadata?.mobile || '')
       if(profile.data?.preferred_currency && currencies.includes(profile.data.preferred_currency as Currency)) setCurrency(profile.data.preferred_currency as Currency)
       setBalance(Number(wallet.data?.balance ?? 0))
-      const activeWithdrawals=(withdrawals.data ?? []).filter((r:any)=>['pending','approved'].includes(norm(r.status)))
+      const activeWithdrawals=(withdrawals.data ?? []).filter((r:any)=>norm(r.status)==='pending')
       setHold(activeWithdrawals.filter((r:any)=>r.currency==='AED').reduce((n:number,r:any)=>n+Number(r.amount||0),0))
       setBanks((bankRows.data ?? []) as BankAccount[])
       setBankId((bankRows.data?.[0] as any)?.id ?? '')
