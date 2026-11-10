@@ -215,7 +215,6 @@ function DashboardPage() {
                   muted
                   loop
                   playsInline
-                  controls
                   preload="auto"
                   aria-label="Dubai luxury property showcase video"
                 >
