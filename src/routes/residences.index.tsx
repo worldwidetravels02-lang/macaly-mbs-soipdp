@@ -135,13 +135,6 @@ function ResidencesPage() {
   const projectCards: (Project | null)[] = projectSearch.trim() || projectFilter !== 'all'
     ? visibleProjects
     : Array.from({ length: 20 }, (_, index) => visibleProjects[index] ?? null)
-  const completedSets = useMemo(() => {
-    const completedIds = new Set(requests.filter((request) => ['funded', 'approved', 'completed'].includes(String(request.status).toLowerCase())).map((request) => request.property_id).filter(Boolean))
-    return new Set(SETS.filter((setNo) => {
-      const ids = levelProjects.filter((project) => Number(project.set_number) === setNo).map((project) => project.id)
-      return ids.length === 20 && ids.every((id) => completedIds.has(id))
-    }))
-  }, [requests, levelProjects])
   const setIsUnlocked = (setNo: number) => customerSetAccess.find((item) => item.user_id === currentUserId && item.level_name === selectedLevel && Number(item.set_number) === setNo)?.is_unlocked ?? (selectedLevel === 'Junior Trial' && setNo === 1)
 
   async function requestProject(project: Project) {
