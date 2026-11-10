@@ -1,4 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
+import { requireSupabase } from '../lib/supabase-client'
 import { PageIntro, SiteFooter, SiteHeader } from '../components/site-chrome'
 import { SITE } from '../data/site'
 import { canonicalUrl } from '../lib/canonical-url'
@@ -21,19 +23,27 @@ export const Route = createFileRoute('/terms')({
 })
 
 function TermsPage() {
+  const [pageContent, setPageContent] = useState<{ title: string; content: string } | null>(null)
+  useEffect(() => {
+    let active = true
+    void requireSupabase().from('site_content').select('title,content').eq('slug', 'terms').eq('published', true).maybeSingle().then(({ data }) => {
+      if (active && data?.content) setPageContent({ title: data.title, content: data.content })
+    })
+    return () => { active = false }
+  }, [])
   return (
     <div className="min-h-screen bg-background text-foreground">
       <SiteHeader />
       <main id="main">
         <PageIntro
           eyebrow="Legal"
-          title="Terms of use"
+          title={pageContent?.title || "Terms of use"}
           intro="The terms that apply when you browse this website, submit an enquiry or create a member account."
         />
 
         <section className="py-16 sm:py-20">
           <div className="mx-auto w-full max-w-3xl px-5 sm:px-8">
-            <div className="space-y-8 text-[1rem] leading-relaxed text-ink-soft">
+            {pageContent ? <div className="whitespace-pre-wrap text-[1rem] leading-relaxed text-ink-soft">{pageContent.content}</div> : <div className="space-y-8 text-[1rem] leading-relaxed text-ink-soft">
               <div>
                 <h2 className="display text-2xl text-foreground">Website content</h2>
                 <p className="mt-3">
@@ -71,7 +81,7 @@ function TermsPage() {
                 Questions about these terms can be raised through the contact page. {SITE.name},{' '}
                 {SITE.address[0]}, {SITE.address[1]}.
               </p>
-            </div>
+            </div>}
           </div>
         </section>
       </main>
