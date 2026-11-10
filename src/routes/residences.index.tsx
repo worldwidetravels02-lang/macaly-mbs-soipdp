@@ -24,7 +24,7 @@ type Project = {
   project_level: string
   sort_order: number
 }
-type ProjectRequest = { property_id: string | null; status: string }
+type ProjectRequest = { user_id: string; property_id: string | null; status: string }
 
 export const Route = createFileRoute('/residences/')({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -59,6 +59,7 @@ function ResidencesPage() {
   const [busyProject, setBusyProject] = useState('')
   const [notice, setNotice] = useState('')
   const [successPopup, setSuccessPopup] = useState(false)
+  const [levelCelebration, setLevelCelebration] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -91,7 +92,7 @@ function ResidencesPage() {
       const client = requireSupabase()
       const [propertyResult, requestResult, userResult, accessResult] = await Promise.all([
         client.from('properties').select('id,slug,name,location,description,price_label,price_amount,order_percentages,cover_image_url,project_level,sort_order').eq('status', 'published').not('project_level', 'is', null).order('sort_order', { ascending: true }),
-        client.from('investment_requests').select('property_id,status').order('created_at', { ascending: false }),
+        client.from('investment_requests').select('user_id,property_id,status').order('created_at', { ascending: false }),
         client.auth.getUser(),
         client.from('customer_project_level_access').select('user_id,level_name,is_unlocked'),
       ])
@@ -159,14 +160,36 @@ function ResidencesPage() {
         note: `Project order · Level: ${project.project_level} · Percentage: ${selection.percentage}% · Base price: AED ${basePrice.toFixed(2)} · Order amount: AED ${amount.toFixed(2)} · Expected commission: AED ${commissionAmount.toFixed(2)}`,
       })
       if (insertError) throw insertError
-      setRequests((current) => [...current, { property_id: project.id, status: 'pending' }])
-      setNotice('Your project order request has been sent to the administrator for review.')
-      setSuccessPopup(true)
-      window.setTimeout(() => {
-        setSuccessPopup(false)
-        setNotice('')
-        setCurrentProjectIndex((current) => current + 1 < projectCards.length ? current + 1 : 0)
-      }, 1800)
+      const updatedRequests = [...requests, { user_id: auth.user.id, property_id: project.id, status: 'pending' }]
+      setRequests(updatedRequests)
+      const orderedPropertyIds = new Set(updatedRequests
+        .filter((request) => request.user_id === auth.user.id && request.property_id && !['rejected', 'cancelled'].includes(String(request.status).toLowerCase()))
+        .filter((request) => projects.some((item) => item.id === request.property_id && item.project_level === selectedLevel))
+        .map((request) => request.property_id))
+      const nextLevel = LEVELS[LEVELS.indexOf(selectedLevel as typeof LEVELS[number]) + 1]
+      if (orderedPropertyIds.size >= 20 && nextLevel) {
+        const { data: access, error: accessError } = await client.from('customer_project_level_access')
+          .select('user_id,level_name,is_unlocked')
+          .eq('user_id', auth.user.id)
+          .eq('level_name', nextLevel)
+          .maybeSingle()
+        if (accessError) throw accessError
+        if (!access?.is_unlocked) throw new Error('Your 20 project orders were recorded, but the next level could not be unlocked. Please contact support.')
+        setCustomerLevelAccess((current) => [...current.filter((item) => !(item.user_id === auth.user.id && item.level_name === nextLevel)), { user_id: auth.user.id, level_name: nextLevel, is_unlocked: true }])
+        setLevelCelebration(true)
+        window.setTimeout(() => {
+          setLevelCelebration(false)
+          window.location.href = `/residences?level=${encodeURIComponent(nextLevel)}`
+        }, 2400)
+      } else {
+        setNotice('Your project order request has been sent to the administrator for review.')
+        setSuccessPopup(true)
+        window.setTimeout(() => {
+          setSuccessPopup(false)
+          setNotice('')
+          setCurrentProjectIndex((current) => current + 1 < projectCards.length ? current + 1 : 0)
+        }, 1800)
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not submit your project order.')
     } finally { setBusyProject('') }
@@ -192,6 +215,7 @@ function ResidencesPage() {
         </div>
       </header>
       {successPopup ? <div role="status" aria-live="polite" className="fixed inset-0 z-[100] flex items-center justify-center bg-[#071b38]/65 px-5 backdrop-blur-sm"><div className="w-full max-w-sm rounded-2xl border border-[#d8b66b] bg-white p-8 text-center shadow-2xl animate-[orderPop_.35s_ease-out]"><div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full bg-[#e8f5ec] text-3xl font-bold text-[#23834b]">✓</div><h2 className="display text-2xl text-[#071b38]">Order successful</h2><p className="mt-2 text-sm text-[#666]">Your request has been sent for admin review.</p><p className="mt-4 text-xs tracking-wide text-[#9a793b]">Opening the next property…</p></div><style>{'@keyframes orderPop { 0% { opacity: 0; transform: scale(.82) translateY(12px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }'}</style></div> : null}
+      {levelCelebration ? <div role="status" aria-live="assertive" className="fixed inset-0 z-[110] flex items-center justify-center bg-[#071b38]/75 px-5 backdrop-blur-sm"><div className="w-full max-w-md rounded-2xl border-2 border-[#d8b66b] bg-white p-9 text-center shadow-2xl animate-[levelPop_.55s_cubic-bezier(.2,.8,.2,1)]"><div className="mx-auto mb-5 grid h-20 w-20 place-items-center rounded-full bg-[#fff4d8] text-5xl text-[#b88a2e]">🏆</div><p className="eyebrow text-[#9a793b]">Msheireb Properties</p><h2 className="display mt-3 text-3xl text-[#071b38]">Congratulations!</h2><p className="mt-3 text-sm leading-6 text-[#555]">You have successfully ordered 20 different properties in ${selectedLevel}. Your next level is now unlocked.</p><p className="mt-5 rounded-lg bg-[#071b38] px-4 py-3 text-sm font-semibold tracking-wide text-[#f1d28d]">Next level: ${LEVELS[LEVELS.indexOf(selectedLevel as typeof LEVELS[number]) + 1] ?? "Next level"}</p><p className="mt-4 text-xs text-[#9a793b]">Opening your new level…</p></div><style>{'@keyframes levelPop { 0% { opacity: 0; transform: scale(.75) translateY(18px); } 70% { transform: scale(1.04); } 100% { opacity: 1; transform: scale(1); } }'}</style></div> : null}
       <main id="main" className="pb-20 pt-[86px] lg:ml-64">
         <div className="mx-auto w-full max-w-[1500px] px-5 sm:px-7">
         {checkingSession ? <p className="mx-auto w-full max-w-7xl px-5 py-16 text-sm text-ink-soft sm:px-8">Checking your session…</p> : !signedIn ? <ListingsGate /> : (
