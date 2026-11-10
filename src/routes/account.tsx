@@ -1,223 +1,211 @@
 import { WorkspaceSidebar } from '../components/workspace-sidebar'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
-import type { User } from '@supabase/supabase-js'
+import { useCallback, useEffect, useState } from 'react'
 import { requireSupabase } from '@/lib/supabase-client'
-import { ArrowRight, SiteFooter, SiteHeader } from '../components/site-chrome'
-import { SITE } from '../data/site'
-import { canonicalUrl } from '../lib/canonical-url'
-import siteMetadata from '../metadata.json'
 
-const meta = siteMetadata['/account']
-const normalizeVerificationStatus = (value: unknown) => String(value ?? '').trim().toLowerCase().replace(/[\\s-]+/g, '_')
-
-type Profile = {
-  full_name: string | null
-  mobile: string | null
-  preferred_language: string
-  preferred_currency: string
-}
-
-export const Route = createFileRoute('/account')({
-  head: () => {
-    const canonical = canonicalUrl('/account')
-    return {
-      meta: [{ title: meta.title }, { name: 'description', content: meta.description }],
-      links: canonical ? [{ rel: 'canonical', href: canonical }] : [],
-    }
-  },
-  component: AccountPage,
-})
+type Currency = 'AED' | 'OMR' | 'SAR' | 'KWD' | 'BHD' | 'QAR'
+type Section = 'records' | 'cashin' | 'cashout' | 'bank' | 'password' | 'withdrawalPassword' | 'deposit' | 'terms'
+type BankAccount = { id: string; account_holder: string; bank_name: string; iban: string; account_number: string; mobile_number: string; created_at: string }
+type RecordRow = { id: string; type: string; description: string; amount: number; currency: Currency; status: string; created_at: string }
+const currencies: Currency[] = ['AED','OMR','SAR','KWD','BHD','QAR']
+const menu: {id: Section; label: string; icon: string}[] = [
+  {id:'records',label:'Records',icon:'☷'},{id:'cashin',label:'Cash in',icon:'＋'},
+  {id:'cashout',label:'Cash out',icon:'▱'},{id:'bank',label:'Bind wallet',icon:'▣'},
+  {id:'password',label:'Change password',icon:'♙'},{id:'withdrawalPassword',label:'Withdrawal password',icon:'♧'},
+  {id:'deposit',label:'About deposit',icon:'▤'},{id:'terms',label:'Terms & conditions',icon:'☷'},
+]
+const field = 'w-full rounded-md border border-[#e5e1dc] bg-white px-4 py-3 text-sm text-[#292722] outline-none focus:border-[#b89b59]'
+const button = 'rounded-md bg-[#201d1b] px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50'
+const norm = (s: unknown) => String(s ?? '').toLowerCase().replace(/[ _-]+/g,' ').trim()
+const money = (v: number, c: Currency) => new Intl.NumberFormat('en',{style:'currency',currency:c,maximumFractionDigits:2}).format(Number.isFinite(v)?v:0)
+const fmtDate = (v: string) => new Intl.DateTimeFormat('en-GB',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}).format(new Date(v))
+export const Route = createFileRoute('/account')({ component: AccountPage })
 
 function AccountPage() {
   const navigate = useNavigate()
-  const [user, setUser] = useState<User | null>(null)
-  const [profile, setProfile] = useState<Profile | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [name, setName] = useState('')
-  const [mobile, setMobile] = useState('')
-  const [notice, setNotice] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [verification, setVerification] = useState<{ status: string; document_type: string; document_name: string; review_note: string | null; submitted_at: string } | null>(null)
-  const [documentType, setDocumentType] = useState('Passport')
-  const [documentFile, setDocumentFile] = useState<File | null>(null)
-  const [uploadingDocument, setUploadingDocument] = useState(false)
+  const [userId,setUserId] = useState('')
+  const [name,setName] = useState('Member')
+  const [mobile,setMobile] = useState('')
+  const [email,setEmail] = useState('')
+  const [currency,setCurrency] = useState<Currency>('AED')
+  const [section,setSection] = useState<Section>('records')
+  const [records,setRecords] = useState<RecordRow[]>([])
+  const [banks,setBanks] = useState<BankAccount[]>([])
+  const [balance,setBalance] = useState(0)
+  const [hold,setHold] = useState(0)
+  const [projects,setProjects] = useState(0)
+  const [trialBonus,setTrialBonus] = useState(0)
+  const [todayRevenue,setTodayRevenue] = useState(0)
+  const [totalCommission,setTotalCommission] = useState(0)
+  const [filter,setFilter] = useState('All')
+  const [loading,setLoading] = useState(true)
+  const [busy,setBusy] = useState(false)
+  const [notice,setNotice] = useState('')
+  const [error,setError] = useState('')
+  const [amount,setAmount] = useState('500')
+  const [bankId,setBankId] = useState('')
+  const [withdrawalCode,setWithdrawalCode] = useState('')
+  const [hasWithdrawalCode,setHasWithdrawalCode] = useState(false)
+  const [accountHolder,setAccountHolder] = useState('')
+  const [bankName,setBankName] = useState('')
+  const [iban,setIban] = useState('')
+  const [accountNumber,setAccountNumber] = useState('')
+  const [bankMobile,setBankMobile] = useState('')
+  const [currentPassword,setCurrentPassword] = useState('')
+  const [newPassword,setNewPassword] = useState('')
+  const [confirmPassword,setConfirmPassword] = useState('')
+  const [newWithdrawalCode,setNewWithdrawalCode] = useState('')
+  const [confirmWithdrawalCode,setConfirmWithdrawalCode] = useState('')
 
-  useEffect(() => {
-    const supabase = requireSupabase()
-    let active = true
-    supabase.auth.getSession().then(async ({ data, error: sessionError }) => {
-      if (!active) return
-      if (sessionError) setError(sessionError.message)
-      const currentUser = data.session?.user ?? null
-      setUser(currentUser)
-      if (currentUser) {
-        const { data: row, error: profileError } = await supabase
-          .from('profiles')
-          .select('full_name,mobile,preferred_language,preferred_currency')
-          .eq('id', currentUser.id)
-          .maybeSingle()
-        if (!active) return
-        if (profileError) setError(profileError.message)
-        const next = (row ?? {
-          full_name: currentUser.user_metadata?.full_name ?? '',
-          mobile: currentUser.user_metadata?.mobile ?? '',
-          preferred_language: 'en',
-          preferred_currency: 'AED',
-        }) as Profile
-        setProfile(next)
-        setName(next.full_name ?? '')
-        setMobile(next.mobile ?? '')
-        const { data: verificationRow, error: verificationError } = await supabase.from('verifications')
-          .select('status,document_type,document_name,review_note,submitted_at')
-          .eq('user_id', currentUser.id).order('submitted_at', { ascending: false }).limit(1).maybeSingle()
-        if (!active) return
-        if (verificationError) setError(verificationError.message)
-        setVerification(verificationRow)
-      }
-      setLoading(false)
-    })
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-      if (!session?.user) setProfile(null)
-    })
-    return () => {
-      active = false
-      data.subscription.unsubscribe()
-    }
-  }, [])
-
-  const save = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    const cleanName = name.trim().replace(/\s+/g, ' ')
-    const cleanMobile = mobile.trim()
-    const mobileDigits = cleanMobile.replace(/\D/g, '')
-    if (!user || cleanName.length < 2 || cleanName.length > 120 || /[\u0000-\u001f<>]/.test(cleanName)) {
-      setError('Enter a valid full name between 2 and 120 characters.')
-      return
-    }
-    if (cleanMobile.length > 32 || mobileDigits.length < 7 || mobileDigits.length > 15 || !/^[+()\d\s.-]+$/.test(cleanMobile)) {
-      setError('Enter a valid mobile number with 7–15 digits.')
-      return
-    }
-    setSaving(true)
-    setError(null)
-    setNotice(null)
+  const load = useCallback(async () => {
+    setLoading(true); setError('')
     try {
-      const { data, error: saveError } = await requireSupabase()
-        .from('profiles')
-        .upsert({ id: user.id, full_name: cleanName, mobile: cleanMobile })
-        .select('full_name,mobile,preferred_language,preferred_currency')
-        .single()
-      if (saveError) throw saveError
-      setProfile(data as Profile)
-      setNotice('Your account details have been saved.')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save your account details.')
-    } finally {
-      setSaving(false)
-    }
+      const db = requireSupabase()
+      const {data:auth,error:authError} = await db.auth.getUser()
+      if(authError) throw authError
+      if(!auth.user){setUserId('');return}
+      const id=auth.user.id
+      setUserId(id); setEmail(auth.user.email ?? '')
+      const [profile, wallet, tx, comm, topups, withdrawals, investments, bankRows, codeResult] = await Promise.all([
+        db.from('profiles').select('full_name,mobile,preferred_currency').eq('id',id).maybeSingle(),
+        db.from('wallet_balances').select('balance').eq('user_id',id).eq('currency','AED').maybeSingle(),
+        db.from('wallet_transactions').select('id,transaction_type,direction,amount,currency,status,description,created_at').eq('user_id',id).order('created_at',{ascending:false}).limit(300),
+        db.from('commission_records').select('id,amount,currency,status,created_at,commission_type,description').eq('user_id',id).order('created_at',{ascending:false}).limit(300),
+        db.from('topup_requests').select('id,amount,currency,status,created_at').eq('user_id',id).order('created_at',{ascending:false}).limit(200),
+        db.from('withdrawal_requests').select('id,amount,currency,status,created_at,payout_details').eq('user_id',id).order('created_at',{ascending:false}).limit(200),
+        db.from('investment_requests').select('id,amount,currency,status,created_at,property_name,plan_code').eq('user_id',id).order('created_at',{ascending:false}).limit(200),
+        db.from('member_bank_accounts').select('id,account_holder,bank_name,iban,account_number,mobile_number,created_at').eq('user_id',id).order('created_at',{ascending:false}),
+        db.rpc('member_has_withdrawal_password'),
+      ])
+      if(profile.error) throw profile.error
+      if(wallet.error) throw wallet.error
+      if(tx.error) throw tx.error
+      if(comm.error) throw comm.error
+      if(topups.error) throw topups.error
+      if(withdrawals.error) throw withdrawals.error
+      if(investments.error) throw investments.error
+      if(bankRows.error) throw bankRows.error
+      if(codeResult.error) throw new Error('Apply the account security migration first: '+codeResult.error.message)
+      setName(profile.data?.full_name || auth.user.user_metadata?.full_name || auth.user.email?.split('@')[0] || 'Member')
+      setMobile(profile.data?.mobile || auth.user.user_metadata?.mobile || '')
+      if(profile.data?.preferred_currency && currencies.includes(profile.data.preferred_currency as Currency)) setCurrency(profile.data.preferred_currency as Currency)
+      setBalance(Number(wallet.data?.balance ?? 0))
+      const activeWithdrawals=(withdrawals.data ?? []).filter((r:any)=>['pending','approved'].includes(norm(r.status)))
+      setHold(activeWithdrawals.filter((r:any)=>r.currency==='AED').reduce((n:number,r:any)=>n+Number(r.amount||0),0))
+      setBanks((bankRows.data ?? []) as BankAccount[])
+      setBankId((bankRows.data?.[0] as any)?.id ?? '')
+      setHasWithdrawalCode(Boolean(codeResult.data))
+      setProjects(investments.data?.length ?? 0)
+      const commissionRows=(comm.data ?? []) as any[]
+      const today=new Date().toISOString().slice(0,10)
+      setTotalCommission(commissionRows.filter(r=>r.currency==='AED' && ['credited','completed','approved','posted'].includes(norm(r.status))).reduce((n,r)=>n+Number(r.amount||0),0))
+      setTodayRevenue(commissionRows.filter(r=>r.currency==='AED' && String(r.created_at).slice(0,10)===today && ['credited','completed','approved','posted'].includes(norm(r.status))).reduce((n,r)=>n+Number(r.amount||0),0))
+      setTrialBonus(commissionRows.filter(r=>norm(r.commission_type).includes('trial') && r.currency==='AED').reduce((n,r)=>n+Number(r.amount||0),0))
+      const mapped:RecordRow[]=[]
+      for(const r of (tx.data ?? []) as any[]) mapped.push({id:r.id,type:r.transaction_type==='deposit'?'Cash in':r.transaction_type==='withdrawal'?'Cash out':r.transaction_type==='profit'?'Activation':r.transaction_type==='refund'?'Refund':r.transaction_type==='investment_funding'?'Property':r.transaction_type==='admin_credit'?'Adjustment':r.transaction_type==='admin_debit'?'Adjustment': 'Adjustment',description:r.description || r.transaction_type,amount:(r.direction==='debit'?-1:1)*Number(r.amount),currency:r.currency,status:r.status,created_at:r.created_at})
+      for(const r of commissionRows) mapped.push({id:r.id,type:'Commission',description:r.description || r.commission_type || 'Commission',amount:Number(r.amount),currency:r.currency,status:r.status,created_at:r.created_at})
+      for(const r of (topups.data ?? []) as any[]) mapped.push({id:r.id,type:'Cash in',description:'Deposit request',amount:Number(r.amount),currency:r.currency,status:r.status,created_at:r.created_at})
+      for(const r of (withdrawals.data ?? []) as any[]) mapped.push({id:r.id,type:'Cash out',description:'Withdrawal request',amount:-Number(r.amount),currency:r.currency,status:r.status,created_at:r.created_at})
+      for(const r of (investments.data ?? []) as any[]) mapped.push({id:r.id,type:'Property',description:(r.plan_code || 'Project')+' · '+r.property_name,amount:Number(r.amount),currency:r.currency,status:r.status,created_at:r.created_at})
+      setRecords(mapped.sort((a,b)=>Date.parse(b.created_at)-Date.parse(a.created_at)))
+    } catch(e) {setError(e instanceof Error?e.message:'Could not load your account.')}
+    finally {setLoading(false)}
+  },[])
+
+  useEffect(()=>{void load();const db=requireSupabase();const {data:listener}=db.auth.onAuthStateChange(()=>{void load()});return()=>listener.subscription.unsubscribe()},[load])
+
+  async function saveBank(event:React.FormEvent<HTMLFormElement>){
+    event.preventDefault();setBusy(true);setError('');setNotice('')
+    try{
+      if(!userId) throw new Error('Please sign in again.')
+      const {data,error:e}=await requireSupabase().from('member_bank_accounts').insert({user_id:userId,account_holder:accountHolder.trim(),bank_name:bankName.trim(),iban:iban.trim(),account_number:accountNumber.trim(),mobile_number:bankMobile.trim()}).select('id,account_holder,bank_name,iban,account_number,mobile_number,created_at').single()
+      if(e) throw e
+      setBanks(old=>[data as BankAccount,...old]);setBankId(data.id);setSection('bank');setAccountHolder('');setBankName('');setIban('');setAccountNumber('');setBankMobile('');setNotice('Bank account saved successfully.')
+    }catch(e){setError(e instanceof Error?e.message:'Could not save bank account.')}finally{setBusy(false)}
   }
 
-
-  const submitVerification = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (!user || !documentFile) { setError('Choose a document file first.'); return }
-    if (documentFile.size > 10 * 1024 * 1024) { setError('The document must be 10 MB or smaller.'); return }
-    const allowed = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp']
-    if (!allowed.includes(documentFile.type)) { setError('Upload a PDF, JPG, PNG or WEBP document.'); return }
-    setUploadingDocument(true); setError(null); setNotice(null)
-    try {
-      const client = requireSupabase()
-      const { data: existing, error: existingError } = await client.from('verifications').select('id,status').eq('user_id', user.id).in('status', ['pending', 'submitted', 'under_review']).limit(1).maybeSingle()
-      if (existingError) throw existingError
-      if (existing) throw new Error('You already have a verification awaiting review. Please wait for the result before submitting another document.')
-      const { data: approved, error: approvedError } = await client.from('verifications').select('id').eq('user_id', user.id).eq('status', 'approved').limit(1).maybeSingle()
-      if (approvedError) throw approvedError
-      if (approved) throw new Error('Your identity verification is already approved.')
-      const safeName = documentFile.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-120) || 'identity-document'
-      const objectPath = user.id + '/' + crypto.randomUUID() + '-' + safeName
-      const { error: uploadError } = await client.storage.from('identity-documents').upload(objectPath, documentFile, { contentType: documentFile.type, upsert: false })
-      if (uploadError) throw uploadError
-      const { error: insertError } = await client.from('verifications').insert({ user_id: user.id, status: 'pending', document_url: objectPath, document_name: documentFile.name.slice(0, 255), document_type: documentType })
-      if (insertError) {
-        await client.storage.from('identity-documents').remove([objectPath])
-        throw insertError
-      }
-      setVerification({ status: 'pending', document_type: documentType, document_name: documentFile.name, review_note: null, submitted_at: new Date().toISOString() })
-      setDocumentFile(null); setNotice('Your identity document was uploaded privately and submitted for administrator review.')
-    } catch (err) { setError(err instanceof Error ? err.message : 'Could not submit your identity document.') }
-    finally { setUploadingDocument(false) }
+  async function requestCashOut(event:React.FormEvent<HTMLFormElement>){
+    event.preventDefault();setBusy(true);setError('');setNotice('')
+    try{
+      const value=Number(amount)
+      if(!Number.isFinite(value)||value<20) throw new Error('Minimum AED 20.')
+      if(!bankId || !banks.some(b=>b.id===bankId)) throw new Error('No bank account is bound. Bind a bank account first.')
+      if(!hasWithdrawalCode) throw new Error('Withdrawal password not set. Set withdrawal password first.')
+      if(!/^\d{6,12}$/.test(withdrawalCode)) throw new Error('Enter your 6 to 12 digit withdrawal password.')
+      const db=requireSupabase()
+      const {data:valid,error:verifyError}=await db.rpc('member_verify_withdrawal_password',{p_password:withdrawalCode})
+      if(verifyError) throw verifyError
+      if(!valid) throw new Error('Incorrect withdrawal password.')
+      const selected=banks.find(b=>b.id===bankId)!
+      if(value>Math.max(0,balance-hold)) throw new Error('Insufficient available wallet balance.')
+      const {error:insertError}=await db.from('withdrawal_requests').insert({user_id:userId,amount:value,currency:'AED',status:'pending',payout_method:'Bank transfer',payout_details:{bank_account_id:selected.id,bank_name:selected.bank_name,account_holder:selected.account_holder,account_number_last4:selected.account_number.slice(-4),iban_last4:selected.iban.slice(-4)}})
+      if(insertError) throw insertError
+      setNotice('Cash out request submitted. Status: Pending administrator review.');setAmount('');setWithdrawalCode('');await load()
+    }catch(e){setError(e instanceof Error?e.message:'Could not submit cash out request.')}finally{setBusy(false)}
   }
 
-  const signOut = async () => {
-    const { error: signOutError } = await requireSupabase().auth.signOut()
-    if (signOutError) setError(signOutError.message)
-    else await navigate({ to: '/' })
+  async function saveWithdrawalCode(event:React.FormEvent<HTMLFormElement>){
+    event.preventDefault();setBusy(true);setError('');setNotice('')
+    try{
+      if(!/^\d{6,12}$/.test(newWithdrawalCode)) throw new Error('Use 6 to 12 digits.')
+      if(newWithdrawalCode!==confirmWithdrawalCode) throw new Error('The withdrawal passwords do not match.')
+      const {error:e}=await requireSupabase().rpc('member_set_withdrawal_password',{p_password:newWithdrawalCode})
+      if(e) throw e
+      setHasWithdrawalCode(true);setNewWithdrawalCode('');setConfirmWithdrawalCode('');setNotice('Withdrawal password saved.');setSection('withdrawalPassword')
+    }catch(e){setError(e instanceof Error?e.message:'Could not save withdrawal password.')}finally{setBusy(false)}
   }
 
-  return (
-    <div className="min-h-screen bg-background text-foreground">
-      <WorkspaceSidebar mode="member" />
-      <SiteHeader />
-      <main id="main" className="pb-20 pt-28 sm:pt-36 lg:ml-64">
-        <div className="mx-auto w-full max-w-5xl px-5 sm:px-8">
-          {loading ? (
-            <div data-testid="account-loading" className="border border-border bg-card p-10 text-center text-sm text-ink-soft">Checking your session…</div>
-          ) : !user ? (
-            <div data-testid="account-signed-out" className="border border-border bg-card p-8 sm:p-12">
-              <p className="eyebrow text-brass">Member portal</p>
-              <h1 className="display mt-4 text-[clamp(1.9rem,3.4vw,2.8rem)]">You are not signed in.</h1>
-              <p className="mt-4 max-w-md text-sm leading-relaxed text-ink-soft">Sign in to manage your member details and contact our team.</p>
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <Link to="/login" className="eyebrow inline-flex items-center justify-between gap-8 bg-primary px-6 py-4 text-[0.6rem] text-primary-foreground">Login <ArrowRight /></Link>
-                <Link to="/register" className="eyebrow inline-flex items-center justify-between gap-8 border border-border px-6 py-4 text-[0.6rem]">Create an account <ArrowRight /></Link>
-              </div>
-            </div>
-          ) : (
-            <div data-testid="account-dashboard" className="grid gap-8">
-              <header className="flex flex-col gap-4 border-b border-border pb-8 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <p className="eyebrow text-brass">Member portal</p>
-                  <h1 className="display mt-4 text-[clamp(1.9rem,3.4vw,2.8rem)]">Your account</h1>
-                  <p className="mt-3 text-sm text-ink-soft">{user.email}</p>
-                </div>
-                <button type="button" onClick={signOut} data-testid="sign-out" className="eyebrow inline-flex items-center justify-between gap-6 border border-border px-5 py-3 text-[0.58rem] hover:border-brass">Sign out <ArrowRight className="h-3.5 w-3.5" /></button>
-              </header>
-              <form onSubmit={save} data-testid="account-profile-form" className="grid max-w-2xl gap-4 border border-border bg-card p-6 sm:p-8">
-                <h2 className="display text-xl">Personal details</h2>
-                <label className="grid gap-2">
-                  <span className="eyebrow text-[0.5rem] text-ink-soft">Full name</span>
-                  <input value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" required className="border border-input bg-background px-4 py-3 text-sm outline-none focus:border-brass" />
-                </label>
-                <label className="grid gap-2">
-                  <span className="eyebrow text-[0.5rem] text-ink-soft">Mobile number</span>
-                  <input value={mobile} onChange={(event) => setMobile(event.target.value)} autoComplete="tel" inputMode="tel" required className="border border-input bg-background px-4 py-3 text-sm outline-none focus:border-brass" />
-                </label>
-                <div className="grid gap-2 text-sm text-ink-soft">
-                  <p>Email: {user.email ?? 'Not available'}</p>
-                  <p>Preferred currency: {profile?.preferred_currency ?? 'AED'}</p>
-                </div>
-                {error ? <p role="alert" className="border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</p> : null}
-                {notice ? <p role="status" className="border border-brass/40 bg-brass/5 px-4 py-3 text-sm">{notice}</p> : null}
-                <button type="submit" disabled={saving} data-testid="account-profile-save" className="eyebrow w-fit bg-primary px-6 py-3 text-[0.58rem] text-primary-foreground disabled:opacity-60">{saving ? 'Saving…' : 'Save changes'}</button>
-              </form>
-              <section className="grid max-w-2xl gap-4 border border-border bg-card p-6 sm:p-8">
-                <div><p className="eyebrow text-brass">Identity verification</p><h2 className="display mt-2 text-xl">Verify your identity</h2><p className="mt-2 text-sm text-ink-soft">Upload a clear photo or PDF of your identity document. Files are stored in a private bucket and are not public links.</p></div>
-                {verification ? <div className="border border-border p-4 text-sm"><p>Status: <strong className={normalizeVerificationStatus(verification.status) === 'approved' ? 'text-emerald-700' : normalizeVerificationStatus(verification.status) === 'rejected' ? 'text-red-700' : 'text-brass'}>{normalizeVerificationStatus(verification.status) === 'pending' ? 'Pending administrator review' : normalizeVerificationStatus(verification.status) === 'approved' ? 'Identity verified' : normalizeVerificationStatus(verification.status) === 'rejected' ? 'Verification rejected — resubmission required' : normalizeVerificationStatus(verification.status).replace(/_/g, ' ')}</strong></p><p className="mt-1 text-xs text-ink-soft">{verification.document_type} · {verification.document_name}</p><p className="mt-1 text-xs text-ink-soft">Submitted {new Date(verification.submitted_at).toLocaleString()}</p>{verification.review_note ? <p className="mt-2 text-xs text-ink-soft">Administrator note: {verification.review_note}</p> : null}</div> : <p className="text-sm text-ink-soft">No identity document has been submitted.</p>}
-                {normalizeVerificationStatus(verification?.status) !== 'approved' && normalizeVerificationStatus(verification?.status) !== 'pending' ? <form onSubmit={submitVerification} className="grid gap-3"><label className="grid gap-2"><span className="eyebrow text-[0.5rem] text-ink-soft">Document type</span><select className="border border-input bg-background px-4 py-3 text-sm" value={documentType} onChange={(event) => setDocumentType(event.target.value)}><option>Passport</option><option>National ID</option><option>Residence permit</option><option>Driving licence</option></select></label><label className="grid gap-2"><span className="eyebrow text-[0.5rem] text-ink-soft">Document file (PDF, JPG, PNG, WEBP · max 10 MB)</span><input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp" onChange={(event) => setDocumentFile(event.target.files?.[0] ?? null)} required className="block w-full text-sm" /></label><button type="submit" disabled={uploadingDocument || !documentFile} className="eyebrow w-fit bg-primary px-6 py-3 text-[0.58rem] text-primary-foreground disabled:opacity-60">{uploadingDocument ? 'Uploading…' : 'Submit identity document'}</button></form> : null}
-              </section>
-              <div className="flex flex-wrap gap-3">
-                <Link to="/dashboard" className="eyebrow inline-flex items-center gap-3 border border-border px-5 py-3 text-[0.55rem] hover:border-brass">Customer dashboard <ArrowRight className="h-3 w-3" /></Link>
-                <Link to="/support" className="eyebrow inline-flex items-center gap-3 border border-border px-5 py-3 text-[0.55rem] hover:border-brass">Customer support <ArrowRight className="h-3 w-3" /></Link>
-              </div>
-              <p className="text-xs text-ink-soft">{SITE.name} · Your details are visible only to you and authorised administrators.</p>
-            </div>
-          )}
+  async function changeLoginPassword(event:React.FormEvent<HTMLFormElement>){
+    event.preventDefault();setBusy(true);setError('');setNotice('')
+    try{
+      if(newPassword.length<8) throw new Error('New password must be at least 8 characters.')
+      if(newPassword!==confirmPassword) throw new Error('The new passwords do not match.')
+      const db=requireSupabase()
+      const {error:checkError}=await db.auth.signInWithPassword({email,password:currentPassword})
+      if(checkError) throw new Error('Current password is incorrect.')
+      const {error:updateError}=await db.auth.updateUser({password:newPassword})
+      if(updateError) throw updateError
+      setCurrentPassword('');setNewPassword('');setConfirmPassword('');setNotice('Account password changed successfully.')
+    }catch(e){setError(e instanceof Error?e.message:'Could not change password.')}finally{setBusy(false)}
+  }
+
+  async function signOut(){const {error:e}=await requireSupabase().auth.signOut();if(e)setError(e.message);else await navigate({to:'/login'})}
+  async function changeCurrency(next:Currency){setCurrency(next);if(userId){const {error:e}=await requireSupabase().from('profiles').update({preferred_currency:next}).eq('id',userId);if(e)setError(e.message)}}
+  const filtered=records.filter(r=>(filter==='All'||norm(r.type)===norm(filter))&&r.currency===currency)
+  const activeBank=banks.find(b=>b.id===bankId)
+
+  return <div className="min-h-screen bg-[#faf9f7] text-[#25231f]">
+    <WorkspaceSidebar mode="member"/>
+    <header className="fixed inset-x-0 top-0 z-40 flex h-[62px] items-center justify-between border-b border-[#e8e4dc] bg-white px-5 pl-20 lg:left-64 lg:px-7">
+      <div className="text-xs text-[#777]">Workspace <span className="mx-2">/</span><strong className="text-[#25231f]">Account</strong></div>
+      <div className="flex items-center gap-3"><label className="flex items-center gap-2 text-[10px] font-semibold tracking-widest text-[#888]">CURRENCY<select aria-label="Currency" className="rounded-md border border-[#e6e1d8] bg-white px-3 py-2 text-xs" value={currency} onChange={e=>void changeCurrency(e.target.value as Currency)}>{currencies.map(c=><option key={c}>{c}</option>)}</select></label><div className="hidden rounded-lg border border-[#eee] px-3 py-2 text-xs sm:block">{name.split(' ')[0]} · User</div></div>
+    </header>
+    <main className="pb-12 pt-[82px] lg:ml-64"><div className="mx-auto max-w-[1500px] px-4 sm:px-7">
+      {loading?<div className="rounded-xl border bg-white p-8 text-center text-sm text-[#777]">Loading your account…</div>:!userId?<div className="rounded-xl border bg-white p-8">Please <Link to="/login" className="underline">sign in</Link> to view your account.</div>:<>
+        <section className="grid gap-3 rounded-xl border border-[#e4dfd8] bg-white p-4 shadow-sm md:grid-cols-[1fr_1fr] md:p-5">
+          <div className="flex items-center gap-4"><div className="grid h-20 w-20 shrink-0 place-items-center rounded-full border-4 border-[#faf7f3] bg-[#f5f1ef] text-3xl font-semibold">{name.slice(0,1).toUpperCase()}</div><div className="min-w-0"><div className="flex items-center gap-2"><h1 className="text-xl font-semibold">{name}</h1><span className="rounded-full bg-[#f1e9e7] px-2 py-1 text-[10px]">Active</span></div><p className="mt-2 text-xs text-[#85817b]">User ID · {userId.slice(0,6).toUpperCase()}</p><p className="text-xs text-[#85817b]">Mobile · {mobile || 'Not added'}</p></div></div>
+          <div className="grid grid-cols-2 gap-2"><Stat value={String(projects)} label="Projects"/><Stat value={money(trialBonus,'AED')} label="Trial bonus"/><Stat value={money(todayRevenue,'AED')} label="Today's revenue"/><Stat value={money(hold,'AED')} label="On hold"/></div>
+          <div className="grid gap-2 sm:col-span-2 sm:grid-cols-2"><div className="flex items-center justify-between rounded-lg bg-[#201d1b] px-4 py-4 text-sm text-white"><span>Wallet balance</span><strong>{money(balance,'AED')}</strong></div><div className="flex items-center justify-between rounded-lg bg-[#f6edd4] px-4 py-4 text-sm text-[#625638]"><span>Hold balance</span><strong>{money(hold,'AED')}</strong></div></div>
+          <p className="text-xs text-[#85817b] sm:col-span-2">Total commission: <strong>{money(totalCommission,'AED')}</strong></p>
+        </section>
+        <div className="mt-4 grid items-start gap-4 lg:grid-cols-[263px_minmax(0,1fr)]">
+          <nav className="overflow-hidden rounded-lg border border-[#e5e0da] bg-white">{menu.map(item=><button key={item.id} type="button" onClick={()=>{setSection(item.id);setError('');setNotice('')}} className={`flex w-full items-center justify-between border-b border-[#e8e4df] px-5 py-4 text-left text-sm last:border-0 ${section===item.id?'bg-[#f7f3f1] font-semibold text-[#28231f]':'text-[#444] hover:bg-[#fbfaf8]'}`}><span><span className="mr-4 text-base">{item.icon}</span>{item.label}</span><span className="text-[#aaa]">›</span></button>)}<button type="button" onClick={()=>void signOut()} className="w-full border-t border-[#e8e4df] px-5 py-5 text-left text-sm text-[#777]">↪　Log out</button></nav>
+          <section className="min-h-[430px] rounded-xl border border-[#e5e0da] bg-white p-4 sm:p-6">
+            {error?<p role="alert" className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>:null}
+            {notice?<p role="status" className="mb-4 rounded-md bg-[#f7f1e4] p-3 text-sm text-[#625638]">{notice}</p>:null}
+            {section==='records'?<><h2 className="display mb-5 text-3xl">Records</h2><div className="mb-4 flex flex-wrap gap-2">{['All','Welcome bonus','Trial bonus','Trial reset','Cash in','Activation','Property','Commission','Cash out','Refund','Adjustment'].map(x=><button key={x} type="button" onClick={()=>setFilter(x)} className={`rounded-lg border px-3 py-2 text-[11px] ${filter===x?'border-[#211e1c] bg-[#211e1c] text-white':'border-[#e5e1dc] text-[#666]'}`}>{x}</button>)}</div><div className="overflow-x-auto"><table className="w-full min-w-[690px] text-left text-xs"><thead><tr className="border-b text-[9px] uppercase tracking-widest text-[#999]"><th className="px-3 py-3">ID</th><th className="px-3 py-3">Type</th><th className="px-3 py-3">Description</th><th className="px-3 py-3">Amount</th><th className="px-3 py-3">Status</th><th className="px-3 py-3">Date</th></tr></thead><tbody>{filtered.map(r=><tr key={r.id} className="border-b last:border-0"><td className="px-3 py-4 text-[#777]">{r.id.slice(0,18)}</td><td className="px-3 py-4">{r.type}</td><td className="px-3 py-4">{r.description}</td><td className="whitespace-nowrap px-3 py-4">{r.amount<0?'−':'+'}{money(Math.abs(r.amount),r.currency)}</td><td className="px-3 py-4"><span className="rounded-full bg-[#f2eae8] px-3 py-1 capitalize">{r.status}</span></td><td className="whitespace-nowrap px-3 py-4">{fmtDate(r.created_at)}</td></tr>)}{filtered.length===0?<tr><td colSpan={6} className="p-10 text-center text-[#888]">No records found for this filter.</td></tr>:null}</tbody></table></div></>:null}
+            {section==='cashin'?<><h2 className="display text-3xl">Cash in</h2><p className="mt-3 text-sm text-[#777]">Submit a deposit request, then contact customer support for the payment instructions. Your wallet is credited only after administrator review.</p><Link to="/wallet#deposits" className="mt-6 inline-flex rounded-md bg-[#211e1c] px-5 py-3 text-sm text-white">Open deposit request</Link></>:null}
+            {section==='cashout'?<><h2 className="display text-3xl">Cash out</h2><p className="mt-2 text-sm text-[#777]">Minimum AED 20. Requests remain pending until an administrator reviews them.</p><form onSubmit={e=>void requestCashOut(e)} className="mt-6 grid max-w-xl gap-4"><div className="rounded-lg bg-[#f8f6f3] p-4 text-sm">Available wallet balance <strong className="float-right">{money(Math.max(0,balance-hold),'AED')}</strong></div><label className="grid gap-2 text-xs text-[#777]">Bank account<select className={field} value={bankId} onChange={e=>setBankId(e.target.value)}><option value="">Select bound bank account</option>{banks.map(b=><option key={b.id} value={b.id}>{b.bank_name} ·••{b.account_number.slice(-4)}</option>)}</select></label>{!banks.length?<p className="text-sm text-red-700">No bank account is bound. Bind a bank account first. <button type="button" onClick={()=>setSection('bank')} className="underline">Bind wallet</button></p>:null}<label className="grid gap-2 text-xs text-[#777]">Amount (AED)<input className={field} type="number" min="20" step="0.01" value={amount} onChange={e=>setAmount(e.target.value)} required/></label><label className="grid gap-2 text-xs text-[#777]">Withdrawal password{!hasWithdrawalCode?<span className="text-red-700">Not set · <button type="button" onClick={()=>setSection('withdrawalPassword')} className="underline">Set withdrawal password</button></span>:null}<input className={field} type="password" inputMode="numeric" maxLength={12} value={withdrawalCode} onChange={e=>setWithdrawalCode(e.target.value.replace(/\D/g,''))} placeholder="Enter withdrawal password" required/></label><div className="flex gap-3"><button type="button" onClick={()=>setSection('records')} className="rounded-md border px-5 py-3 text-sm">Cancel</button><button className={button} disabled={busy||!banks.length||!hasWithdrawalCode}>Request cash out</button></div></form></>:null}
+            {section==='bank'?<><h2 className="display text-3xl">Bound accounts</h2><div className="mt-5 grid gap-3">{banks.map(b=><div key={b.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4 text-sm"><div><strong>{b.bank_name}</strong><p className="mt-1 text-xs text-[#777]">{b.account_holder} · ••••{b.account_number.slice(-4)}</p><p className="text-xs text-[#777]">{b.iban?b.iban.slice(0,4)+'••••'+b.iban.slice(-4):'IBAN not supplied'}</p></div><button type="button" onClick={()=>setBankId(b.id)} className={bankId===b.id?'text-xs font-semibold text-[#92783d]':'text-xs underline'}>{bankId===b.id?'Selected':'Select for cash out'}</button></div>)}</div><button type="button" onClick={()=>setSection('bindForm')} className={`${button} mt-5`}>+ Bind wallet</button></>:null}
+            {section==='bindForm'?<><h2 className="display text-3xl">Bind account</h2><form onSubmit={e=>void saveBank(e)} className="mt-5 grid max-w-xl gap-4"><label className="grid gap-2 text-xs text-[#777]">Account holder<input className={field} value={accountHolder} onChange={e=>setAccountHolder(e.target.value)} required maxLength={120}/></label><label className="grid gap-2 text-xs text-[#777]">Bank name<input className={field} value={bankName} onChange={e=>setBankName(e.target.value)} required maxLength={120}/></label><label className="grid gap-2 text-xs text-[#777]">IBAN<input className={field} value={iban} onChange={e=>setIban(e.target.value.toUpperCase())} placeholder="AE…" maxLength={34}/></label><label className="grid gap-2 text-xs text-[#777]">Account number<input className={field} value={accountNumber} onChange={e=>setAccountNumber(e.target.value)} required maxLength={34}/></label><label className="grid gap-2 text-xs text-[#777]">Mobile number<input className={field} value={bankMobile} onChange={e=>setBankMobile(e.target.value)} required inputMode="tel" maxLength={25} placeholder="Enter Number"/></label><div className="flex gap-3"><button type="button" onClick={()=>setSection('bank')} className="rounded-md border px-5 py-3 text-sm">Cancel</button><button className={button} disabled={busy}>Save account</button></div></form></>:null}
+            {section==='password'?<><h2 className="display text-3xl">Change password</h2><form onSubmit={e=>void changeLoginPassword(e)} className="mt-5 grid max-w-md gap-4"><label className="grid gap-2 text-xs text-[#777]">Current password<input className={field} type="password" value={currentPassword} onChange={e=>setCurrentPassword(e.target.value)} required autoComplete="current-password"/></label><label className="grid gap-2 text-xs text-[#777]">New password<input className={field} type="password" value={newPassword} onChange={e=>setNewPassword(e.target.value)} required minLength={8} autoComplete="new-password"/></label><label className="grid gap-2 text-xs text-[#777]">Confirm new password<input className={field} type="password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} required minLength={8} autoComplete="new-password"/></label><button className={button} disabled={busy}>Change password</button></form></>:null}
+            {section==='withdrawalPassword'?<><h2 className="display text-3xl">{hasWithdrawalCode?'Change withdrawal password':'Set withdrawal password'}</h2><p className="mt-2 text-sm text-[#777]">Use 6–12 digits. This is separate from your account login password.</p><form onSubmit={e=>void saveWithdrawalCode(e)} className="mt-5 grid max-w-md gap-4"><label className="grid gap-2 text-xs text-[#777]">New withdrawal password<input className={field} type="password" inputMode="numeric" maxLength={12} value={newWithdrawalCode} onChange={e=>setNewWithdrawalCode(e.target.value.replace(/\D/g,''))} required/></label><label className="grid gap-2 text-xs text-[#777]">Confirm withdrawal password<input className={field} type="password" inputMode="numeric" maxLength={12} value={confirmWithdrawalCode} onChange={e=>setConfirmWithdrawalCode(e.target.value.replace(/\D/g,''))} required/></label><button className={button} disabled={busy}>Save withdrawal password</button></form></>:null}
+            {section==='deposit'?<><h2 className="display text-3xl">About deposit</h2><p className="mt-4 text-sm leading-7 text-[#777]">To add funds, submit a Cash in request and contact Msheireb Properties customer support for the current deposit instructions. Funds are added to your wallet only after an administrator confirms and posts the credit. No card or crypto payment is available.</p><Link to="/support" className="mt-5 inline-flex rounded-md bg-[#211e1c] px-5 py-3 text-sm text-white">Contact support</Link></>:null}
+            {section==='terms'?<><h2 className="display text-3xl">Terms & conditions</h2><div className="mt-4 space-y-3 text-sm leading-7 text-[#777]"><p>Wallet balances and records are internal account records. They do not by themselves confirm an external bank transfer or investment return.</p><p>Cash out requests require a bound bank account, a withdrawal password and a minimum request of AED 20. Requests are subject to administrator review and available balance checks.</p><p>Keep your account and withdrawal passwords private. Contact support if you notice activity you do not recognise.</p></div></>:null}
+          </section>
         </div>
-      </main>
-      <SiteFooter />
-    </div>
-  )
+      </>}
+    </div></main>
+  </div>
 }
+function Stat({value,label}:{value:string;label:string}){return <div className="rounded-lg bg-[#f7f5f3] px-3 py-3"><strong className="block text-sm">{value}</strong><span className="mt-1 block text-[11px] text-[#85817b]">{label}</span></div>}
