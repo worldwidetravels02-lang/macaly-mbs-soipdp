@@ -1,4 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
+import { requireSupabase } from '../lib/supabase-client'
 import { Reveal } from '../components/reveal'
 import { ArrowRight, PageIntro, SiteFooter, SiteHeader } from '../components/site-chrome'
 import { IMAGES, SITE } from '../data/site'
@@ -29,18 +31,27 @@ const MILESTONES = [
 ]
 
 function AboutPage() {
+  const [pageContent, setPageContent] = useState<{ title: string; content: string } | null>(null)
+  useEffect(() => {
+    let active = true
+    void requireSupabase().from('site_content').select('title,content').eq('slug', 'about').eq('published', true).maybeSingle().then(({ data }) => {
+      if (active && data?.content) setPageContent({ title: data.title, content: data.content })
+    })
+    return () => { active = false }
+  }, [])
   return (
     <div className="min-h-screen bg-background text-foreground">
       <SiteHeader />
       <main id="main">
         <PageIntro
           eyebrow="About"
-          title="Detail is the whole argument."
-          intro={`Since 1996 Msheireb Properties has built slowly, in fewer places, with the people who live there in mind. Twelve landmark addresses across ${SITE.city}, and one standard.`}
+          title={pageContent?.title || "Detail is the whole argument."}
+          intro={pageContent ? 'Discover the people, vision and values behind Msheireb Properties.' : `Since 1996 Msheireb Properties has built slowly, in fewer places, with the people who live there in mind. Twelve landmark addresses across ${SITE.city}, and one standard.`}
           image={IMAGES.detail}
           imageAlt="Travertine wall with bronze fins and a palm shadow"
         />
 
+        {!pageContent ? <>
         <section className="py-16 sm:py-24">
           <div className="mx-auto grid w-full max-w-7xl gap-12 px-5 sm:px-8 lg:grid-cols-12 lg:gap-16">
             <Reveal className="lg:col-span-7">
@@ -138,6 +149,7 @@ function AboutPage() {
             </div>
           </div>
         </section>
+        </> : <section className="py-16 sm:py-24"><div className="mx-auto w-full max-w-3xl whitespace-pre-wrap px-5 text-[1rem] leading-relaxed text-ink-soft sm:px-8">{pageContent.content}</div></section>}
       </main>
       <SiteFooter />
     </div>
