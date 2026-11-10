@@ -9,7 +9,6 @@ import siteMetadata from '../metadata.json'
 
 const meta = siteMetadata['/residences']
 const LEVELS = ['Junior Trial', 'Senior', 'Master', 'Expert'] as const
-const SETS = [1, 2, 3] as const
 const SAMPLE_IMAGES = [IMAGES.tower, IMAGES.living, IMAGES.villas, IMAGES.pool, IMAGES.lowrise, IMAGES.detail, IMAGES.bath, IMAGES.rooftop, IMAGES.penthouse, IMAGES.beachVilla, IMAGES.bedroom, IMAGES.marinaNight, IMAGES.courtyard, IMAGES.kitchen]
 
 type Project = {
@@ -23,10 +22,9 @@ type Project = {
   order_percentages: number[]
   cover_image_url: string | null
   project_level: string
-  set_number: number
   sort_order: number
 }
-type ProjectRequest = { property_id: string | null; status: string; project_level?: string | null; set_number?: number | null }
+type ProjectRequest = { property_id: string | null; status: string }
 
 export const Route = createFileRoute('/residences/')({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -45,7 +43,6 @@ function ResidencesPage() {
   const [signedIn, setSignedIn] = useState(false)
   const [projects, setProjects] = useState<Project[]>([])
   const [customerLevelAccess, setCustomerLevelAccess] = useState<{ user_id: string; level_name: string; is_unlocked: boolean }[]>([])
-  const [customerSetAccess, setCustomerSetAccess] = useState<{ user_id: string; level_name: string; set_number: number; is_unlocked: boolean }[]>([])
   const [currentUserId, setCurrentUserId] = useState('')
   const [requests, setRequests] = useState<ProjectRequest[]>([])
   const [selectedLevel, setSelectedLevel] = useState<string>(search.level ?? 'Junior Trial')
@@ -54,7 +51,6 @@ function ResidencesPage() {
   const [groupSort, setGroupSort] = useState<'oldest' | 'newest'>('oldest')
   const [currency, setCurrency] = useState('AED')
   const [currentUserName, setCurrentUserName] = useState('Member')
-  const [selectedSet, setSelectedSet] = useState<number>(1)
   const [currentProjectIndex, setCurrentProjectIndex] = useState(0)
   const [projectSearch, setProjectSearch] = useState('')
   const [projectFilter, setProjectFilter] = useState<'all' | 'available' | 'ordered'>('all')
@@ -68,7 +64,6 @@ function ResidencesPage() {
   useEffect(() => {
     if (search.level && LEVELS.includes(search.level as typeof LEVELS[number])) {
       setSelectedLevel(search.level)
-      setSelectedSet(1)
       setCurrentProjectIndex(0)
     }
   }, [search.level])
@@ -94,18 +89,16 @@ function ResidencesPage() {
     setLoadingProjects(true)
     ;(async () => {
       const client = requireSupabase()
-      const [propertyResult, requestResult, userResult, accessResult, setAccessResult] = await Promise.all([
-        client.from('properties').select('id,slug,name,location,description,price_label,price_amount,order_percentages,cover_image_url,project_level,set_number,sort_order').eq('status', 'published').not('project_level', 'is', null).order('sort_order', { ascending: true }),
+      const [propertyResult, requestResult, userResult, accessResult] = await Promise.all([
+        client.from('properties').select('id,slug,name,location,description,price_label,price_amount,order_percentages,cover_image_url,project_level,sort_order').eq('status', 'published').not('project_level', 'is', null).order('sort_order', { ascending: true }),
         client.from('investment_requests').select('property_id,status').order('created_at', { ascending: false }),
         client.auth.getUser(),
         client.from('customer_project_level_access').select('user_id,level_name,is_unlocked'),
-        client.from('customer_project_set_access').select('user_id,level_name,set_number,is_unlocked'),
       ])
       if (propertyResult.error) throw propertyResult.error
       if (userResult.error) throw userResult.error
       if (requestResult.error) throw requestResult.error
       if (accessResult.error) throw accessResult.error
-      if (setAccessResult.error) throw setAccessResult.error
       if (!userResult.data.user) throw new Error('Please sign in to view the project catalogue.')
       if (!active) return
       setProjects((propertyResult.data ?? []) as Project[])
@@ -113,7 +106,6 @@ function ResidencesPage() {
       setCurrentUserId(userResult.data.user.id)
       setCurrentUserName(String(userResult.data.user.user_metadata?.full_name || userResult.data.user.email?.split('@')[0] || 'Member'))
       setCustomerLevelAccess((accessResult.data ?? []) as { user_id: string; level_name: string; is_unlocked: boolean }[])
-      setCustomerSetAccess((setAccessResult.data ?? []) as { user_id: string; level_name: string; set_number: number; is_unlocked: boolean }[])
     })().catch((cause) => {
       if (active) setError(cause instanceof Error ? cause.message : 'Could not load the project catalogue.')
     }).finally(() => { if (active) setLoadingProjects(false) })
@@ -122,10 +114,9 @@ function ResidencesPage() {
 
   const currentLevelUnlocked = customerLevelAccess.find((item) => item.user_id === currentUserId && item.level_name === selectedLevel)?.is_unlocked ?? selectedLevel === 'Junior Trial'
   const levelProjects = useMemo(() => projects.filter((project) => project.project_level === selectedLevel), [projects, selectedLevel])
-  const selectedSetProjects = useMemo(() => levelProjects.filter((project) => Number(project.set_number) === selectedSet), [levelProjects, selectedSet])
   const visibleProjects = useMemo(() => {
     const query = projectSearch.trim().toLowerCase()
-    const rows = selectedSetProjects.filter((project) => {
+    const rows = levelProjects.filter((project) => {
       const matchesSearch = !query || [project.name, project.location ?? '', project.description ?? ''].some((value) => value.toLowerCase().includes(query))
       const hasOrder = requests.some((request) => request.property_id === project.id && !['rejected', 'cancelled'].includes(String(request.status).toLowerCase()))
       return matchesSearch && (projectFilter === 'all' || (projectFilter === 'ordered' ? hasOrder : !hasOrder))
@@ -133,24 +124,10 @@ function ResidencesPage() {
     if (projectSort === 'name') rows.sort((a, b) => a.name.localeCompare(b.name))
     if (projectSort === 'price') rows.sort((a, b) => Number(a.price_amount ?? 0) - Number(b.price_amount ?? 0))
     return rows
-  }, [selectedSetProjects, projectSearch, projectFilter, projectSort, requests])
+  }, [levelProjects, projectSearch, projectFilter, projectSort, requests])
   const projectCards: (Project | null)[] = projectSearch.trim() || projectFilter !== 'all'
     ? visibleProjects
     : Array.from({ length: 20 }, (_, index) => visibleProjects[index] ?? null)
-  const setIsUnlocked = (setNo: number) => {
-    const adminSetting = customerSetAccess.find((item) => item.user_id === currentUserId && item.level_name === selectedLevel && Number(item.set_number) === setNo)
-    if (adminSetting) return adminSetting.is_unlocked
-    if (setNo === 1) return currentLevelUnlocked
-    const previousSetPropertyIds = new Set(levelProjects
-      .filter((project) => Number(project.set_number) === setNo - 1)
-      .map((project) => project.id))
-    const previousSetOrders = new Set(requests
-      .filter((request) => previousSetPropertyIds.has(String(request.property_id)) && !['rejected', 'cancelled'].includes(String(request.status).toLowerCase()))
-      .map((request) => request.property_id)
-      .filter(Boolean))
-    return previousSetOrders.size >= 20
-  }
-
   async function requestProject(project: Project) {
     const selection = { quantity: orderSelections[project.id]?.quantity ?? 1, percentage: Number(project.order_percentages?.[0] ?? 0) }
     const basePrice = Number(project.price_amount || 0)
@@ -179,7 +156,7 @@ function ResidencesPage() {
         currency: 'AED',
         commission_percent: selection.percentage,
         expected_commission: commissionAmount,
-        note: `Project order · Quantity: ${selection.quantity} · Level: ${project.project_level} · Set: ${project.set_number} · Percentage: ${selection.percentage}% · Base price: AED ${basePrice.toFixed(2)} · Order amount: AED ${amount.toFixed(2)} · Expected commission: AED ${commissionAmount.toFixed(2)}`,
+        note: `Project order · Quantity: ${selection.quantity} · Level: ${project.project_level} · Percentage: ${selection.percentage}% · Base price: AED ${basePrice.toFixed(2)} · Order amount: AED ${amount.toFixed(2)} · Expected commission: AED ${commissionAmount.toFixed(2)}`,
       })
       if (insertError) throw insertError
       setRequests((current) => [...current, { property_id: project.id, status: 'pending' }])
@@ -269,14 +246,11 @@ function ResidencesPage() {
               {search.level ? <>
               <div id="project-group-details" className="mt-6 scroll-mt-24 flex flex-wrap items-end justify-between gap-4">
                 <div><p className="eyebrow text-brass">Selected group</p><h2 className="display mt-2 text-3xl">{selectedLevel === "Junior Trial" ? "Junior (Trial)" : selectedLevel}</h2></div>
-                <p className="text-xs text-ink-soft">20 projects in each set · displayed in admin order</p>
+                <p className="text-xs text-ink-soft">Properties displayed in admin order</p>
               </div>
               {!currentLevelUnlocked ? <p className="mt-6 border border-border p-5 text-sm text-ink-soft">This level is locked. Contact the administrator to request access.</p> : (
                 <>
-                  <div className="mt-6 flex flex-wrap gap-2">
-                    {SETS.map((setNo) => <button key={setNo} type="button" disabled={!setIsUnlocked(setNo)} onClick={() => { setSelectedSet(setNo); setCurrentProjectIndex(0); setError(''); setNotice('') }} className={`eyebrow border px-5 py-3 text-[0.56rem] ${selectedSet === setNo ? 'border-brass bg-primary text-primary-foreground' : 'border-border'} ${!setIsUnlocked(setNo) ? 'cursor-not-allowed opacity-40' : ''}`}>Set {setNo}{!setIsUnlocked(setNo) ? ' · Locked' : ''}</button>)}
-                  </div>
-                  {!setIsUnlocked(selectedSet) ? <p className="mt-5 text-sm text-ink-soft">Complete all 20 projects in the previous set before this set opens.</p> : loadingProjects ? <p className="mt-8 text-sm text-ink-soft">Loading projects…</p> : (
+                  {loadingProjects ? <p className="mt-8 text-sm text-ink-soft">Loading projects…</p> : (
                     <>
                     <div className="mt-7 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]">
                       <label className="flex items-center gap-3 border border-border bg-card px-4 py-3">
