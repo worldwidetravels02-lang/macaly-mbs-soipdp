@@ -666,6 +666,12 @@ function AdminPage() {
     return [...totals.entries()].sort(([a], [b]) => a.localeCompare(b))
   }, [rows.topups, rows.withdrawals])
 
+  useEffect(() => {
+    if (!notice && !error) return
+    const timeout = window.setTimeout(() => { setNotice(''); setError('') }, 3600)
+    return () => window.clearTimeout(timeout)
+  }, [notice, error])
+
   const run = async (work: () => Promise<unknown>, success: string) => {
     setBusy(true); setError(''); setNotice('')
     try { await work(); setNotice(success); await load() }
@@ -1106,8 +1112,8 @@ function AdminPage() {
 
           {checking ? <div className="border border-border bg-card p-10 text-center text-sm text-ink-soft">Checking administrator access…</div> : null}
           {!checking && !authorized ? <section className="max-w-2xl border border-border bg-card p-8 sm:p-12"><p className="eyebrow text-brass">Restricted access</p><h2 className="display mt-4 text-2xl">{user ? 'This account is not an administrator.' : 'Sign in to continue.'}</h2><p className="mt-3 text-sm leading-7 text-ink-soft">{user ? 'Ask the site owner to add this registered account to the admin_members table in Supabase. Admin access is never self-assigned.' : 'Use your administrator account to sign in first.'}</p><Link to="/admin/login" className={buttonClass + ' mt-6'}>Administrator login <ArrowRight /></Link></section> : null}
-          {error ? <p role="alert" className="mb-5 border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</p> : null}
-          {notice ? <p role="status" className="mb-5 border border-brass/40 bg-brass/5 px-4 py-3 text-sm">{notice}</p> : null}
+           {notice || error ? <div className={error ? 'admin-action-toast admin-action-toast-error' : 'admin-action-toast admin-action-toast-success'} role={error ? 'alert' : 'status'} aria-live="assertive"><span className="admin-action-toast-icon" aria-hidden="true">{error ? '!' : '✓'}</span><span className="min-w-0 flex-1">{error || notice}</span><button type="button" className="admin-action-toast-close" aria-label="Dismiss notification" onClick={() => { setNotice(''); setError('') }}>×</button></div> : null}
+
 
           {authorized && adminRole === 'owner' && !ownerVerified ? <section className="mx-auto max-w-xl border border-border bg-card p-8 sm:p-10"><p className="eyebrow text-brass">Owner security</p><h2 className="display mt-4 text-2xl">{ownerPinSet ? 'Enter your owner code' : 'Create your owner code'}</h2><p className="mt-3 text-sm leading-7 text-ink-soft">{ownerPinSet ? 'Enter your private four-digit code to unlock the owner workspace. Administrators do not need this code.' : 'Create a private four-digit code. You will enter it whenever you sign in to the owner workspace. Do not share it with administrators.'}</p><form onSubmit={submitOwnerPin} className="mt-6 grid gap-4">{ownerPinSet ? <input required inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{4}" maxLength={4} type="password" className={inputClass} placeholder="Four-digit owner code" value={ownerPin} onChange={(e) => setOwnerPin(e.target.value.replace(/\D/g, '').slice(0, 4))} /> : <><input required inputMode="numeric" pattern="[0-9]{4}" maxLength={4} type="password" className={inputClass} placeholder="Create four-digit code" value={newOwnerPin} onChange={(e) => setNewOwnerPin(e.target.value.replace(/\D/g, '').slice(0, 4))} /><input required inputMode="numeric" pattern="[0-9]{4}" maxLength={4} type="password" className={inputClass} placeholder="Confirm four-digit code" value={confirmOwnerPin} onChange={(e) => setConfirmOwnerPin(e.target.value.replace(/\D/g, '').slice(0, 4))} /></>}{error ? <p role="alert" className="border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</p> : null}<button disabled={busy} className={buttonClass}>{busy ? 'Please wait…' : ownerPinSet ? 'Verify owner code' : 'Create owner code'} <ArrowRight /></button></form></section> : null}
           {authorized && (adminRole !== 'owner' || ownerVerified) ? <>
