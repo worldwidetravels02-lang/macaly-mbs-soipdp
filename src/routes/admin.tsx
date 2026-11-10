@@ -18,6 +18,7 @@ const SECTIONS: { id: Section; label: string }[] = [
   { id: 'properties', label: 'Projects' },
   { id: 'finance', label: 'Cashout' },
   { id: 'transactions', label: 'Transactions' },
+  { id: 'investments', label: 'Investment Requests' },
   { id: 'support', label: 'Support' },
   { id: 'settings', label: 'Settings' },
 ]
