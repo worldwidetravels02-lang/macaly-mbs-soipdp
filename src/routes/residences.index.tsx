@@ -45,6 +45,7 @@ function ResidencesPage() {
   const [signedIn, setSignedIn] = useState(false)
   const [projects, setProjects] = useState<Project[]>([])
   const [customerLevelAccess, setCustomerLevelAccess] = useState<{ user_id: string; level_name: string; is_unlocked: boolean }[]>([])
+  const [customerSetAccess, setCustomerSetAccess] = useState<{ user_id: string; level_name: string; set_number: number; is_unlocked: boolean }[]>([])
   const [currentUserId, setCurrentUserId] = useState('')
   const [requests, setRequests] = useState<ProjectRequest[]>([])
   const [selectedLevel, setSelectedLevel] = useState<string>(search.level ?? 'Junior Trial')
@@ -91,16 +92,18 @@ function ResidencesPage() {
     setLoadingProjects(true)
     ;(async () => {
       const client = requireSupabase()
-      const [propertyResult, requestResult, userResult, accessResult] = await Promise.all([
+      const [propertyResult, requestResult, userResult, accessResult, setAccessResult] = await Promise.all([
         client.from('properties').select('id,slug,name,location,description,price_label,price_amount,order_percentages,cover_image_url,project_level,set_number,sort_order').eq('status', 'published').not('project_level', 'is', null).order('sort_order', { ascending: true }),
         client.from('investment_requests').select('property_id,status').order('created_at', { ascending: false }),
         client.auth.getUser(),
         client.from('customer_project_level_access').select('user_id,level_name,is_unlocked'),
+        client.from('customer_project_set_access').select('user_id,level_name,set_number,is_unlocked'),
       ])
       if (propertyResult.error) throw propertyResult.error
       if (userResult.error) throw userResult.error
       if (requestResult.error) throw requestResult.error
       if (accessResult.error) throw accessResult.error
+      if (setAccessResult.error) throw setAccessResult.error
       if (!userResult.data.user) throw new Error('Please sign in to view the project catalogue.')
       if (!active) return
       setProjects((propertyResult.data ?? []) as Project[])
@@ -108,6 +111,7 @@ function ResidencesPage() {
       setCurrentUserId(userResult.data.user.id)
       setCurrentUserName(String(userResult.data.user.user_metadata?.full_name || userResult.data.user.email?.split('@')[0] || 'Member'))
       setCustomerLevelAccess((accessResult.data ?? []) as { user_id: string; level_name: string; is_unlocked: boolean }[])
+      setCustomerSetAccess((setAccessResult.data ?? []) as { user_id: string; level_name: string; set_number: number; is_unlocked: boolean }[])
     })().catch((cause) => {
       if (active) setError(cause instanceof Error ? cause.message : 'Could not load the project catalogue.')
     }).finally(() => { if (active) setLoadingProjects(false) })
@@ -138,7 +142,7 @@ function ResidencesPage() {
       return ids.length === 20 && ids.every((id) => completedIds.has(id))
     }))
   }, [requests, levelProjects])
-  const setIsUnlocked = (setNo: number) => setNo === 1 || (setNo === 2 && completedSets.has(1)) || (setNo === 3 && completedSets.has(2))
+  const setIsUnlocked = (setNo: number) => customerSetAccess.find((item) => item.user_id === currentUserId && item.level_name === selectedLevel && Number(item.set_number) === setNo)?.is_unlocked ?? (selectedLevel === 'Junior Trial' && setNo === 1)
 
   async function requestProject(project: Project) {
     const selection = orderSelections[project.id] ?? { quantity: 1, percentage: (project.order_percentages?.[0] ?? 10) }
