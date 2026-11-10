@@ -93,6 +93,7 @@ function AdminPage() {
   const [profitDraft, setProfitDraft] = useState({ user_id: '', amount: '', currency: 'AED', period_start: '', period_end: '', description: 'Monthly profit credited to customer wallet' })
   const [commissionDraft, setCommissionDraft] = useState({ user_id: '', plan_id: '', base_amount: '', currency: 'AED', commission_type: 'referral', source_user_id: '', reference: '', description: '' })
   const [manualWalletDraft, setManualWalletDraft] = useState({ user_id: '', amount: '', currency: 'AED', description: 'Balance added by administrator' })
+  const [manualWalletSearch, setManualWalletSearch] = useState('')
   const [walletSearch, setWalletSearch] = useState('')
   const [walletCurrencyFilter, setWalletCurrencyFilter] = useState('all')
   const [walletDirectionFilter, setWalletDirectionFilter] = useState('all')
@@ -1199,10 +1200,54 @@ function AdminPage() {
                 <h2 className="display text-xl">Add amount to customer wallet</h2>
                 <p className="mt-2 text-xs leading-6 text-ink-soft">Administrator-only manual credit. The amount is posted to the customer's internal wallet ledger and recorded in the financial audit history. This does not transfer real money.</p>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  <select required className={inputClass} value={manualWalletDraft.user_id} onChange={(e) => setManualWalletDraft({ ...manualWalletDraft, user_id: e.target.value })}>
-                    <option value="">Select customer</option>
-                    {(rows.users ?? []).map((customer) => <option key={text(customer.id)} value={text(customer.id)}>{text(customer.full_name) || text(customer.mobile) || text(customer.id)}</option>)}
-                  </select>
+                  <div className="relative">
+                    <input
+                      required
+                      className={inputClass}
+                      placeholder="Search customer by name, mobile or 4-digit ID"
+                      value={manualWalletSearch}
+                      onChange={(event) => {
+                        setManualWalletSearch(event.target.value)
+                        setManualWalletDraft((current) => ({ ...current, user_id: '' }))
+                      }}
+                      autoComplete="off"
+                      aria-label="Search customer for wallet credit"
+                    />
+                    {manualWalletDraft.user_id ? (
+                      <div className="mt-2 flex items-center justify-between gap-2 border border-brass/40 bg-brass/5 px-3 py-2 text-xs">
+                        <span className="min-w-0 truncate">
+                          Selected: {(rows.users ?? []).find((customer) => text(customer.id) === manualWalletDraft.user_id)?.full_name || 'Customer'} · ID {customerNumber(manualWalletDraft.user_id)}
+                        </span>
+                        <button type="button" className="shrink-0 text-brass underline" onClick={() => { setManualWalletDraft((current) => ({ ...current, user_id: '' })); setManualWalletSearch('') }}>Change</button>
+                      </div>
+                    ) : manualWalletSearch.trim() ? (
+                      <div className="absolute left-0 right-0 z-20 mt-1 max-h-56 overflow-y-auto border border-border bg-background shadow-xl">
+                        {(rows.users ?? []).filter((customer) => {
+                          const query = manualWalletSearch.trim().toLowerCase()
+                          return [customer.full_name, customer.mobile, customer.email, customer.id, customerNumber(customer.id)]
+                            .some((value) => text(value).toLowerCase().includes(query))
+                        }).slice(0, 8).map((customer) => (
+                          <button
+                            key={text(customer.id)}
+                            type="button"
+                            className="block w-full border-b border-border px-3 py-3 text-left text-xs transition-colors hover:bg-brass/10"
+                            onClick={() => {
+                              setManualWalletDraft((current) => ({ ...current, user_id: text(customer.id) }))
+                              setManualWalletSearch(text(customer.full_name) || text(customer.mobile) || 'Customer')
+                            }}
+                          >
+                            <span className="block font-medium">{text(customer.full_name) || 'Customer'}</span>
+                            <span className="mt-1 block text-ink-soft">{text(customer.mobile) || 'No mobile'} · ID {customerNumber(customer.id)}</span>
+                          </button>
+                        ))}
+                        {!((rows.users ?? []).some((customer) => {
+                          const query = manualWalletSearch.trim().toLowerCase()
+                          return [customer.full_name, customer.mobile, customer.email, customer.id, customerNumber(customer.id)]
+                            .some((value) => text(value).toLowerCase().includes(query))
+                        })) ? <p className="px-3 py-3 text-xs text-ink-soft">No matching customers found.</p> : null}
+                      </div>
+                    ) : null}
+                  </div>
                   <input required type="number" min="0.01" max="100000000" step="0.01" className={inputClass} placeholder="Amount" value={manualWalletDraft.amount} onChange={(e) => setManualWalletDraft({ ...manualWalletDraft, amount: e.target.value })} />
                   <select className={inputClass} value={manualWalletDraft.currency} onChange={(e) => setManualWalletDraft({ ...manualWalletDraft, currency: e.target.value })}>{CURRENCIES.map((code) => <option key={code}>{code}</option>)}</select>
                   <input maxLength={240} className={inputClass} placeholder="Reason / description" value={manualWalletDraft.description} onChange={(e) => setManualWalletDraft({ ...manualWalletDraft, description: e.target.value })} />
