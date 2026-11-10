@@ -210,26 +210,39 @@ function DashboardPage() {
                 </div>
                 {taskMessage ? <p role="status" className="mt-4 border border-brass/30 px-4 py-3 text-sm">{taskMessage}</p> : null}
               </div>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {membershipPlans.map((plan) => {
-                  const isJuniorTrial = plan.name.toLowerCase().includes('junior trial')
-                  const unlocked = isJuniorTrial || Number(plan.level) <= membershipLevel
-                  const levelTasks = memberTasks.filter((task) => Number(task.target_level ?? 0) === Number(plan.level))
-                  const approved = levelTasks.filter((task) => task.status === 'approved').length
-                  const progress = levelTasks.length ? Math.round((approved / levelTasks.length) * 100) : 0
-                  const card = <article className={['border p-5 transition-colors', unlocked ? 'border-brass/50 bg-brass/5 hover:border-brass' : 'border-border bg-card'].join(' ')}>
-                    <div className="flex items-center justify-between gap-3"><p className="eyebrow text-[0.5rem] text-brass">Achievement level {plan.level}</p><span className="text-xs">{unlocked ? 'Unlocked' : '🔒 Locked'}</span></div>
-                    <h3 className="display mt-3 text-xl">{plan.name}</h3>
-                    <p className="mt-2 text-xs text-ink-soft">Minimum investment: {formatMoney(plan.minimum_amount, currency)}</p>
-                    <p className="mt-1 text-xs text-ink-soft">Approved tasks: {approved}/{levelTasks.length}</p>
-                    {levelTasks.length > 0 ? <div className="mt-3"><div className="mb-1 flex justify-between text-[0.65rem] text-ink-soft"><span>Assigned-task completion</span><span>{progress}%</span></div><div className="h-2 overflow-hidden rounded-full bg-border"><div className="h-full rounded-full bg-brass" style={{ width: progress + '%' }} /></div></div> : <p className="mt-3 text-xs text-ink-soft">No tasks have been assigned for this level yet.</p>}
-                    {!unlocked ? <p className="mt-3 text-xs text-ink-soft">This level has not yet been assigned to your account.</p> : <p className="mt-3 text-xs text-brass">Achievement unlocked on your account.</p>}
-                    {unlocked ? <p className="eyebrow mt-4 text-[0.52rem] text-brass">Tap to view properties <ArrowRight /></p> : null}
-                  </article>
-                  return unlocked ? <Link key={plan.id} to="/residences" search={{ level: plan.name }} className="block text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-brass">{card}</Link> : <div key={plan.id}>{card}</div>
-                })}
-                {membershipPlans.length === 0 ? <p className="border border-border bg-card p-5 text-sm text-ink-soft">Achievement levels will appear here when the administration team activates membership plans.</p> : null}
-              </div>
+              <section aria-label="Project groups" className="border border-border bg-card p-5 sm:p-6">
+                <div className="mb-5 flex items-center justify-between gap-3">
+                  <div><p className="eyebrow text-[0.5rem] text-brass">Explore Dubai</p><h2 className="display mt-2 text-xl">Project groups</h2></div>
+                  <div className="flex gap-2">
+                    <button type="button" aria-label="Previous project group" onClick={() => document.getElementById('member-level-track')?.scrollBy({ left: -320, behavior: 'smooth' })} className="grid h-10 w-10 place-items-center border border-border text-lg hover:border-brass">‹</button>
+                    <button type="button" aria-label="Next project group" onClick={() => document.getElementById('member-level-track')?.scrollBy({ left: 320, behavior: 'smooth' })} className="grid h-10 w-10 place-items-center border border-border text-lg hover:border-brass">›</button>
+                  </div>
+                </div>
+                <div id="member-level-track" className="flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-3">
+                  {membershipPlans.map((plan, index) => {
+                    const isJuniorTrial = plan.name.toLowerCase().includes('junior trial')
+                    const unlocked = isJuniorTrial || Number(plan.level) <= membershipLevel
+                    const levelTasks = memberTasks.filter((task) => Number(task.target_level ?? 0) === Number(plan.level))
+                    const approved = levelTasks.filter((task) => task.status === 'approved').length
+                    const image = [IMAGES.marinaNight, IMAGES.tower, IMAGES.villas, IMAGES.penthouse][index % 4]
+                    const card = <article className={['relative flex min-h-[245px] w-[260px] shrink-0 snap-start flex-col justify-end overflow-hidden border text-left sm:w-[300px]', unlocked ? 'border-brass/50' : 'border-border opacity-70'].join(' ')}>
+                      <img src={image} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#071426] via-[#071426]/65 to-transparent" />
+                      <div className="relative p-5 text-white">
+                        <div className="mb-3 flex items-center justify-between gap-2"><span className="eyebrow text-[0.5rem] text-[#d3b36c]">Project group {plan.level}</span><span className="bg-[#071426]/70 px-2 py-1 text-[0.58rem]">{unlocked ? 'Available' : '🔒 Locked'}</span></div>
+                        <h3 className="display text-2xl">{plan.name}</h3>
+                        <p className="mt-2 text-xs text-white/75">{approved} of {levelTasks.length} assigned tasks approved</p>
+                        <p className="mt-4 text-xs font-semibold text-[#d3b36c]">{unlocked ? 'View properties →' : 'Access not yet assigned'}</p>
+                      </div>
+                    </article>
+                    return unlocked ? <Link key={plan.id} to="/residences" search={{ level: plan.name }} className="block focus-visible:outline focus-visible:outline-2 focus-visible:outline-brass">{card}</Link> : <div key={plan.id}>{card}</div>
+                  })}
+                  {membershipPlans.length === 0 ? <p className="border border-border p-5 text-sm text-ink-soft">Project groups will appear here when the administration team activates membership plans.</p> : null}
+                </div>
+                <div className="mt-3 flex justify-center gap-2">
+                  {membershipPlans.map((plan, index) => <button key={plan.id} type="button" aria-label={`Show project group ${index + 1}`} onClick={() => document.getElementById('member-level-track')?.children[index]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' })} className="h-1.5 w-5 bg-brass/40 transition hover:bg-brass" />)}
+                </div>
+              </section>
               <div className="border border-border bg-card">
                 <div className="border-b border-border px-6 py-5"><h2 className="display text-xl">Your assigned tasks</h2><p className="mt-1 text-xs text-ink-soft">Submit completed tasks for administrator review. Returned tasks can be submitted again.</p></div>
                 {memberTasks.length === 0 ? <p className="px-6 py-7 text-sm text-ink-soft">No tasks have been assigned to your account yet.</p> : <ul className="divide-y divide-border">{memberTasks.map((task) => {
