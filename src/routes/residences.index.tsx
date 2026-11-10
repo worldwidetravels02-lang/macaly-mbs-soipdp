@@ -238,23 +238,28 @@ function ResidencesPage() {
                   const prices = levelProperties.map((project) => Number(project.price_amount)).filter((price) => Number.isFinite(price) && price > 0)
                   const startingPrice = prices.length ? Math.min(...prices) : null
                   const percentages = levelProperties.flatMap((project) => project.order_percentages ?? []).filter((value) => Number.isFinite(Number(value)))
-                  const commissionLabel = percentages.length ? `${Math.min(...percentages)}–${Math.max(...percentages)}% commission` : 'Commission set by admin'
-                  return <button key={level} type="button" disabled={!unlocked} onClick={() => { window.location.href = `/residences?level=${encodeURIComponent(level)}` }} className="group relative flex min-h-[390px] flex-col overflow-hidden rounded-2xl border border-[#d8b66b] bg-[#071b38] text-left text-white shadow-lg shadow-[#071b38]/15 transition duration-300 hover:-translate-y-1 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-75">
-                    <div className="relative h-[190px] w-full overflow-hidden">
+                  const commissionLabel = percentages.length ? `${Math.min(...percentages)}–${Math.max(...percentages)}%` : 'Set by admin'
+                  return <button key={level} type="button" disabled={!unlocked} onClick={() => { window.location.href = `/residences?level=${encodeURIComponent(level)}` }} className="group relative flex min-h-[500px] flex-col overflow-hidden rounded-2xl border border-[#d8b66b] bg-white text-left shadow-lg shadow-[#071b38]/15 transition duration-300 hover:-translate-y-1 hover:shadow-2xl disabled:cursor-not-allowed disabled:hover:translate-y-0">
+                    <div className="relative h-[170px] w-full overflow-hidden">
                       <img src={levelImage} alt="" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#071b38] via-[#071b38]/15 to-transparent" />
-                      <span className="absolute left-4 top-4 rounded-full border border-[#f1d28d]/80 bg-[#071b38]/85 px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.2em] text-[#f1d28d]">{count} {count === 1 ? 'property' : 'properties'}</span>
-                      {!unlocked ? <span className="absolute right-4 top-4 rounded-full bg-white/95 px-3 py-1.5 text-[10px] font-semibold text-[#071b38]">Locked</span> : null}
-                      <h2 className="absolute bottom-4 left-5 display text-2xl font-semibold text-white">{isTrial ? 'Junior Trial' : level}</h2>
+                      <span className="absolute left-3 top-3 rounded-full border border-[#f1d28d]/80 bg-[#071b38]/90 px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#f1d28d]">{count} {count === 1 ? 'property' : 'properties'}</span>
                     </div>
-                    <div className="flex flex-1 flex-col border-t border-[#d8b66b]/60 p-5">
-                      <p className="text-[10px] uppercase tracking-[0.18em] text-[#e2c47f]">Msheireb Properties · Dubai</p>
-                      <p className="mt-3 text-sm leading-6 text-white/75">Explore curated properties, with order settings managed securely by the administrator.</p>
-                      <div className="mt-4 grid grid-cols-2 gap-3 border-y border-white/15 py-3">
-                        <div><span className="block text-[9px] uppercase tracking-widest text-white/50">Starting price</span><strong className="mt-1 block text-sm text-[#f1d28d]">{startingPrice !== null ? `AED ${startingPrice.toLocaleString('en', { maximumFractionDigits: 2 })}` : 'Set by admin'}</strong></div>
-                        <div><span className="block text-[9px] uppercase tracking-widest text-white/50">Commission</span><strong className="mt-1 block text-sm text-[#f1d28d]">{commissionLabel}</strong></div>
+                    <div className="flex min-h-[78px] items-center gap-4 border-y border-[#d8b66b] bg-[#071b38] px-5 py-4 text-white">
+                      <span aria-hidden="true" className="grid h-12 w-12 shrink-0 place-items-center text-3xl text-[#f1c75b]">{unlocked ? '✺' : '🔒'}</span>
+                      <span className="min-w-0"><strong className="display block text-xl">{isTrial ? 'Junior Trial' : level}</strong><span className="mt-1 block text-xs text-[#f1d28d]">{unlocked ? 'Start Your Journey' : 'LEVEL LOCKED'}</span></span>
+                    </div>
+                    <div className="flex flex-1 flex-col p-5 text-[#071b38]">
+                      <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-[#9a793b]">Msheireb Properties · Dubai</p>
+                      <div className="mt-4 grid grid-cols-2 gap-3 border-y border-[#e6dfd1] py-3">
+                        <div><span className="block text-[9px] uppercase tracking-widest text-[#777]">Starting price</span><strong className="mt-1 block text-sm text-[#071b38]">{startingPrice !== null ? `AED ${startingPrice.toLocaleString('en', { maximumFractionDigits: 2 })}` : 'Set by admin'}</strong></div>
+                        <div><span className="block text-[9px] uppercase tracking-widest text-[#777]">Commission</span><strong className="mt-1 block text-sm text-[#071b38]">{commissionLabel}</strong></div>
                       </div>
-                      <span className="mt-auto flex items-center justify-between pt-5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#f1d28d]">{unlocked ? 'View Properties' : 'Access Locked'}<span aria-hidden="true" className="text-lg transition-transform group-hover:translate-x-1">→</span></span>
+                      <ul className="mt-4 space-y-2 text-xs text-[#333]">
+                        <li className="flex items-center gap-2"><span className="text-[#a98235]">✓</span> Dubai property catalogue</li>
+                        <li className="flex items-center gap-2"><span className="text-[#a98235]">✓</span> Admin-managed order settings</li>
+                        <li className="flex items-center gap-2"><span className="text-[#a98235]">✓</span> Customer access controls</li>
+                      </ul>
+                      <span className={`mt-auto flex items-center justify-center gap-2 rounded-xl border px-4 py-3.5 pt-3.5 mt-5 text-center text-xs font-semibold ${unlocked ? 'border-[#d8b66b] bg-gradient-to-r from-[#e7c36e] to-[#d5a844] text-[#071b38]' : 'border-[#d8b66b]/50 bg-[#071b38] text-white'}`}>{unlocked ? 'View Properties  ›' : '🔒  Contact Admin to Unlock'}</span>
                     </div>
                   </button>
                 })}
