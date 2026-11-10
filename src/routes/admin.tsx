@@ -11,22 +11,13 @@ import siteMetadata from '../metadata.json'
 // Admin data spans several Supabase tables whose generated client schema is not yet unified.
 // Keep these dynamically selected admin rows flexible until database.types.ts is generated.
 type Row = any
-type Section = 'overview' | 'properties' | 'enquiries' | 'users' | 'promotions' | 'finance' | 'investments' | 'commissions' | 'verifications' | 'tasks' | 'payments' | 'content' | 'team' | 'support' | 'settings'
+type Section = 'overview' | 'users' | 'properties' | 'finance' | 'transactions' | 'settings'
 const SECTIONS: { id: Section; label: string }[] = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'properties', label: 'Properties' },
-  { id: 'enquiries', label: 'Enquiries' },
-  { id: 'users', label: 'Customers' },
-  { id: 'promotions', label: 'Promotions' },
-  { id: 'finance', label: 'Wallet' },
-  { id: 'investments', label: 'Investments' },
-  { id: 'commissions', label: 'Commissions' },
-  { id: 'verifications', label: 'ID Checks' },
-  { id: 'tasks', label: 'Tasks' },
-  { id: 'payments', label: 'Payments' },
-  { id: 'content', label: 'Journal' },
-  { id: 'team', label: 'Admin Team' },
-  { id: 'support', label: 'Support' },
+  { id: 'overview', label: 'Dashboard' },
+  { id: 'users', label: 'Users' },
+  { id: 'properties', label: 'Projects' },
+  { id: 'finance', label: 'Cashout' },
+  { id: 'transactions', label: 'Transactions' },
   { id: 'settings', label: 'Settings' },
 ]
 const CURRENCIES = ['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR', 'INR']
@@ -1151,6 +1142,11 @@ function AdminPage() {
             {section === 'promotions' ? <section className="grid gap-6 xl:grid-cols-[minmax(18rem,0.8fr)_1.2fr]">
               <form onSubmit={savePromotion} className="h-fit border border-border bg-card p-6"><h2 className="display text-xl">{editingPromotionId ? 'Edit promotion' : 'Create promotion'}</h2><div className="mt-5 grid gap-3"><input required className={inputClass} placeholder="Promotion title" value={promotionDraft.title} onChange={(e) => setPromotionDraft({ ...promotionDraft, title: e.target.value })} /><textarea className={inputClass} rows={4} placeholder="Description" value={promotionDraft.description} onChange={(e) => setPromotionDraft({ ...promotionDraft, description: e.target.value })} /><input className={inputClass} placeholder="Image URL" value={promotionDraft.image_url} onChange={(e) => setPromotionDraft({ ...promotionDraft, image_url: e.target.value })} /><select className={inputClass} value={promotionDraft.property_slug} onChange={(e) => setPromotionDraft({ ...promotionDraft, property_slug: e.target.value })}><option value="">All properties</option>{(rows.properties ?? []).map((property) => <option key={property.id} value={text(property.slug)}>{text(property.name)}</option>)}</select><label className="flex items-center gap-3 text-sm"><input type="checkbox" checked={promotionDraft.active} onChange={(e) => setPromotionDraft({ ...promotionDraft, active: e.target.checked })} /> Active immediately</label><div className="flex flex-wrap gap-2"><button disabled={busy} className={buttonClass}>{editingPromotionId ? 'Save changes' : 'Create promotion'} <ArrowRight /></button>{editingPromotionId ? <button type="button" disabled={busy} className={softButton} onClick={() => { setEditingPromotionId(''); setPromotionDraft({ title: '', description: '', image_url: '', property_slug: '', active: false }) }}>Cancel edit</button> : null}</div></div></form>
               <section className="grid gap-3 border border-border bg-card p-4 sm:grid-cols-[1fr_13rem_auto]"><div><h2 className="display text-xl">Promotions</h2><p className="mt-1 text-xs text-ink-soft">Showing {filteredPromotions.length} of {(rows.promotions ?? []).length} promotions</p></div><input aria-label="Search promotions" className={inputClass} value={promotionSearch} onChange={(event) => setPromotionSearch(event.target.value)} placeholder="Title, description or property" /><div className="flex gap-2"><select aria-label="Filter promotion status" className={inputClass} value={promotionStatusFilter} onChange={(event) => setPromotionStatusFilter(event.target.value)}><option value="all">All promotions</option><option value="active">Active</option><option value="paused">Paused</option></select><button type="button" className={softButton} onClick={() => { setPromotionSearch(""); setPromotionStatusFilter("all") }}>Clear</button></div></section><DataTable title="Promotion list" rows={filteredPromotions} columns={['title','property_slug','description','active','starts_at','ends_at']} render={(item) => <div className="flex flex-wrap gap-2"><button disabled={busy} className={softButton} onClick={() => { setEditingPromotionId(text(item.id)); setPromotionDraft({ title: text(item.title), description: text(item.description), image_url: text(item.image_url), property_slug: text(item.property_slug), active: Boolean(item.active) }) }}>Edit</button><button disabled={busy} className={softButton} onClick={() => updateStatus('promotions', text(item.id), { active: !item.active, updated_at: new Date().toISOString() }, item.active ? 'Promotion paused.' : 'Promotion activated.')}>{item.active ? 'Pause' : 'Activate'}</button></div>} />
+            </section> : null}
+
+            {section === 'transactions' ? <section className="grid gap-4">
+              <div><h2 className="display text-2xl">Transactions</h2><p className="mt-1 text-sm text-ink-soft">Customer wallet ledger activity from Supabase.</p></div>
+              <DataTable title="Wallet transactions" rows={(rows.walletTransactions ?? []).map((item) => ({ ...item, customer: customerLabel(item.user_id) }))} columns={['customer','transaction_type','direction','amount','currency','status','description','created_at']} />
             </section> : null}
 
             {section === 'finance' ? <div className="grid gap-6">
