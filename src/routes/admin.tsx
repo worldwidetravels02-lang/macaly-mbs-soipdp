@@ -73,6 +73,7 @@ function AdminPage() {
   const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [propertyForm, setPropertyForm] = useState({ slug: '', name: '', location: 'Dubai, UAE', description: '', price_label: '', cover_image_url: '', status: 'published' })
+  const [editingPropertyId, setEditingPropertyId] = useState<string | null>(null)
   const [promotionForm, setPromotionForm] = useState({ title: '', description: '' })
 
   const loadAdminData = useCallback(async () => {
@@ -153,17 +154,44 @@ function AdminPage() {
     event.preventDefault()
     if (!supabase || !isAdmin) return
     setBusy(true); setError(null); setNotice(null)
-    const { error: saveError } = await supabase.from('properties').insert({
+    const values = {
       ...propertyForm,
       slug: propertyForm.slug.trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-'),
-    })
+    }
+    const query = editingPropertyId
+      ? supabase.from('properties').update(values).eq('id', editingPropertyId)
+      : supabase.from('properties').insert(values)
+    const { error: saveError } = await query
     if (saveError) setError(saveError.message)
     else {
       setNotice('Property saved.')
       setPropertyForm({ slug: '', name: '', location: 'Dubai, UAE', description: '', price_label: '', cover_image_url: '', status: 'published' })
+      setEditingPropertyId(null)
       await loadAdminData()
     }
     setBusy(false)
+  }
+
+  const editProperty = (property: PropertyRow) => {
+    setEditingPropertyId(property.id)
+    setPropertyForm({
+      slug: property.slug,
+      name: property.name,
+      location: property.location ?? '',
+      description: property.description ?? '',
+      price_label: property.price_label,
+      cover_image_url: property.cover_image_url ?? '',
+      status: property.status,
+    })
+    setNotice('Editing ' + property.name + '.')
+    setError(null)
+  }
+
+  const updatePropertyStatus = async (id: string, status: string) => {
+    if (!supabase || !isAdmin) return
+    const { error: updateError } = await supabase.from('properties').update({ status }).eq('id', id)
+    if (updateError) setError(updateError.message)
+    else { setNotice('Property status updated.'); await loadAdminData() }
   }
 
   const updateEnquiry = async (id: string, status: string) => {
@@ -234,7 +262,7 @@ function AdminPage() {
                 {(['overview','properties','enquiries','promotions','wallet'] as const).map(item => <button key={item} onClick={() => setSection(item)} className={section===item ? 'eyebrow bg-primary px-4 py-3 text-primary-foreground' : 'eyebrow border border-border px-4 py-3'}>{item}</button>)}
               </nav>
               {section === 'overview' ? <div className="mt-8 grid gap-4 sm:grid-cols-3">{[{label:'Properties',value:properties.length},{label:'Enquiries',value:enquiries.length},{label:'Promotions',value:promotions.length}].map(item => <div key={item.label} className="border border-border bg-card p-6"><p className="eyebrow text-ink-soft">{item.label}</p><p className="display mt-3 text-4xl">{item.value}</p></div>)}</div> : null}
-              {section === 'properties' ? <section className="mt-8 grid gap-8 lg:grid-cols-2"><form onSubmit={saveProperty} className="grid content-start gap-3 border border-border bg-card p-6"><h2 className="display text-2xl">Add property</h2>{([['slug','URL slug'],['name','Property name'],['location','Location'],['price_label','Price label'],['cover_image_url','Cover image URL']] as const).map(([name,label])=><label key={name} className="text-sm">{label}<input required={name!=='cover_image_url'} value={propertyForm[name]} onChange={e=>setPropertyForm(p=>({...p,[name]:e.target.value}))} className="mt-1 w-full border border-input bg-background px-3 py-2" /></label>)}<label className="text-sm">Description<textarea value={propertyForm.description} onChange={e=>setPropertyForm(p=>({...p,description:e.target.value}))} className="mt-1 w-full border border-input bg-background px-3 py-2" rows={3}/></label><button disabled={busy} className="eyebrow bg-primary px-5 py-3 text-primary-foreground">Save property</button></form><div><h2 className="display text-2xl">Current properties</h2><div className="mt-4 divide-y divide-border border-y border-border">{properties.map(p=><article key={p.id} className="py-4"><p className="font-medium">{p.name}</p><p className="mt-1 text-xs text-ink-soft">{p.location} · {p.price_label} · {p.status}</p></article>)}</div></div></section> : null}
+              {section === 'properties' ? <section className="mt-8 grid gap-8 lg:grid-cols-2"><form onSubmit={saveProperty} className="grid content-start gap-3 border border-border bg-card p-6"><h2 className="display text-2xl">{editingPropertyId ? 'Edit property' : 'Add property'}</h2>{([['slug','URL slug'],['name','Property name'],['location','Location'],['price_label','Price label'],['cover_image_url','Cover image URL']] as const).map(([name,label])=><label key={name} className="text-sm">{label}<input required={name!=='cover_image_url'} value={propertyForm[name]} onChange={e=>setPropertyForm(p=>({...p,[name]:e.target.value}))} className="mt-1 w-full border border-input bg-background px-3 py-2" /></label>)}<label className="text-sm">Description<textarea value={propertyForm.description} onChange={e=>setPropertyForm(p=>({...p,description:e.target.value}))} className="mt-1 w-full border border-input bg-background px-3 py-2" rows={3}/></label><label className="text-sm">Visibility<select value={propertyForm.status} onChange={e=>setPropertyForm(p=>({...p,status:e.target.value}))} className="mt-1 w-full border border-input bg-background px-3 py-2"><option value="draft">Draft</option><option value="published">Published</option><option value="archived">Archived</option></select></label><button disabled={busy} className="eyebrow bg-primary px-5 py-3 text-primary-foreground">{busy ? 'Saving…' : editingPropertyId ? 'Update property' : 'Save property'}</button>{editingPropertyId ? <button type="button" onClick={()=>{setEditingPropertyId(null);setPropertyForm({slug:'',name:'',location:'Dubai, UAE',description:'',price_label:'',cover_image_url:'',status:'published'});setNotice(null)}} className="eyebrow border border-border px-5 py-3">Cancel edit</button> : null}</form><div><h2 className="display text-2xl">Current properties</h2><div className="mt-4 divide-y divide-border border-y border-border">{properties.map(p=><article key={p.id} className="py-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="font-medium">{p.name}</p><p className="mt-1 text-xs text-ink-soft">{p.location} · {p.price_label}</p></div><div className="flex items-center gap-2"><select aria-label={'Visibility for '+p.name} value={p.status} onChange={e=>void updatePropertyStatus(p.id,e.target.value)} className="border border-input bg-background px-2 py-2 text-xs"><option value="draft">Draft</option><option value="published">Published</option><option value="archived">Archived</option></select><button type="button" onClick={()=>editProperty(p)} className="eyebrow border border-border px-3 py-2 text-xs">Edit</button></div></div></article>)}</div></div></section> : null}
               {section === 'enquiries' ? <section className="mt-8"><h2 className="display text-2xl">Customer enquiries</h2><div className="mt-4 divide-y divide-border border-y border-border">{enquiries.map(item=><article key={item.id} className="grid gap-3 py-5 sm:grid-cols-[1fr_auto]"><div><p className="font-medium">{item.full_name}</p><p className="mt-1 text-sm text-ink-soft">{item.mobile} · {item.email ?? 'No email'}</p><p className="mt-2 text-sm">{item.message}</p><p className="mt-2 text-xs text-ink-soft">{item.source} · {new Date(item.created_at).toLocaleString()}</p></div><select value={item.status} onChange={e=>void updateEnquiry(item.id,e.target.value)} className="h-fit border border-input bg-background px-3 py-2 text-sm"><option value="new">New</option><option value="contacted">Contacted</option><option value="qualified">Qualified</option><option value="closed">Closed</option></select></article>)}</div></section> : null}
               {section === 'wallet' ? <section className="mt-8"><h2 className="display text-2xl">Wallet requests</h2><p className="mt-2 text-sm text-ink-soft">Approve or reject customer requests. Approval updates the member wallet balance through a protected Supabase function.</p><div className="mt-5 divide-y divide-border border-y border-border">{walletRequests.length ? walletRequests.map(item=><article key={item.id} className="grid gap-3 py-5 sm:grid-cols-[1fr_auto]"><div><p className="font-medium capitalize">{item.request_type} · AED {Number(item.amount).toLocaleString('en-AE',{minimumFractionDigits:2,maximumFractionDigits:2})}</p><p className="mt-1 break-all text-xs text-ink-soft">Customer ID: {item.user_id}</p><p className="mt-1 text-xs text-ink-soft">{new Date(item.created_at).toLocaleString()} · {item.status}</p>{item.note?<p className="mt-2 text-sm">{item.note}</p>:null}</div>{item.status==='pending'?<div className="flex gap-2"><button disabled={busy} onClick={()=>void reviewWalletRequest(item.id,'approved')} className="eyebrow bg-primary px-3 py-2 text-primary-foreground disabled:opacity-50">Approve</button><button disabled={busy} onClick={()=>void reviewWalletRequest(item.id,'rejected')} className="eyebrow border border-border px-3 py-2 disabled:opacity-50">Reject</button></div>:<span className="h-fit border border-border px-3 py-2 text-xs capitalize">{item.status}</span>}</article>):<p className="py-6 text-sm text-ink-soft">No wallet requests yet.</p>}</div></section> : null}
               {section === 'promotions' ? <section className="mt-8 grid gap-8 lg:grid-cols-2"><form onSubmit={savePromotion} className="grid content-start gap-3 border border-border bg-card p-6"><h2 className="display text-2xl">Publish promotion</h2><label className="text-sm">Title<input required value={promotionForm.title} onChange={e=>setPromotionForm(p=>({...p,title:e.target.value}))} className="mt-1 w-full border border-input bg-background px-3 py-2"/></label><label className="text-sm">Description<textarea value={promotionForm.description} onChange={e=>setPromotionForm(p=>({...p,description:e.target.value}))} rows={3} className="mt-1 w-full border border-input bg-background px-3 py-2"/></label><button disabled={busy} className="eyebrow bg-primary px-5 py-3 text-primary-foreground">Publish promotion</button></form><div><h2 className="display text-2xl">Current promotions</h2><div className="mt-4 divide-y divide-border border-y border-border">{promotions.map(p=><article key={p.id} className="py-4"><p className="font-medium">{p.title}</p><p className="mt-1 text-sm text-ink-soft">{p.description} · {p.active?'Active':'Inactive'}</p></article>)}</div></div></section> : null}
