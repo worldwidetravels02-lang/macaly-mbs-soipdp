@@ -233,12 +233,29 @@ function ResidencesPage() {
                   const unlocked = customerLevelAccess.find((item) => item.user_id === currentUserId && item.level_name === level)?.is_unlocked ?? level === 'Junior Trial'
                   const isTrial = level === 'Junior Trial'
                   const levelImage = isTrial ? IMAGES.marinaNight : level === "Senior" ? IMAGES.tower : level === "Master" ? IMAGES.detail : IMAGES.villas
-                  const count = isTrial ? 20 : 60
-                  return <button key={level} type="button" disabled={!unlocked} onClick={() => { window.location.href = `/residences?level=${encodeURIComponent(level)}` }} className="group relative flex min-h-[260px] flex-col justify-end overflow-hidden rounded-2xl border border-[#d8b66b]/70 bg-[#071b38] text-left text-white shadow-md transition hover:-translate-y-1 hover:shadow-xl disabled:cursor-not-allowed">
-                    <img src={levelImage} alt="" className="absolute inset-x-0 top-0 h-[148px] w-full object-cover" />
-                    {!unlocked ? <div className="absolute inset-x-0 top-0 h-[148px] bg-[#071426]/30" /> : null}
-                    {!unlocked ? <span className="absolute left-1/2 top-[74px] grid h-11 w-11 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white text-[#25231f] shadow">♙</span> : null}
-                    <div className="relative mt-[148px] flex flex-1 flex-col border-t border-[#d8b66b]/70 bg-[#071b38] p-4"><span className="text-[10px] font-medium uppercase tracking-widest text-[#e2c47f]">{count} projects</span><strong className="mt-1 text-base font-semibold text-white">{isTrial ? "Junior (Trial)" : level}</strong>{!unlocked ? <span className="mt-3 inline-flex w-fit items-center gap-1 rounded-md bg-[#f7efd9] px-3 py-1.5 text-[11px] text-[#806b3c]">♙ Locked</span> : null}</div>
+                  const levelProperties = projects.filter((project) => project.project_level === level)
+                  const count = levelProperties.length
+                  const prices = levelProperties.map((project) => Number(project.price_amount)).filter((price) => Number.isFinite(price) && price > 0)
+                  const startingPrice = prices.length ? Math.min(...prices) : null
+                  const percentages = levelProperties.flatMap((project) => project.order_percentages ?? []).filter((value) => Number.isFinite(Number(value)))
+                  const commissionLabel = percentages.length ? `${Math.min(...percentages)}–${Math.max(...percentages)}% commission` : 'Commission set by admin'
+                  return <button key={level} type="button" disabled={!unlocked} onClick={() => { window.location.href = `/residences?level=${encodeURIComponent(level)}` }} className="group relative flex min-h-[390px] flex-col overflow-hidden rounded-2xl border border-[#d8b66b] bg-[#071b38] text-left text-white shadow-lg shadow-[#071b38]/15 transition duration-300 hover:-translate-y-1 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-75">
+                    <div className="relative h-[190px] w-full overflow-hidden">
+                      <img src={levelImage} alt="" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#071b38] via-[#071b38]/15 to-transparent" />
+                      <span className="absolute left-4 top-4 rounded-full border border-[#f1d28d]/80 bg-[#071b38]/85 px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.2em] text-[#f1d28d]">{count} {count === 1 ? 'property' : 'properties'}</span>
+                      {!unlocked ? <span className="absolute right-4 top-4 rounded-full bg-white/95 px-3 py-1.5 text-[10px] font-semibold text-[#071b38]">Locked</span> : null}
+                      <h2 className="absolute bottom-4 left-5 display text-2xl font-semibold text-white">{isTrial ? 'Junior Trial' : level}</h2>
+                    </div>
+                    <div className="flex flex-1 flex-col border-t border-[#d8b66b]/60 p-5">
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-[#e2c47f]">Msheireb Properties · Dubai</p>
+                      <p className="mt-3 text-sm leading-6 text-white/75">Explore curated properties, with order settings managed securely by the administrator.</p>
+                      <div className="mt-4 grid grid-cols-2 gap-3 border-y border-white/15 py-3">
+                        <div><span className="block text-[9px] uppercase tracking-widest text-white/50">Starting price</span><strong className="mt-1 block text-sm text-[#f1d28d]">{startingPrice !== null ? `AED ${startingPrice.toLocaleString('en', { maximumFractionDigits: 2 })}` : 'Set by admin'}</strong></div>
+                        <div><span className="block text-[9px] uppercase tracking-widest text-white/50">Commission</span><strong className="mt-1 block text-sm text-[#f1d28d]">{commissionLabel}</strong></div>
+                      </div>
+                      <span className="mt-auto flex items-center justify-between pt-5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#f1d28d]">{unlocked ? 'View Properties' : 'Access Locked'}<span aria-hidden="true" className="text-lg transition-transform group-hover:translate-x-1">→</span></span>
+                    </div>
                   </button>
                 })}
                 {visibleLevels.length === 0 ? <p className="rounded-lg border border-[#e8e4dc] bg-white p-5 text-sm text-[#777]">No project groups match your search.</p> : null}
