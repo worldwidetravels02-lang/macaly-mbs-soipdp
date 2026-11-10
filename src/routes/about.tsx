@@ -31,11 +31,22 @@ const MILESTONES = [
 ]
 
 function AboutPage() {
-  const [pageContent, setPageContent] = useState<{ title: string; content: string } | null>(null)
+  const [pageContent, setPageContent] = useState<{ title: string; content: string; sections: { header: string; description: string }[] } | null>(null)
   useEffect(() => {
     let active = true
     void requireSupabase().from('site_content').select('title,content').eq('slug', 'about').eq('published', true).maybeSingle().then(({ data }) => {
-      if (active && data?.content) setPageContent({ title: data.title, content: data.content })
+      if (active && data?.content) {
+        let content = String(data.content)
+        let sections: { header: string; description: string }[] = []
+        try {
+          const parsed = JSON.parse(content)
+          if (parsed?.format === 'msheireb-about-sections-v1') {
+            content = typeof parsed.intro === 'string' ? parsed.intro : ''
+            sections = Array.isArray(parsed.sections) ? parsed.sections.filter((item: any) => item && typeof item.header === 'string' && typeof item.description === 'string') : []
+          }
+        } catch { /* Older plain-text About content is displayed as before. */ }
+        setPageContent({ title: data.title, content, sections })
+      }
     })
     return () => { active = false }
   }, [])
@@ -149,7 +160,7 @@ function AboutPage() {
             </div>
           </div>
         </section>
-        </> : <section className="py-16 sm:py-24"><div className="mx-auto w-full max-w-3xl whitespace-pre-wrap px-5 text-[1rem] leading-relaxed text-ink-soft sm:px-8">{pageContent.content}</div></section>}
+        </> : <section className="py-16 sm:py-24"><div className="mx-auto grid w-full max-w-5xl gap-10 px-5 sm:px-8">{pageContent.content ? <div className="mx-auto w-full max-w-3xl whitespace-pre-wrap text-[1rem] leading-relaxed text-ink-soft">{pageContent.content}</div> : null}{pageContent.sections.length ? <div className="grid gap-5 sm:grid-cols-2">{pageContent.sections.map((item, index) => <article key={index} className="border border-border bg-card p-6 sm:p-8"><h2 className="display text-xl">{item.header}</h2><p className="mt-4 whitespace-pre-wrap text-sm leading-7 text-ink-soft">{item.description}</p></article>)}</div> : null}</div></section>}
       </main>
       <SiteFooter />
     </div>
