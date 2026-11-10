@@ -2,7 +2,7 @@ import { WorkspaceSidebar } from '../components/workspace-sidebar'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useCallback, useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
-import { ArrowRight, SiteFooter, SiteHeader } from '../components/site-chrome'
+import { ArrowRight } from '../components/site-chrome'
 import { requireSupabase } from '../lib/supabase-client'
 import { canonicalUrl } from '../lib/canonical-url'
 import siteMetadata from '../metadata.json'
@@ -223,15 +223,14 @@ function DashboardPage() {
                     const levelTasks = memberTasks.filter((task) => Number(task.target_level ?? 0) === Number(plan.level))
                     const approved = levelTasks.filter((task) => task.status === 'approved').length
                     const image = [IMAGES.marinaNight, IMAGES.tower, IMAGES.villas, IMAGES.penthouse][index % 4]
-                    const card = <article className={['relative flex min-h-[245px] w-[260px] shrink-0 snap-start flex-col justify-end overflow-hidden border text-left sm:w-[300px]', unlocked ? 'border-brass/50' : 'border-border opacity-70'].join(' ')}>
+                    const displayName = isJuniorTrial ? 'Junior (Trial)' : plan.name.replace(/^Level\\s*\\d+\\s*[·-]?\\s*/i, '')
+                    const projectLabel = isJuniorTrial ? '20 PROJECTS · TRIAL' : (unlocked ? '60 PROJECTS · AVAILABLE' : '60 PROJECTS · LOCKED')
+                    const card = <article className={['relative flex min-h-[180px] w-[245px] shrink-0 snap-start flex-col justify-end overflow-hidden rounded-lg text-left sm:w-[270px]', unlocked ? '' : ''].join(' ')}>
                       <img src={image} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
                       <div className="absolute inset-0 bg-gradient-to-t from-[#071426] via-[#071426]/65 to-transparent" />
-                      <div className="relative p-5 text-white">
-                        <div className="mb-3 flex items-center justify-between gap-2"><span className="eyebrow text-[0.5rem] text-[#d3b36c]">Project group {plan.level}</span><span className="bg-[#071426]/70 px-2 py-1 text-[0.58rem]">{unlocked ? 'Available' : '🔒 Locked'}</span></div>
-                        <h3 className="display text-2xl">{plan.name}</h3>
-                        <p className="mt-2 text-xs text-white/75">{approved} of {levelTasks.length} assigned tasks approved</p>
-                        <p className="mt-4 text-xs font-semibold text-[#d3b36c]">{unlocked ? 'View properties →' : 'Access not yet assigned'}</p>
-                      </div>
+                      {!unlocked ? <div className="absolute inset-0 bg-[#071426]/25" /> : null}
+                      {!unlocked ? <span className="absolute left-1/2 top-1/2 grid h-11 w-11 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white text-[#222] shadow"><svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span> : null}
+                      <div className="relative p-4 text-white"><p className="text-[10px] text-white/80">{projectLabel}</p><h3 className="mt-1 text-sm font-semibold">{displayName}</h3></div>
                     </article>
                     return unlocked ? <Link key={plan.id} to="/residences" search={{ level: plan.name }} className="block focus-visible:outline focus-visible:outline-2 focus-visible:outline-brass">{card}</Link> : <div key={plan.id}>{card}</div>
                   })}
@@ -312,7 +311,7 @@ function DashboardPage() {
           </> : null}
         </div>
       </main>
-      <SiteFooter />
+
     </div>
   )
 }
