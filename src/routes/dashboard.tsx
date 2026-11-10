@@ -6,6 +6,7 @@ import { ArrowRight, SiteFooter, SiteHeader } from '../components/site-chrome'
 import { requireSupabase } from '../lib/supabase-client'
 import { canonicalUrl } from '../lib/canonical-url'
 import siteMetadata from '../metadata.json'
+import { IMAGES } from '../data/site'
 
 const meta = siteMetadata['/dashboard']
 const currencies = ['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR', 'INR'] as const
@@ -170,20 +171,29 @@ function DashboardPage() {
       <SiteHeader />
       <main id="main" className="pb-20 pt-28 sm:pt-36 lg:ml-64">
         <div className="mx-auto grid w-full max-w-6xl gap-8 px-5 sm:px-8">
-          <header className="flex flex-col gap-4 border-b border-border pb-8 sm:flex-row sm:items-end sm:justify-between">
-            <div><p className="eyebrow text-brass">Private member area</p><h1 className="display mt-3 text-[clamp(1.9rem,4vw,2.8rem)]">Welcome, {name.split(' ')[0]}</h1><p className="mt-2 text-sm text-ink-soft">Your account, property requests and wallet overview.</p></div>
-            {user ? <div className="flex flex-wrap gap-3"><Link to="/account" className="eyebrow inline-flex items-center gap-2 border border-border px-5 py-3 text-[0.55rem]">Account <ArrowRight /></Link><Link to="/support" className="eyebrow inline-flex items-center gap-2 border border-border px-5 py-3 text-[0.55rem]">Support <ArrowRight /></Link></div> : null}
-          </header>
+          <section className="relative isolate min-h-[300px] overflow-hidden rounded-2xl bg-[#101d32] text-white sm:min-h-[350px]">
+            <img src={IMAGES.marinaNight} alt="Dubai waterfront skyline" className="absolute inset-0 -z-20 h-full w-full object-cover opacity-55" />
+            <div className="absolute inset-0 -z-10 bg-gradient-to-r from-[#071426]/95 via-[#0d2038]/75 to-[#0d2038]/15" />
+            <div className="relative max-w-3xl px-7 py-10 sm:px-11 sm:py-14">
+              <p className="eyebrow mb-3 text-[0.55rem] text-[#d3b36c]">Dubai · Private member workspace</p>
+              <h1 className="display text-4xl leading-tight text-white sm:text-5xl">Welcome, {name.split(' ')[0]}.</h1>
+              <p className="mt-4 max-w-xl text-sm leading-7 text-white/75">Discover exceptional residences and manage your private account in one place.</p>
+              <div className="mt-7 flex flex-wrap gap-3">
+                <Link to="/residences" className="eyebrow inline-flex items-center gap-2 rounded-lg bg-[#c4a568] px-6 py-3.5 text-[0.58rem] font-semibold text-[#111d30] transition hover:bg-[#d6bd8d]">Explore projects <ArrowRight /></Link>
+                <Link to="/account" className="eyebrow inline-flex items-center rounded-lg border border-white/40 bg-white/5 px-6 py-3.5 text-[0.58rem] font-semibold text-white hover:bg-white/10">My account</Link>
+              </div>
+            </div>
+          </section>
 
           {loading ? <div data-testid="dashboard-loading" className="border border-border bg-card p-10 text-center text-sm text-ink-soft">Opening your dashboard…</div> : null}
           {!loading && !user ? <section data-testid="dashboard-signed-out" className="border border-border bg-card p-8 sm:p-12"><p className="eyebrow text-brass">Member area</p><h2 className="display mt-4 text-2xl">Sign in to open your dashboard.</h2><p className="mt-3 text-sm text-ink-soft">Your dashboard holds your wallet, property requests, account details and customer support.</p><Link to="/login" className="eyebrow mt-6 inline-flex items-center gap-3 bg-primary px-6 py-4 text-[0.6rem] text-primary-foreground">Login <ArrowRight /></Link></section> : null}
           {error ? <p role="alert" className="border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</p> : null}
           {user && !loading ? <>
-            <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="border border-brass/40 bg-brass/5 p-6"><p className="eyebrow text-[0.5rem] text-brass">Wallet balance · {currency}</p><p data-testid="dashboard-balance" className="display mt-3 text-2xl">{formatMoney(balance, currency)}</p><Link to="/wallet" className="eyebrow mt-4 inline-flex items-center gap-2 text-[0.5rem]">Open wallet <ArrowRight /></Link></div>
-              <div className="border border-border bg-card p-6"><p className="eyebrow text-[0.5rem] text-ink-soft">Property requests</p><p className="display mt-3 text-2xl">{investments.length}</p><p className="mt-2 text-xs text-ink-soft">{pendingProjects} pending review</p></div>
-              <div className="border border-border bg-card p-6"><p className="eyebrow text-[0.5rem] text-ink-soft">Approved / funded</p><p className="display mt-3 text-2xl">{activeProjects}</p><p className="mt-2 text-xs text-ink-soft">Requests approved or completed</p></div>
-              <div className="border border-border bg-card p-6"><p className="eyebrow text-[0.5rem] text-ink-soft">Unread notifications</p><p className="display mt-3 text-2xl">{unread}</p><p className="mt-2 text-xs text-ink-soft">Updates on your account</p></div>
+            <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <Link to="/wallet" className="rounded-xl border border-[#e5e0d5] bg-white p-5 transition hover:border-[#b89b59]"><p className="eyebrow text-[0.5rem] text-[#92815e]">Wallet balance · {currency}</p><p data-testid="dashboard-balance" className="display mt-3 text-2xl text-[#172238]">{formatMoney(balance, currency)}</p><p className="mt-1 text-xs text-[#858585]">Available balance</p></Link>
+              <Link to="/residences" className="rounded-xl border border-[#e5e0d5] bg-white p-5 transition hover:border-[#b89b59]"><p className="eyebrow text-[0.5rem] text-[#92815e]">Property requests</p><p className="display mt-3 text-2xl text-[#172238]">{investments.length}</p><p className="mt-1 text-xs text-[#858585]">{pendingProjects} pending review</p></Link>
+              <Link to="/residences" className="rounded-xl border border-[#e5e0d5] bg-white p-5 transition hover:border-[#b89b59]"><p className="eyebrow text-[0.5rem] text-[#92815e]">Approved / funded</p><p className="display mt-3 text-2xl text-[#172238]">{activeProjects}</p><p className="mt-1 text-xs text-[#858585]">Approved or completed</p></Link>
+              <Link to="/support" className="rounded-xl border border-[#e5e0d5] bg-white p-5 transition hover:border-[#b89b59]"><p className="eyebrow text-[0.5rem] text-[#92815e]">Unread notifications</p><p className="display mt-3 text-2xl text-[#172238]">{unread}</p><p className="mt-1 text-xs text-[#858585]">Latest account updates</p></Link>
             </section>
 
             <section id="investment-level" className="border border-brass/40 bg-brass/5 p-6">
