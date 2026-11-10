@@ -75,7 +75,7 @@ export function SiteHeader({ overlay = false, hideMenuButton = false }: { overla
   const [scrolled, setScrolled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [language, setLanguage] = useState('EN')
-  const [currency, setCurrency] = useState('AED')
+  const [currency, setCurrency] = useState('OMR')
   const [isAuthenticated, setIsAuthenticated] = useState(false)
 
   useEffect(() => {
