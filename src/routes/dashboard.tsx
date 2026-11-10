@@ -54,7 +54,6 @@ function DashboardPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [userId, setUserId] = useState<string | null>(null)
   const [email, setEmail] = useState('')
   const [profile, setProfile] = useState<Profile>({
     full_name: '',
@@ -76,7 +75,6 @@ function DashboardPage() {
 
     let active = true
     const loadMemberArea = async (id: string) => {
-      setUserId(id)
       const [{ data: authData }, { data: propertyData }, { data: profileData }, { data: noticeData }, { data: walletData }, { count: requestCount }] =
         await Promise.all([
           supabase.auth.getUser(),
@@ -104,10 +102,7 @@ function DashboardPage() {
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session) {
-        setUserId(null)
         void navigate({ to: '/login' })
-      } else if (session.user.id !== userId) {
-        void loadMemberArea(session.user.id)
       }
     })
 
