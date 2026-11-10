@@ -538,3 +538,51 @@ button:active, [role="button"]:active, a:active {
     animation: none;
   }
 }
+
+
+/* Animated confirmation popup for admin actions. */
+@keyframes msheirebAdminToastIn {
+  0% { opacity: 0; transform: translate3d(-50%,-18px,0) scale(.94); }
+  65% { opacity: 1; transform: translate3d(-50%,3px,0) scale(1.015); }
+  100% { opacity: 1; transform: translate3d(-50%,0,0) scale(1); }
+}
+.admin-action-toast {
+  position: fixed;
+  z-index: 10000;
+  top: max(16px, env(safe-area-inset-top));
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: min(calc(100vw - 28px), 520px);
+  padding: 14px 16px;
+  border: 1px solid hsl(var(--brass) / .55);
+  background: #102744;
+  color: #fff;
+  box-shadow: 0 18px 48px rgb(0 0 0 / .24);
+  animation: msheirebAdminToastIn 420ms cubic-bezier(.2,.8,.2,1) both;
+}
+.admin-action-toast-success { border-left: 4px solid #d6b56d; }
+.admin-action-toast-error { border-left: 4px solid #ef7777; background: #3a1720; }
+.admin-action-toast-icon {
+  display: grid;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / .35);
+  border-radius: 50%;
+  color: #e5c77d;
+  font-weight: 700;
+}
+.admin-action-toast-error .admin-action-toast-icon { color: #ffaaaa; }
+.admin-action-toast-close {
+  flex: 0 0 auto;
+  padding: 0 4px;
+  color: rgb(255 255 255 / .8);
+  font-size: 24px;
+  line-height: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-action-toast { animation: none; }
+}
