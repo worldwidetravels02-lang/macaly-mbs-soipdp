@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 import { requireSupabase } from '../lib/supabase-client'
 import { ListingsGate } from '../components/listings-gate'
@@ -39,6 +39,7 @@ export const Route = createFileRoute('/residences/')({
 
 function ResidencesPage() {
   const search = Route.useSearch()
+  const navigate = useNavigate({ from: '/residences/' })
   const [checkingSession, setCheckingSession] = useState(true)
   const [signedIn, setSignedIn] = useState(false)
   const [projects, setProjects] = useState<Project[]>([])
@@ -240,7 +241,7 @@ function ResidencesPage() {
                   const startingPrice = prices.length ? Math.min(...prices) : null
                   const percentages = levelProperties.flatMap((project) => project.order_percentages ?? []).filter((value) => Number.isFinite(Number(value)))
                   const commissionLabel = percentages.length ? `${Math.min(...percentages)}–${Math.max(...percentages)}%` : 'Set by admin'
-                  return <button key={level} type="button" disabled={!unlocked} onClick={() => { window.location.href = `/residences?level=${encodeURIComponent(level)}` }} className="group relative flex min-h-[500px] flex-col overflow-hidden rounded-2xl border border-[#d8b66b] bg-white text-left shadow-lg shadow-[#071b38]/15 transition duration-300 hover:-translate-y-1 hover:shadow-2xl disabled:cursor-not-allowed disabled:hover:translate-y-0">
+                  return <button key={level} type="button" disabled={!unlocked} onClick={() => { setSelectedLevel(level); setCurrentProjectIndex(0); void navigate({ to: '/residences/', search: { level } }) }} className="group relative flex min-h-[500px] flex-col overflow-hidden rounded-2xl border border-[#d8b66b] bg-white text-left shadow-lg shadow-[#071b38]/15 transition duration-300 hover:-translate-y-1 hover:shadow-2xl disabled:cursor-not-allowed disabled:hover:translate-y-0">
                     <div className="relative h-[170px] w-full overflow-hidden">
                       <img src={levelImage} alt="" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
                       <span className="absolute left-3 top-3 rounded-full border border-[#f1d28d]/80 bg-[#071b38]/90 px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#f1d28d]">{count} {count === 1 ? 'property' : 'properties'}</span>
