@@ -71,7 +71,7 @@ function translateSiteLabel(label: string, language: string): string {
   return language === 'AR' ? (ARABIC_LABELS[label] ?? label) : label
 }
 
-export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
+export function SiteHeader({ overlay = false, hideMenuButton = false }: { overlay?: boolean; hideMenuButton?: boolean }) {
   const [scrolled, setScrolled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [language, setLanguage] = useState('EN')
@@ -226,23 +226,25 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
           </Link>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setMenuOpen((open) => !open)}
-          aria-expanded={menuOpen}
-          aria-controls="mobile-menu"
-          aria-label={menuOpen ? 'Close menu' : 'Open menu'}
-          data-testid="menu-toggle"
-          className="inline-flex items-center justify-center border border-current/40 p-2.5 lg:hidden"
-        >
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-5 w-5">
-            {menuOpen ? (
-              <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-            ) : (
-              <path d="M4 8h16M4 16h16" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-            )}
-          </svg>
-        </button>
+        {!hideMenuButton ? (
+          <button
+            type="button"
+            onClick={() => setMenuOpen((open) => !open)}
+            aria-expanded={menuOpen}
+            aria-controls="mobile-menu"
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+            data-testid="menu-toggle"
+            className="inline-flex items-center justify-center border border-current/40 p-2.5 lg:hidden"
+          >
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-5 w-5">
+              {menuOpen ? (
+                <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+              ) : (
+                <path d="M4 8h16M4 16h16" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+              )}
+            </svg>
+          </button>
+        ) : null}
       </div>
 
       {menuOpen ? (
