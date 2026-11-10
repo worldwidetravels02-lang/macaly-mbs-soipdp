@@ -50,11 +50,14 @@ function WalletPage() {
   const submitRequest = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!supabase) return
+    const { data: auth } = await supabase.auth.getUser()
+    if (!auth.user) { void navigate({ to: '/login' }); return }
     const value = Number(amount)
     if (!Number.isFinite(value) || value <= 0) { setError('Enter an amount greater than zero.'); return }
     if (requestType === 'withdrawal' && value > wallet.balance) { setError('The requested withdrawal is higher than your available wallet balance.'); return }
     setBusy(true); setError(null); setNotice(null)
     const { error: insertError } = await supabase.from('wallet_requests').insert({
+      user_id: auth.user.id,
       request_type: requestType, amount: value, note: note.trim() || null, status: 'pending',
     })
     if (insertError) setError(insertError.message)
