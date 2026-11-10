@@ -177,12 +177,9 @@ function ResidencesPage() {
         plan_code: 'project_order',
         amount,
         currency: 'AED',
-        quantity: selection.quantity,
-        commission_percentage: selection.percentage,
-        commission_amount: commissionAmount,
-        project_level: project.project_level,
-        set_number: project.set_number,
-        note: `Project order · Quantity: ${selection.quantity} · Percentage: ${selection.percentage}% · Base price: AED ${basePrice.toFixed(2)} · Order amount: AED ${amount.toFixed(2)} · Commission: AED ${commissionAmount.toFixed(2)}`,
+        commission_percent: selection.percentage,
+        expected_commission: commissionAmount,
+        note: `Project order · Quantity: ${selection.quantity} · Level: ${project.project_level} · Set: ${project.set_number} · Percentage: ${selection.percentage}% · Base price: AED ${basePrice.toFixed(2)} · Order amount: AED ${amount.toFixed(2)} · Expected commission: AED ${commissionAmount.toFixed(2)}`,
       })
       if (insertError) throw insertError
       setRequests((current) => [...current, { property_id: project.id, status: 'pending' }])
