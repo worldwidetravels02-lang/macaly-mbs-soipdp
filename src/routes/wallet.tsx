@@ -360,8 +360,8 @@ function WalletPage() {
                 </li>)}
               </ul>
             </section> : null}
-              <RequestHistory title="Deposit requests" rows={topups} kind="deposit" />
-              <RequestHistory title="Withdrawal requests" rows={withdrawals} kind="withdrawal" />
+              <RequestHistory title="Deposit requests" rows={topups} kind="deposit" displayCurrency={currency} rates={fxRates} />
+              <RequestHistory title="Withdrawal requests" rows={withdrawals} kind="withdrawal" displayCurrency={currency} rates={fxRates} />
             </section>
             <section className="grid gap-6 lg:grid-cols-3">
               <History title="Profit credits" rows={profits} displayCurrency={currency} rates={fxRates} />
@@ -403,7 +403,7 @@ function WalletPage() {
 
 
 
-function RequestHistory({ title, rows, kind }: { title: string; rows: RequestRow[]; kind: 'deposit' | 'withdrawal' }) {
+function RequestHistory({ title, rows, kind, displayCurrency, rates }: { title: string; rows: RequestRow[]; kind: 'deposit' | 'withdrawal'; displayCurrency: Currency; rates: FxRates }) {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'active' | 'completed' | 'not_approved'>('all')
   const statusInfo = (rawStatus: string) => {
