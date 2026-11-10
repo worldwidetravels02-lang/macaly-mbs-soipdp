@@ -58,6 +58,7 @@ function ResidencesPage() {
   const [loadingProjects, setLoadingProjects] = useState(false)
   const [busyProject, setBusyProject] = useState('')
   const [notice, setNotice] = useState('')
+  const [successPopup, setSuccessPopup] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -160,6 +161,12 @@ function ResidencesPage() {
       if (insertError) throw insertError
       setRequests((current) => [...current, { property_id: project.id, status: 'pending' }])
       setNotice('Your project order request has been sent to the administrator for review.')
+      setSuccessPopup(true)
+      window.setTimeout(() => {
+        setSuccessPopup(false)
+        setNotice('')
+        setCurrentProjectIndex((current) => current + 1 < projectCards.length ? current + 1 : 0)
+      }, 1800)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not submit your project order.')
     } finally { setBusyProject('') }
@@ -184,13 +191,14 @@ function ResidencesPage() {
           <Link to="/account" className="flex items-center gap-2 rounded-xl border border-[#c9a45c]/50 bg-[#10294b] px-2 py-1.5 text-xs text-white"><span className="grid h-8 w-8 place-items-center rounded-lg bg-[#d8b66b] font-semibold text-[#071b38]">{currentUserName.slice(0,1).toUpperCase()}</span><span className="hidden text-left sm:block"><strong className="block">{currentUserName.split(" ")[0]}</strong><span className="text-[10px] text-[#888]">User</span></span></Link>
         </div>
       </header>
+      {successPopup ? <div role="status" aria-live="polite" className="fixed inset-0 z-[100] flex items-center justify-center bg-[#071b38]/65 px-5 backdrop-blur-sm"><div className="w-full max-w-sm rounded-2xl border border-[#d8b66b] bg-white p-8 text-center shadow-2xl animate-[orderPop_.35s_ease-out]"><div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full bg-[#e8f5ec] text-3xl font-bold text-[#23834b]">✓</div><h2 className="display text-2xl text-[#071b38]">Order successful</h2><p className="mt-2 text-sm text-[#666]">Your request has been sent for admin review.</p><p className="mt-4 text-xs tracking-wide text-[#9a793b]">Opening the next property…</p></div><style>{'@keyframes orderPop { 0% { opacity: 0; transform: scale(.82) translateY(12px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }'}</style></div> : null}
       <main id="main" className="pb-20 pt-[86px] lg:ml-64">
         <div className="mx-auto w-full max-w-[1500px] px-5 sm:px-7">
         {checkingSession ? <p className="mx-auto w-full max-w-7xl px-5 py-16 text-sm text-ink-soft sm:px-8">Checking your session…</p> : !signedIn ? <ListingsGate /> : (
           <section className="py-12 sm:py-16">
             <div className="mx-auto w-full max-w-7xl px-5 sm:px-8">
               {error ? <p role="alert" className="mb-5 border border-destructive/40 p-4 text-sm text-destructive">{error}</p> : null}
-              {notice ? <p role="status" className="mb-5 border border-brass/40 p-4 text-sm text-ink-soft">{notice}</p> : null}
+
               <div className="mb-6 flex items-center justify-between gap-3">
                 {search.level ? <Link to="/residences" className="eyebrow inline-flex items-center gap-2 text-[0.55rem] text-brass">← All project groups</Link> : <span />}
                 <h1 className="display text-3xl text-[#25231f]">{search.level ? (selectedLevel === 'Junior Trial' ? 'Junior (Trial)' : selectedLevel) : 'Projects'}</h1>
@@ -278,11 +286,7 @@ function ResidencesPage() {
                       })}
                       {projectCards.length === 0 ? <p className="border border-border bg-card p-6 text-sm text-ink-soft sm:col-span-2 xl:col-span-4">No properties match these filters. Try another search or choose All properties.</p> : null}
                     </div>
-                    <div className="mx-auto mt-5 flex max-w-3xl items-center justify-between gap-4">
-                      <button type="button" disabled={currentProjectIndex <= 0} onClick={() => setCurrentProjectIndex((value) => Math.max(0, value - 1))} className="border border-border px-5 py-3 text-xs disabled:opacity-30">← Previous</button>
-                      <span className="text-xs text-ink-soft">Property {Math.min(currentProjectIndex + 1, projectCards.length)} of {projectCards.length}</span>
-                      <button type="button" disabled={currentProjectIndex >= projectCards.length - 1} onClick={() => setCurrentProjectIndex((value) => Math.min(projectCards.length - 1, value + 1))} className="bg-primary px-5 py-3 text-xs text-primary-foreground disabled:opacity-30">Next →</button>
-                    </div>
+                    <div className="mx-auto mt-5 max-w-3xl text-center text-xs text-ink-soft">Property {Math.min(currentProjectIndex + 1, projectCards.length)} of {projectCards.length}</div>
                     </>
                   )}
                 </>
