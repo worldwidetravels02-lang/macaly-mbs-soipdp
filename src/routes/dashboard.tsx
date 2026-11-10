@@ -6,7 +6,6 @@ import { ArrowRight } from '../components/site-chrome'
 import { requireSupabase } from '../lib/supabase-client'
 import { canonicalUrl } from '../lib/canonical-url'
 import siteMetadata from '../metadata.json'
-import { IMAGES } from '../data/site'
 
 const meta = siteMetadata['/dashboard']
 const currencies = ['OMR', 'AED', 'SAR', 'KWD', 'BHD', 'QAR'] as const
@@ -208,36 +207,24 @@ function DashboardPage() {
           {error ? <p role="alert" className="border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</p> : null}
           {user && !loading ? <>
             <section id="tasks-achievements" className="grid gap-6">
-              <section aria-label="Project groups" className="border border-border bg-card p-5 sm:p-6">
-                <div className="mb-5 flex items-center justify-between gap-3">
-                  <div><p className="eyebrow text-[0.5rem] text-brass">Explore Dubai</p><h2 className="display mt-2 text-xl">Project groups</h2></div>
-                  <div className="flex gap-2">
-                    <button type="button" aria-label="Previous project group" onClick={() => document.getElementById('member-level-track')?.scrollBy({ left: -320, behavior: 'smooth' })} className="grid h-10 w-10 place-items-center border border-border text-lg hover:border-brass">‹</button>
-                    <button type="button" aria-label="Next project group" onClick={() => document.getElementById('member-level-track')?.scrollBy({ left: 320, behavior: 'smooth' })} className="grid h-10 w-10 place-items-center border border-border text-lg hover:border-brass">›</button>
-                  </div>
+              <section aria-label="Explore Dubai video" className="overflow-hidden rounded-xl border border-[#b89b59]/40 bg-[#071426] p-4 sm:p-6">
+                <div className="mb-4">
+                  <p className="eyebrow text-[0.5rem] text-[#c6a65b]">Explore Dubai</p>
+                  <h2 className="display mt-2 text-xl text-white">Discover Dubai</h2>
+                  <p className="mt-1 text-xs text-white/65">Explore exceptional properties and destinations</p>
                 </div>
-                <div id="member-level-track" className="flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-3">
-                  {membershipPlans.map((plan, index) => {
-                    const isJuniorTrial = plan.name.toLowerCase().includes('junior trial')
-                    const unlocked = levelAccess.find((item) => item.user_id === user?.id && item.level_name === plan.name)?.is_unlocked ?? isJuniorTrial
-                    const levelTasks = memberTasks.filter((task) => Number(task.target_level ?? 0) === Number(plan.level))
-                    const approved = levelTasks.filter((task) => task.status === 'approved').length
-                    const image = [IMAGES.marinaNight, IMAGES.tower, IMAGES.villas, IMAGES.penthouse][index % 4]
-                    const displayName = isJuniorTrial ? 'Junior (Trial)' : plan.name.replace(/^Level\s*\d+\s*[·-]?\s*/i, '')
-                    const projectLabel = isJuniorTrial ? '20 PROJECTS · TRIAL' : (unlocked ? '60 PROJECTS · AVAILABLE' : '60 PROJECTS · LOCKED')
-                    const card = <article className={['relative flex min-h-[180px] w-[245px] shrink-0 snap-start flex-col justify-end overflow-hidden rounded-lg text-left sm:w-[270px]', unlocked ? '' : ''].join(' ')}>
-                      <img src={image} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#071426] via-[#071426]/65 to-transparent" />
-                      {!unlocked ? <div className="absolute inset-0 bg-[#071426]/25" /> : null}
-                      {!unlocked ? <span className="absolute left-1/2 top-1/2 grid h-11 w-11 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white text-[#222] shadow"><svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span> : null}
-                      <div className="relative p-4 text-white"><p className="text-[10px] text-white/80">{projectLabel}</p><h3 className="mt-1 text-sm font-semibold">{displayName}</h3></div>
-                    </article>
-                    return unlocked ? <Link key={plan.id} to="/residences" search={{ level: plan.name }} className="block focus-visible:outline focus-visible:outline-2 focus-visible:outline-brass">{card}</Link> : <div key={plan.id}>{card}</div>
-                  })}
-                  {membershipPlans.length === 0 ? <p className="border border-border p-5 text-sm text-ink-soft">Project groups will appear here when the administration team activates membership plans.</p> : null}
-                </div>
-                <div className="mt-3 flex justify-center gap-2">
-                  {membershipPlans.map((plan, index) => <button key={plan.id} type="button" aria-label={`Show project group ${index + 1}`} onClick={() => document.getElementById('member-level-track')?.children[index]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' })} className="h-1.5 w-5 bg-brass/40 transition hover:bg-brass" />)}
+                <div className="overflow-hidden rounded-lg border border-[#b89b59]/50 bg-black">
+                  <video
+                    className="aspect-video w-full object-cover"
+                    src="https://pixabay.com/videos/download/video-108522_medium.mp4"
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    controls
+                    preload="metadata"
+                    aria-label="Dubai luxury property showcase video"
+                  />
                 </div>
               </section>
               <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
