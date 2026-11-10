@@ -74,7 +74,10 @@ export function WorkspaceSidebar({ mode, active, onSelect, isOwner = false }: Pr
     {open ? <button aria-label="Close navigation overlay" onClick={() => setOpen(false)} className="fixed inset-0 z-[60] bg-black/55 lg:hidden" /> : null}
     <aside className={['fixed inset-y-0 left-0 z-[65] flex w-64 flex-col border-r shadow-sm transition-transform duration-200', isAdmin ? 'border-white/10 bg-[#101d35] text-white shadow-2xl' : 'border-white/10 bg-[#101d35] text-white shadow-2xl', open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'].join(' ')}>
       <div className={["flex min-h-20 items-center justify-between border-b px-4", "border-white/10"].join(" ")}>
-        <div className={isAdmin ? "" : "rounded-lg bg-white px-2 py-1"}>{isAdmin ? <><p className="display text-lg tracking-wide text-white">MSHEIREB</p><p className="eyebrow mt-1 text-[0.48rem] tracking-[0.2em] text-[#d8b56d]">ADMINISTRATION</p></> : <img src="https://tbywordpress.s3.eu-west-2.amazonaws.com/wp-content/uploads/2024/07/22061529/Screenshot-2024-07-22-at-09.13.19.png" alt="Msheireb Properties" className="h-12 w-[190px] object-contain" />}</div>
+        <Link to={isAdmin ? "/admin" : "/dashboard"} aria-label="Msheireb Properties home" className="flex min-w-0 items-center gap-2.5">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#d8b56d]/70 text-[#d8b56d]"><span className="display text-xl">M</span></span>
+          <span className="min-w-0 leading-tight"><span className="block truncate text-[11px] font-semibold tracking-[0.16em] text-white">MSHEIREB</span><span className="mt-1 block truncate text-[8px] tracking-[0.18em] text-[#d8b56d]">{isAdmin ? "ADMINISTRATION" : "PROPERTIES"}</span></span>
+        </Link>
         <button type="button" onClick={() => setOpen(false)} aria-label="Close navigation" className="text-xl text-[#777] lg:hidden">×</button>
       </div>
       <nav aria-label={isAdmin ? 'Admin navigation' : 'Customer navigation'} className="flex-1 space-y-1 overflow-y-auto px-3 py-5">
