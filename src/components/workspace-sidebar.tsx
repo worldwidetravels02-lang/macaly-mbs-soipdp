@@ -9,17 +9,12 @@ type Props = {
 }
 const memberItems = [
   ['dashboard','Dashboard','/dashboard'],
-  ['residences','Explore Properties','/residences'],
-  ['investment-level','Investment Level','/dashboard#investment-level'],
-  ['investments','My Investments','/dashboard#investments'],
-  ['wallet','My Wallet','/wallet'],
-  ['deposits','Deposits','/wallet#deposits'],
+  ['wallet','My Wallet and Deposits','/wallet'],
   ['withdrawals','Withdrawals','/wallet#withdrawals'],
-  ['commissions','Commissions','/wallet#commissions'],
-  ['transactions','Transactions','/wallet#transactions'],
+  ['transactions','Transactions and History','/wallet#transactions'],
   ['notifications','Notifications','/wallet#notifications'],
-  ['account','My Profile','/account'],
-  ['support','Support','/support'],
+  ['account','My Profile and Verification','/account'],
+  ['support','Telegram Support','/support'],
 ] as const
 const adminItems = [
   ['overview','Overview'],['properties','Properties'],['enquiries','Enquiries'],
