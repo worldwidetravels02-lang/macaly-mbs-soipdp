@@ -96,7 +96,7 @@ function ResidencesPage() {
       const client = requireSupabase()
       const [propertyResult, requestResult, userResult, accessResult, setAccessResult] = await Promise.all([
         client.from('properties').select('id,slug,name,location,description,price_label,price_amount,order_percentages,cover_image_url,project_level,set_number,sort_order').eq('status', 'published').not('project_level', 'is', null).order('sort_order', { ascending: true }),
-        client.from('investment_requests').select('property_id,status,project_level,set_number').order('created_at', { ascending: false }),
+        client.from('investment_requests').select('property_id,status').order('created_at', { ascending: false }),
         client.auth.getUser(),
         client.from('customer_project_level_access').select('user_id,level_name,is_unlocked'),
         client.from('customer_project_set_access').select('user_id,level_name,set_number,is_unlocked'),
@@ -140,9 +140,12 @@ function ResidencesPage() {
   const setIsUnlocked = (setNo: number) => {
     const adminSetting = customerSetAccess.find((item) => item.user_id === currentUserId && item.level_name === selectedLevel && Number(item.set_number) === setNo)
     if (adminSetting) return adminSetting.is_unlocked
-    if (setNo === 1) return selectedLevel === 'Junior Trial'
+    if (setNo === 1) return currentLevelUnlocked
+    const previousSetPropertyIds = new Set(levelProjects
+      .filter((project) => Number(project.set_number) === setNo - 1)
+      .map((project) => project.id))
     const previousSetOrders = new Set(requests
-      .filter((request) => request.project_level === selectedLevel && Number(request.set_number) === setNo - 1 && !['rejected', 'cancelled'].includes(String(request.status).toLowerCase()))
+      .filter((request) => previousSetPropertyIds.has(String(request.property_id)) && !['rejected', 'cancelled'].includes(String(request.status).toLowerCase()))
       .map((request) => request.property_id)
       .filter(Boolean))
     return previousSetOrders.size >= 20
@@ -182,7 +185,7 @@ function ResidencesPage() {
         note: `Project order · Quantity: ${selection.quantity} · Percentage: ${selection.percentage}% · Base price: AED ${basePrice.toFixed(2)} · Order amount: AED ${amount.toFixed(2)} · Commission: AED ${commissionAmount.toFixed(2)}`,
       })
       if (insertError) throw insertError
-      setRequests((current) => [...current, { property_id: project.id, status: 'pending', project_level: project.project_level, set_number: project.set_number }])
+      setRequests((current) => [...current, { property_id: project.id, status: 'pending' }])
       setNotice('Your project order request has been sent to the administrator for review.')
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not submit your project order.')
