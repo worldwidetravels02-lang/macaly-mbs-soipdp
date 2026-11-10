@@ -151,9 +151,10 @@ function DashboardPage() {
 
         <main className="min-w-0 flex-1">
           <header className="sticky top-0 z-20 flex h-[88px] items-center justify-between border-b border-[#e7e6e1] bg-white/95 px-5 backdrop-blur sm:px-8 lg:px-10">
-            <div className="flex items-center gap-4">
+            <div className="flex min-w-0 items-center gap-4">
+              <Link to="/" className="flex shrink-0 items-center" aria-label="Msheireb Properties home"><Wordmark /></Link>
               <button type="button" aria-label="Open menu" onClick={() => setMobileMenuOpen(v => !v)} className="rounded-xl border border-[#e7e6e1] px-4 py-3 text-lg lg:hidden">☰</button>
-              <p className="text-sm text-[#858585]">Workspace <span className="mx-2 text-[#c5c1b8]">/</span><span className="font-semibold text-[#171b2a]">Dashboard</span></p>
+              <p className="hidden text-sm text-[#858585] sm:block">Workspace <span className="mx-2 text-[#c5c1b8]">/</span><span className="font-semibold text-[#171b2a]">Dashboard</span></p>
             </div>
             <div className="flex items-center gap-3 sm:gap-5">
               <label className="hidden items-center gap-3 sm:flex"><span className="text-[10px] font-semibold tracking-[0.18em] text-[#888]">CURRENCY</span>
