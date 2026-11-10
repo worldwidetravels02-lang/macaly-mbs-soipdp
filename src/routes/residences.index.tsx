@@ -55,6 +55,7 @@ function ResidencesPage() {
   const [currency, setCurrency] = useState('AED')
   const [currentUserName, setCurrentUserName] = useState('Member')
   const [selectedSet, setSelectedSet] = useState<number>(1)
+  const [currentProjectIndex, setCurrentProjectIndex] = useState(0)
   const [projectSearch, setProjectSearch] = useState('')
   const [projectFilter, setProjectFilter] = useState<'all' | 'available' | 'ordered'>('all')
   const [projectSort, setProjectSort] = useState<'admin' | 'name' | 'price'>('admin')
@@ -198,7 +199,11 @@ function ResidencesPage() {
             <div className="mx-auto w-full max-w-7xl px-5 sm:px-8">
               {error ? <p role="alert" className="mb-5 border border-destructive/40 p-4 text-sm text-destructive">{error}</p> : null}
               {notice ? <p role="status" className="mb-5 border border-brass/40 p-4 text-sm text-ink-soft">{notice}</p> : null}
-              <h1 className="display text-3xl text-[#25231f]">Projects</h1>
+              <div className="mb-6 flex items-center justify-between gap-3">
+                {search.level ? <Link to="/residences" className="eyebrow inline-flex items-center gap-2 text-[0.55rem] text-brass">← All project groups</Link> : <span />}
+                <h1 className="display text-3xl text-[#25231f]">{search.level ? (selectedLevel === 'Junior Trial' ? 'Junior (Trial)' : selectedLevel) : 'Projects'}</h1>
+              </div>
+              {!search.level ? <>
               <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
                 <label className="flex min-h-[50px] w-full max-w-[420px] items-center gap-3 rounded-lg border border-[#e5e1da] bg-white px-4"><span aria-hidden="true" className="text-lg text-[#888]">⌕</span><input value={groupSearch} onChange={(event) => setGroupSearch(event.target.value)} type="search" placeholder="Search groups" className="min-w-0 flex-1 bg-transparent text-sm outline-none" /></label>
                 <div className="flex flex-wrap items-center gap-2">
@@ -213,7 +218,7 @@ function ResidencesPage() {
                   const isTrial = level === 'Junior Trial'
                   const levelImage = isTrial ? IMAGES.marinaNight : level === "Senior" ? IMAGES.tower : level === "Master" ? IMAGES.detail : IMAGES.villas
                   const count = isTrial ? 20 : 60
-                  return <button key={level} type="button" disabled={!unlocked} onClick={() => { setSelectedLevel(level); setSelectedSet(1); setError(""); setNotice(""); document.getElementById("project-group-details")?.scrollIntoView({ behavior: "smooth", block: "start" }) }} className="group relative flex min-h-[245px] flex-col justify-end overflow-hidden rounded-xl border border-[#e6e1da] bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md disabled:cursor-not-allowed">
+                  return <button key={level} type="button" disabled={!unlocked} onClick={() => { window.location.href = `/residences?level=${encodeURIComponent(level)}` }} className="group relative flex min-h-[245px] flex-col justify-end overflow-hidden rounded-xl border border-[#e6e1da] bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md disabled:cursor-not-allowed">
                     <img src={levelImage} alt="" className="absolute inset-x-0 top-0 h-[148px] w-full object-cover" />
                     {!unlocked ? <div className="absolute inset-x-0 top-0 h-[148px] bg-[#071426]/30" /> : null}
                     {!unlocked ? <span className="absolute left-1/2 top-[74px] grid h-11 w-11 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white text-[#25231f] shadow">♙</span> : null}
@@ -222,14 +227,15 @@ function ResidencesPage() {
                 })}
                 {visibleLevels.length === 0 ? <p className="rounded-lg border border-[#e8e4dc] bg-white p-5 text-sm text-[#777]">No project groups match your search.</p> : null}
               </div>
-              <div id="project-group-details" className="mt-10 scroll-mt-24 flex flex-wrap items-end justify-between gap-4">
+              </> : null}
+              <div id="project-group-details" className="mt-6 scroll-mt-24 flex flex-wrap items-end justify-between gap-4">
                 <div><p className="eyebrow text-brass">Selected group</p><h2 className="display mt-2 text-3xl">{selectedLevel === "Junior Trial" ? "Junior (Trial)" : selectedLevel}</h2></div>
                 <p className="text-xs text-ink-soft">20 projects in each set · displayed in admin order</p>
               </div>
               {!currentLevelUnlocked ? <p className="mt-6 border border-border p-5 text-sm text-ink-soft">This level is locked. Contact the administrator to request access.</p> : (
                 <>
                   <div className="mt-6 flex flex-wrap gap-2">
-                    {SETS.map((setNo) => <button key={setNo} type="button" disabled={!setIsUnlocked(setNo)} onClick={() => { setSelectedSet(setNo); setError(''); setNotice('') }} className={`eyebrow border px-5 py-3 text-[0.56rem] ${selectedSet === setNo ? 'border-brass bg-primary text-primary-foreground' : 'border-border'} ${!setIsUnlocked(setNo) ? 'cursor-not-allowed opacity-40' : ''}`}>Set {setNo}{!setIsUnlocked(setNo) ? ' · Locked' : ''}</button>)}
+                    {SETS.map((setNo) => <button key={setNo} type="button" disabled={!setIsUnlocked(setNo)} onClick={() => { setSelectedSet(setNo); setCurrentProjectIndex(0); setError(''); setNotice('') }} className={`eyebrow border px-5 py-3 text-[0.56rem] ${selectedSet === setNo ? 'border-brass bg-primary text-primary-foreground' : 'border-border'} ${!setIsUnlocked(setNo) ? 'cursor-not-allowed opacity-40' : ''}`}>Set {setNo}{!setIsUnlocked(setNo) ? ' · Locked' : ''}</button>)}
                   </div>
                   {!setIsUnlocked(selectedSet) ? <p className="mt-5 text-sm text-ink-soft">Complete all 20 projects in the previous set before this set opens.</p> : loadingProjects ? <p className="mt-8 text-sm text-ink-soft">Loading projects…</p> : (
                     <>
@@ -249,8 +255,8 @@ function ResidencesPage() {
                         <option value="price">Price: low to high</option>
                       </select>
                     </div>
-                    <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                      {projectCards.map((project, index) => {
+                    <div className="mx-auto mt-8 w-full max-w-3xl">
+                      {projectCards.slice(currentProjectIndex, currentProjectIndex + 1).map((project, index) => {
                         const image = project?.cover_image_url || SAMPLE_IMAGES[index % SAMPLE_IMAGES.length]
                         return <article key={project?.id || index} className="group flex h-full flex-col overflow-hidden border border-border bg-card">
                           <div className="relative overflow-hidden"><img src={image} alt={project?.name || `Sample project ${index + 1}`} loading="lazy" className="aspect-[4/3] w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]" /><span className="eyebrow absolute left-3 top-3 bg-deep/85 px-3 py-1.5 text-[0.48rem] text-on-deep">Project {String(index + 1).padStart(2, '0')}</span></div>
@@ -258,6 +264,11 @@ function ResidencesPage() {
                         </article>
                       })}
                       {projectCards.length === 0 ? <p className="border border-border bg-card p-6 text-sm text-ink-soft sm:col-span-2 xl:col-span-4">No properties match these filters. Try another search or choose All properties.</p> : null}
+                    </div>
+                    <div className="mx-auto mt-5 flex max-w-3xl items-center justify-between gap-4">
+                      <button type="button" disabled={currentProjectIndex <= 0} onClick={() => setCurrentProjectIndex((value) => Math.max(0, value - 1))} className="border border-border px-5 py-3 text-xs disabled:opacity-30">← Previous</button>
+                      <span className="text-xs text-ink-soft">Property {Math.min(currentProjectIndex + 1, projectCards.length)} of {projectCards.length}</span>
+                      <button type="button" disabled={currentProjectIndex >= projectCards.length - 1} onClick={() => setCurrentProjectIndex((value) => Math.min(projectCards.length - 1, value + 1))} className="bg-primary px-5 py-3 text-xs text-primary-foreground disabled:opacity-30">Next →</button>
                     </div>
                     </>
                   )}
