@@ -11,7 +11,7 @@ import siteMetadata from '../metadata.json'
 // Admin data spans several Supabase tables whose generated client schema is not yet unified.
 // Keep these dynamically selected admin rows flexible until database.types.ts is generated.
 type Row = any
-type Section = 'overview' | 'users' | 'properties' | 'finance' | 'transactions' | 'settings'
+type Section = 'overview' | 'properties' | 'enquiries' | 'users' | 'promotions' | 'finance' | 'investments' | 'commissions' | 'verifications' | 'tasks' | 'payments' | 'content' | 'team' | 'support' | 'settings' | 'transactions'
 const SECTIONS: { id: Section; label: string }[] = [
   { id: 'overview', label: 'Dashboard' },
   { id: 'users', label: 'Users' },
