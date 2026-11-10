@@ -437,3 +437,69 @@ body vite-error-overlay {
 .customer-dashboard .text-sm {
   font-size: 0.96rem;
 }
+
+
+/* Msheireb luxury motion system: subtle, responsive and accessible */
+@keyframes msheirebPageIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes msheirebSoftPop {
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+main {
+  animation: msheirebPageIn 480ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+button, [role="button"], a {
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    color 220ms ease,
+    background-color 220ms ease,
+    border-color 220ms ease,
+    box-shadow 260ms ease,
+    transform 260ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    opacity 220ms ease;
+}
+button:active, [role="button"]:active, a:active {
+  transform: scale(0.985);
+}
+@media (hover: hover) and (pointer: fine) {
+  button:hover:not(:disabled), [role="button"]:hover, a:hover {
+    transition-duration: 220ms;
+  }
+  .group img {
+    transition: transform 700ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+  .group:hover img {
+    transform: scale(1.035);
+  }
+  .customer-dashboard article,
+  .customer-dashboard [class*="card"] {
+    transition:
+      transform 280ms cubic-bezier(0.22, 0.61, 0.36, 1),
+      box-shadow 280ms ease,
+      border-color 240ms ease;
+  }
+  .customer-dashboard article:hover,
+  .customer-dashboard [class*="card"]:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 32px -24px hsl(var(--ink) / 0.42);
+  }
+}
+.toast-in, [role="alert"] {
+  animation: msheirebSoftPop 320ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  main { animation: none !important; }
+  button, [role="button"], a, .group img,
+  .customer-dashboard article,
+  .customer-dashboard [class*="card"] {
+    transition: none !important;
+  }
+  button:active, [role="button"]:active, a:active,
+  .customer-dashboard article:hover,
+  .customer-dashboard [class*="card"]:hover {
+    transform: none !important;
+  }
+}
