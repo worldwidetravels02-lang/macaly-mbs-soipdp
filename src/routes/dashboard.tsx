@@ -184,7 +184,7 @@ function DashboardPage() {
         <div className="text-xs text-[#7b7b7b]"><span>Workspace</span><span className="mx-2">/</span><strong className="text-[#172238]">Dashboard</strong></div>
         <div className="flex items-center gap-3 sm:gap-5">
           <label className="flex items-center gap-2 text-[10px] font-semibold tracking-widest text-[#888]">CURRENCY
-            <select aria-label="Dashboard currency" value={currency} onChange={(event) => setCurrency(event.target.value as Currency)} className="rounded-md border border-[#e6e1d8] bg-white px-3 py-2 text-xs font-semibold text-[#172238]">{currencies.map((code) => <option key={code} value={code}>{code}</option>)}</select>
+            <select aria-label="Dashboard currency" value={currency} onChange={(event) => { const nextCurrency = event.target.value as Currency; setCurrency(nextCurrency); if (user?.id) void requireSupabase().from("profiles").update({ preferred_currency: nextCurrency }).eq("id", user.id) }} className="rounded-md border border-[#e6e1d8] bg-white px-3 py-2 text-xs font-semibold text-[#172238]">{currencies.map((code) => <option key={code} value={code}>{code}</option>)}</select>
           </label>
           <Link to="/account" className="flex items-center gap-2 rounded-xl border border-[#e8e4dc] bg-[#fbfaf8] px-2 py-1.5 text-xs text-[#172238]"><span className="grid h-8 w-8 place-items-center rounded-lg bg-[#f2e9e7] font-semibold">{name.slice(0,1).toUpperCase()}</span><span className="hidden text-left sm:block"><strong className="block">{name.split(' ')[0]}</strong><span className="text-[10px] text-[#888]">User</span></span></Link>
         </div>
@@ -223,7 +223,7 @@ function DashboardPage() {
                     const levelTasks = memberTasks.filter((task) => Number(task.target_level ?? 0) === Number(plan.level))
                     const approved = levelTasks.filter((task) => task.status === 'approved').length
                     const image = [IMAGES.marinaNight, IMAGES.tower, IMAGES.villas, IMAGES.penthouse][index % 4]
-                    const displayName = isJuniorTrial ? 'Junior (Trial)' : plan.name.replace(/^Level\\s*\\d+\\s*[·-]?\\s*/i, '')
+                    const displayName = isJuniorTrial ? 'Junior (Trial)' : plan.name.replace(/^Level\s*\d+\s*[·-]?\s*/i, '')
                     const projectLabel = isJuniorTrial ? '20 PROJECTS · TRIAL' : (unlocked ? '60 PROJECTS · AVAILABLE' : '60 PROJECTS · LOCKED')
                     const card = <article className={['relative flex min-h-[180px] w-[245px] shrink-0 snap-start flex-col justify-end overflow-hidden rounded-lg text-left sm:w-[270px]', unlocked ? '' : ''].join(' ')}>
                       <img src={image} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
