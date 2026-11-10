@@ -503,3 +503,51 @@ button:active, [role="button"]:active, a:active {
     transform: none !important;
   }
 }
+
+
+/* Shared premium interaction feedback for buttons across the customer and admin areas. */
+@keyframes msheireb-button-pop {
+  0% { transform: scale(1); }
+  45% { transform: scale(0.965); }
+  100% { transform: scale(1); }
+}
+button,
+[role="button"],
+input[type="submit"],
+input[type="button"] {
+  transition:
+    transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease,
+    color 180ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+button:active:not(:disabled),
+[role="button"]:active,
+input[type="submit"]:active:not(:disabled),
+input[type="button"]:active:not(:disabled) {
+  animation: msheireb-button-pop 220ms ease-out;
+  box-shadow: 0 0 0 2px hsl(var(--brass) / 0.22);
+}
+button:focus-visible,
+[role="button"]:focus-visible,
+input[type="submit"]:focus-visible,
+input[type="button"]:focus-visible {
+  outline: 2px solid hsl(var(--brass));
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  button,
+  [role="button"],
+  input[type="submit"],
+  input[type="button"] {
+    transition: none;
+  }
+  button:active:not(:disabled),
+  [role="button"]:active,
+  input[type="submit"]:active:not(:disabled),
+  input[type="button"]:active:not(:disabled) {
+    animation: none;
+  }
+}
