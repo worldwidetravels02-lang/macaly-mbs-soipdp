@@ -259,7 +259,7 @@ function ResidencesPage() {
                         <li className="flex items-center gap-2"><span className="text-[#a98235]">✓</span> Admin-managed order settings</li>
                         <li className="flex items-center gap-2"><span className="text-[#a98235]">✓</span> Customer access controls</li>
                       </ul>
-                      <span className={`mt-auto flex items-center justify-center gap-2 rounded-xl border px-4 py-3.5 pt-3.5 mt-5 text-center text-xs font-semibold ${unlocked ? 'border-[#d8b66b] bg-gradient-to-r from-[#e7c36e] to-[#d5a844] text-[#071b38]' : 'border-[#d8b66b]/50 bg-[#071b38] text-white'}`}>{unlocked ? 'View Properties  ›' : '🔒  Contact Admin to Unlock'}</span>
+                      <span className={`mt-auto flex items-center justify-center gap-2 rounded-xl border px-4 py-3.5 pt-3.5 mt-5 text-center text-xs font-semibold ${unlocked ? 'border-[#d8b66b] bg-gradient-to-r from-[#e7c36e] to-[#d5a844] text-[#071b38]' : 'border-[#d8b66b]/50 bg-[#071b38] text-white'}`}>{unlocked ? 'View Properties  ›' : '🔒  Unlock'}</span>
                     </div>
                   </button>
                 })}
