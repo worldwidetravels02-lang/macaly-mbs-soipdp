@@ -47,6 +47,7 @@ function DashboardPage() {
   const [name, setName] = useState('Member')
   const [currency, setCurrency] = useState<Currency>('AED')
   const [balance, setBalance] = useState(0)
+  const [holdBalance, setHoldBalance] = useState(0)
   const [investments, setInvestments] = useState<Investment[]>([])
   const [investmentRequests, setInvestmentRequests] = useState<InvestmentRequest[]>([])
   const [activity, setActivity] = useState<LedgerItem[]>([])
@@ -70,9 +71,10 @@ function DashboardPage() {
       const current = auth.session?.user ?? null
       setUser(current)
       if (!current) return
-      const [profile, wallet, projects, requests, ledger, notices, commissionRows, memberProfile, taskRows, planRows, accessRows] = await Promise.all([
+      const [profile, wallet, pendingWithdrawals, projects, requests, ledger, notices, commissionRows, memberProfile, taskRows, planRows, accessRows] = await Promise.all([
         client.from('profiles').select('full_name,preferred_currency').eq('id', current.id).maybeSingle(),
         client.from('wallet_balances').select('balance').eq('user_id', current.id).eq('currency', currency).maybeSingle(),
+        client.from('wallet_pending_withdrawals').select('pending_amount').eq('user_id', current.id).eq('currency', currency).maybeSingle(),
         client.from('investments').select('id,amount,currency,status,created_at,reference,property_id').eq('user_id', current.id).order('created_at', { ascending: false }).limit(8),
         client.from('investment_requests').select('id,property_name,plan_code,amount,currency,profit_percent,expected_profit,commission_percent,expected_commission,status,created_at').eq('user_id', current.id).order('created_at', { ascending: false }),
         client.from('wallet_transactions').select('id,amount,currency,transaction_type,direction,status,description,created_at').eq('user_id', current.id).order('created_at', { ascending: false }).limit(8),
@@ -83,7 +85,7 @@ function DashboardPage() {
         client.from('membership_plans').select('*').eq('active', true).order('level', { ascending: true }),
         client.from('customer_project_level_access').select('user_id,level_name,is_unlocked').eq('user_id', current.id),
       ])
-      for (const result of [profile, wallet, projects, requests, ledger, notices, commissionRows, memberProfile, taskRows, planRows, accessRows]) if (result.error) throw result.error
+      for (const result of [profile, wallet, pendingWithdrawals, projects, requests, ledger, notices, commissionRows, memberProfile, taskRows, planRows, accessRows]) if (result.error) throw result.error
       setName(profile.data?.full_name?.trim() || current.user_metadata?.full_name || current.email?.split('@')[0] || 'Member')
       const preferred = profile.data?.preferred_currency
       if (preferred && currencies.includes(preferred as Currency) && preferred !== currency) {
@@ -91,6 +93,7 @@ function DashboardPage() {
         return
       }
       setBalance(Number(wallet.data?.balance ?? 0))
+      setHoldBalance(Number(pendingWithdrawals.data?.pending_amount ?? 0))
       setInvestments((projects.data ?? []) as Investment[])
       setInvestmentRequests((requests.data ?? []) as InvestmentRequest[])
       setActivity((ledger.data ?? []) as LedgerItem[])
@@ -168,6 +171,10 @@ function DashboardPage() {
     return totals
   }, {})
   const commissionCurrencyRows = Object.entries(commissionTotals).sort(([a], [b]) => a.localeCompare(b))
+  const creditedCommissions = commissions.filter((row) => ['credited', 'paid', 'completed'].includes(normalizeInvestmentStatus(row.status)) && row.currency === currency)
+  const totalCommission = creditedCommissions.reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
+  const todayKey = new Date().toLocaleDateString('en-CA')
+  const todayCommission = creditedCommissions.filter((row) => new Date(row.created_at).toLocaleDateString('en-CA') === todayKey).reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -233,6 +240,13 @@ function DashboardPage() {
                 <div className="mt-3 flex justify-center gap-2">
                   {membershipPlans.map((plan, index) => <button key={plan.id} type="button" aria-label={`Show project group ${index + 1}`} onClick={() => document.getElementById('member-level-track')?.children[index]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' })} className="h-1.5 w-5 bg-brass/40 transition hover:bg-brass" />)}
                 </div>
+              </section>
+              <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <Link to="/wallet" className="rounded-xl border border-[#e5e0d5] bg-white p-4 shadow-sm transition hover:border-[#b89b59]"><p className="text-[11px] text-[#858585]">Wallet balance</p><p data-testid="dashboard-balance" className="mt-1 text-xl font-semibold text-[#222]">{formatMoney(balance, currency)}</p><p className="mt-1 text-[10px] text-[#8b9a91]">Available</p></Link>
+                <Link to="/wallet#withdrawals" className="rounded-xl border border-[#e5e0d5] bg-white p-4 shadow-sm transition hover:border-[#b89b59]"><p className="text-[11px] text-[#858585]">Hold balance</p><p className="mt-1 text-xl font-semibold text-[#222]">{formatMoney(holdBalance, currency)}</p><p className="mt-1 text-[10px] text-[#8b9a91]">Group in progress</p></Link>
+                <Link to="/wallet#commissions" className="rounded-xl border border-[#e5e0d5] bg-white p-4 shadow-sm transition hover:border-[#b89b59]"><p className="text-[11px] text-[#858585]">Today’s commission</p><p className="mt-1 text-xl font-semibold text-[#222]">{formatMoney(todayCommission, currency)}</p><p className="mt-1 text-[10px] text-[#8b9a91]">Credited today</p></Link>
+                <Link to="/wallet#commissions" className="rounded-xl border border-[#e5e0d5] bg-white p-4 shadow-sm transition hover:border-[#b89b59]"><p className="text-[11px] text-[#858585]">Total commission</p><p className="mt-1 text-xl font-semibold text-[#222]">{formatMoney(totalCommission, currency)}</p><p className="mt-1 text-[10px] text-[#8b9a91]">All completed credits</p></Link>
+                <Link to="/wallet#transactions" className="rounded-xl border border-[#e5e0d5] bg-white p-4 shadow-sm transition hover:border-[#b89b59]"><p className="text-[11px] text-[#858585]">Orders</p><p className="mt-1 text-xl font-semibold text-[#222]">{investmentRequests.length}</p><p className="mt-1 text-[10px] text-[#8b9a91]">Submitted orders</p></Link>
               </section>
               <div className="border border-border bg-card">
                 <div className="border-b border-border px-6 py-5"><h2 className="display text-xl">Your assigned tasks</h2><p className="mt-1 text-xs text-ink-soft">Submit completed tasks for administrator review. Returned tasks can be submitted again.</p></div>
