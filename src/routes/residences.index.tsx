@@ -59,7 +59,6 @@ function ResidencesPage() {
   const [busyProject, setBusyProject] = useState('')
   const [notice, setNotice] = useState('')
   const [successPopup, setSuccessPopup] = useState(false)
-  const [levelCelebration, setLevelCelebration] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -208,7 +207,7 @@ function ResidencesPage() {
           <Link to="/account" className="flex items-center gap-2 rounded-xl border border-[#c9a45c]/50 bg-[#10294b] px-2 py-1.5 text-xs text-white"><span className="grid h-8 w-8 place-items-center rounded-lg bg-[#d8b66b] font-semibold text-[#071b38]">{currentUserName.slice(0,1).toUpperCase()}</span><span className="hidden text-left sm:block"><strong className="block">{currentUserName.split(" ")[0]}</strong><span className="text-[10px] text-[#888]">User</span></span></Link>
         </div>
       </header>
-      {successPopup ? <div role="status" aria-live="polite" className="fixed inset-0 z-[100] flex items-center justify-center bg-[#071b38]/65 px-5 backdrop-blur-sm"><div className="w-full max-w-sm rounded-2xl border border-[#d8b66b] bg-white p-8 text-center shadow-2xl animate-[orderPop_.35s_ease-out]"><div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full bg-[#e8f5ec] text-3xl font-bold text-[#23834b]">✓</div><h2 className="display text-2xl text-[#071b38]">Order successful</h2><p className="mt-2 text-sm text-[#666]">Your request has been sent for admin review.</p><p className="mt-4 text-xs tracking-wide text-[#9a793b]">Opening the next property…</p></div><style>{'@keyframes orderPop { 0% { opacity: 0; transform: scale(.82) translateY(12px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }'}</style></div> : null}
+      {successPopup ? <div role="status" aria-live="polite" className="fixed inset-0 z-[100] flex items-center justify-center bg-[#071b38]/65 px-5 backdrop-blur-sm"><div className="w-full max-w-sm rounded-2xl border border-[#d8b66b] bg-white p-8 text-center shadow-2xl animate-[orderPop_.35s_ease-out]"><div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full bg-[#e8f5ec] text-3xl font-bold text-[#23834b]">✓</div><h2 className="display text-2xl text-[#071b38]">{notice.startsWith('Congratulations!') ? 'Congratulations!' : 'Order successful'}</h2><p className="mt-2 text-sm text-[#666]">{notice || 'Your request has been sent for admin review.'}</p><p className="mt-4 text-xs tracking-wide text-[#9a793b]">{notice.startsWith('Congratulations!') ? 'Waiting for administrator approval…' : 'Opening the next property…'}</p></div><style>{'@keyframes orderPop { 0% { opacity: 0; transform: scale(.82) translateY(12px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }'}</style></div> : null}
       
       <main id="main" className="pb-20 pt-[86px] lg:ml-64">
         <div className="mx-auto w-full max-w-[1500px] px-5 sm:px-7">
