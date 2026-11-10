@@ -37,6 +37,7 @@ export function AuthPanel({ mode, adminOnly = false }: { mode: 'login' | 'regist
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [loginSuccess, setLoginSuccess] = useState(false)
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [loginIdentifier, setLoginIdentifier] = useState('')
@@ -139,6 +140,8 @@ export function AuthPanel({ mode, adminOnly = false }: { mode: 'login' | 'regist
           }
           await navigate({ to: '/admin' })
         } else {
+          setLoginSuccess(true)
+          await new Promise(resolve => window.setTimeout(resolve, 2000))
           await navigate({ to: '/dashboard' })
         }
       }
@@ -199,6 +202,19 @@ export function AuthPanel({ mode, adminOnly = false }: { mode: 'login' | 'regist
 
   return (
     <div className="border border-border bg-card p-6 soft-shadow sm:p-9" data-testid="auth-panel" data-state={busy ? 'loading' : 'ready'}>
+      {loginSuccess ? (
+        <div role="status" aria-live="polite" data-testid="login-success-popup" className="fixed inset-0 z-[100] flex items-center justify-center bg-ink/60 p-5">
+          <div className="w-full max-w-sm border border-brass/60 bg-background p-8 text-center shadow-2xl">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-brass text-brass">
+              <span aria-hidden="true" className="text-2xl">✓</span>
+            </div>
+            <p className="eyebrow mt-5 text-brass">Msheireb Properties</p>
+            <h2 className="display mt-2 text-2xl">Login Successful!</h2>
+            <p className="mt-3 text-sm leading-relaxed text-ink-soft">Welcome back. You have successfully signed in.</p>
+            <p className="mt-5 text-xs text-ink-soft">Opening your dashboard…</p>
+          </div>
+        </div>
+      ) : null}
       <p className="eyebrow text-brass">{view === 'signup' ? 'Registration' : 'Member portal'}</p>
       <h1 className="display mt-4 text-[clamp(1.8rem,3vw,2.5rem)]">{heading}</h1>
       <p className="mt-3 text-sm leading-relaxed text-ink-soft">{subheading}</p>
