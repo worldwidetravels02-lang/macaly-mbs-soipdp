@@ -47,7 +47,7 @@ export const Route = createFileRoute('/wallet')({
 function WalletPage() {
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
-  const [currency, setCurrency] = useState<Currency>('AED')
+  const [currency, setCurrency] = useState<Currency>('OMR')
   const [balance, setBalance] = useState(0)
   const [transactions, setTransactions] = useState<WalletRow[]>([])
   const [transactionLimit, setTransactionLimit] = useState(30)
