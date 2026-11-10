@@ -9,7 +9,7 @@ import siteMetadata from '../metadata.json'
 import { IMAGES } from '../data/site'
 
 const meta = siteMetadata['/dashboard']
-const currencies = ['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR', 'INR'] as const
+const currencies = ['OMR', 'AED', 'SAR', 'KWD', 'BHD', 'QAR'] as const
 const normalizeInvestmentStatus = (value: unknown) => String(value ?? '').trim().toLowerCase().replace(/[\s-]+/g, '_')
 type Currency = (typeof currencies)[number]
 type Investment = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; reference: string | null; property_id: string | null }
