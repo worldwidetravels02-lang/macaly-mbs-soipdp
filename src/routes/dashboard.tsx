@@ -210,7 +210,7 @@ function DashboardPage() {
               <section aria-label="Explore Dubai video" className="relative isolate w-full overflow-hidden bg-[#071426]">
                 <video
                   className="block aspect-video w-full object-cover"
-                  src="https://pixabay.com/videos/download/video-108522_medium.mp4"
+                  src="https://videos.pexels.com/video-files/30048213/12888884_1920_1080_30fps.mp4"
                   autoPlay
                   muted
                   loop
