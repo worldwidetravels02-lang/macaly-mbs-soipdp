@@ -69,6 +69,7 @@ function ResidencesPage() {
     if (search.level && LEVELS.includes(search.level as typeof LEVELS[number])) {
       setSelectedLevel(search.level)
       setSelectedSet(1)
+      setCurrentProjectIndex(0)
     }
   }, [search.level])
 
