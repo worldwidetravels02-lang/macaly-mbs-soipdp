@@ -162,7 +162,7 @@ function WalletPage() {
   async function submitWalletRequest(kind: 'deposit' | 'withdrawal') {
     const rawAmount = kind === 'deposit' ? depositAmount : withdrawalAmount
     const enteredAmount = Number(rawAmount)
-    if (!Number.isFinite(enteredAmount) || amount <= 0 || amount > 100000000 || !/^\\d+(?:\\.\\d{1,2})?$/.test(rawAmount.trim())) { setError('Enter a valid amount with no more than 2 decimal places (maximum 100,000,000).'); return }
+    if (!Number.isFinite(enteredAmount) || enteredAmount <= 0 || enteredAmount > 100000000 || !/^\\d+(?:\\.\\d{1,2})?$/.test(rawAmount.trim())) { setError('Enter a valid amount with no more than 2 decimal places (maximum 100,000,000).'); return }
     if (currency !== 'OMR' && (!fxRates[currency] || fxError)) { setError('The exchange rate is unavailable. Please select OMR or try again later.'); return }
     const amount = convertCurrency(enteredAmount, currency, 'OMR', fxRates)
     const method = payoutMethod.trim()
@@ -253,7 +253,7 @@ function WalletPage() {
   const withdrawableAmount = Math.max(0, balance - reservedWithdrawalAmount)
   const displayMoney = (value: number | string, source: Currency) => money(convertCurrency(value, source, currency, fxRates), currency)
 
-  const currencyTransactions = transactions.filter((row) => row.currency === currency)
+  const currencyTransactions = transactions
   const getTransactionDirection = (row: WalletRow): 'credit' | 'debit' | 'unknown' => {
     const direction = normalizeStatus(row.direction)
     if (direction === 'credit' || direction === 'debit') return direction
