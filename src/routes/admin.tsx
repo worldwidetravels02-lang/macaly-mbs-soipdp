@@ -126,7 +126,7 @@ function AdminPage() {
   const [postStatusFilter, setPostStatusFilter] = useState('all')
   const [paymentDetailsDraft, setPaymentDetailsDraft] = useState({ bank_name: '', account_name: '', account_number: '', iban: '', swift: '', note: '' })
   const [telegramUsername, setTelegramUsername] = useState('')
-  const [siteContentDrafts, setSiteContentDrafts] = useState<Record<'about' | 'terms', { title: string; content: string }>>({ about: { title: 'About Msheireb Properties', content: '' }, terms: { title: 'Terms & Conditions', content: '' } })
+  const [siteContentDrafts, setSiteContentDrafts] = useState<Record<'about' | 'terms', { title: string; content: string; sections: { header: string; description: string }[] }>>({ about: { title: 'About Msheireb Properties', content: '', sections: [] }, terms: { title: 'Terms & Conditions', content: '', sections: [] } })
   const [adminEmail, setAdminEmail] = useState('')
   const [fxDrafts, setFxDrafts] = useState<Record<string, string>>({})
   const [priceDrafts, setPriceDrafts] = useState<Record<string, string>>({})
@@ -217,9 +217,19 @@ function AdminPage() {
       setPlanDrafts(Object.fromEntries((next.plans ?? []).map((row) => [text(row.id), { name: text(row.name), minimum_amount: text(row.minimum_amount), profit_percent: text(row.profit_percent), commission_percent: text(row.commission_percent), active: Boolean(row.active) }])))
       setTelegramUsername(text(next.supportSettings?.[0]?.telegram_username))
       const siteRows = next.siteContent ?? []
+      const aboutStored = text(siteRows.find((item) => item.slug === 'about')?.content)
+      let aboutContent = aboutStored
+      let aboutSections: { header: string; description: string }[] = []
+      try {
+        const parsed = JSON.parse(aboutStored)
+        if (parsed?.format === 'msheireb-about-sections-v1') {
+          aboutContent = text(parsed.intro)
+          aboutSections = Array.isArray(parsed.sections) ? parsed.sections.filter((item: any) => item && typeof item.header === 'string' && typeof item.description === 'string').map((item: any) => ({ header: item.header, description: item.description })) : []
+        }
+      } catch { /* Existing plain-text About content remains supported. */ }
       setSiteContentDrafts({
-        about: { title: text(siteRows.find((item) => item.slug === 'about')?.title) || 'About Msheireb Properties', content: text(siteRows.find((item) => item.slug === 'about')?.content) },
-        terms: { title: text(siteRows.find((item) => item.slug === 'terms')?.title) || 'Terms & Conditions', content: text(siteRows.find((item) => item.slug === 'terms')?.content) },
+        about: { title: text(siteRows.find((item) => item.slug === 'about')?.title) || 'About Msheireb Properties', content: aboutContent, sections: aboutSections },
+        terms: { title: text(siteRows.find((item) => item.slug === 'terms')?.title) || 'Terms & Conditions', content: text(siteRows.find((item) => item.slug === 'terms')?.content), sections: [] },
       })
       const paymentDetails = next.paymentDetails?.[0]
       if (paymentDetails) setPaymentDetailsDraft({ bank_name: text(paymentDetails.bank_name), account_name: text(paymentDetails.account_name), account_number: text(paymentDetails.account_number), iban: text(paymentDetails.iban), swift: text(paymentDetails.swift), note: text(paymentDetails.note) })
@@ -941,13 +951,14 @@ function AdminPage() {
     event.preventDefault()
     const draft = siteContentDrafts[slug]
     void run(async () => {
-      if (!draft.title.trim() || !draft.content.trim()) throw new Error('Enter a page title and content before publishing.')
+      if (!draft.title.trim() || (!draft.content.trim() && (slug !== 'about' || !draft.sections.some((item) => item.header.trim() && item.description.trim())))) throw new Error('Enter a page title and page content before publishing.')
+      const savedContent = slug === 'about' ? JSON.stringify({ format: 'msheireb-about-sections-v1', intro: draft.content.trim(), sections: draft.sections.filter((item) => item.header.trim() && item.description.trim()) }) : draft.content.trim()
       const { error: saveError } = await requireSupabase().from('site_content').upsert({
-        slug, title: draft.title.trim(), content: draft.content.trim(), published: true,
+        slug, title: draft.title.trim(), content: savedContent, published: true,
         updated_by: user?.id, updated_at: new Date().toISOString(),
       }, { onConflict: 'slug' })
       if (saveError) throw saveError
-      setRows((current) => ({ ...current, siteContent: [ ...(current.siteContent ?? []).filter((item) => item.slug !== slug), { slug, ...draft, published: true, updated_at: new Date().toISOString() } ] }))
+      setRows((current) => ({ ...current, siteContent: [ ...(current.siteContent ?? []).filter((item) => item.slug !== slug), { slug, ...draft, content: savedContent, published: true, updated_at: new Date().toISOString() } ] }))
     }, slug === 'about' ? 'About Us page published.' : 'Terms & Conditions page published.')
   }
 
@@ -1246,7 +1257,8 @@ function AdminPage() {
                   return <form key={slug} onSubmit={saveSiteContent(slug)} className="grid content-start gap-3 border border-brass/40 bg-card p-5">
                     <div><h2 className="display text-xl">Edit {label}</h2><p className="mt-1 text-xs text-ink-soft">Changes are published to the customer-facing {slug === 'terms' ? 'Terms' : 'About'} page when you save.</p></div>
                     <label className="grid gap-2 text-xs text-ink-soft">Page title<input required maxLength={120} className={inputClass} value={draft.title} onChange={(event) => setSiteContentDrafts((current) => ({ ...current, [slug]: { ...current[slug], title: event.target.value } }))} /></label>
-                    <label className="grid gap-2 text-xs text-ink-soft">Page content<textarea required rows={12} maxLength={30000} className={inputClass + ' min-h-64 resize-y'} value={draft.content} onChange={(event) => setSiteContentDrafts((current) => ({ ...current, [slug]: { ...current[slug], content: event.target.value } }))} placeholder={`Write the ${label} content here…`} /></label>
+                    <label className="grid gap-2 text-xs text-ink-soft">{slug === 'about' ? 'Introduction' : 'Page content'}<textarea required={slug === 'terms'} rows={12} maxLength={30000} className={inputClass + ' min-h-64 resize-y'} value={draft.content} onChange={(event) => setSiteContentDrafts((current) => ({ ...current, [slug]: { ...current[slug], content: event.target.value } }))} placeholder={`Write the ${label} content here…`} /></label>
+                    {slug === 'about' ? <section className="grid gap-3 border-t border-border pt-4"><div className="flex items-center justify-between gap-3"><div><h3 className="font-medium">About Us sections</h3><p className="text-xs text-ink-soft">Add content columns with a header and description.</p></div><button type="button" className={softButton + ' whitespace-nowrap'} onClick={() => setSiteContentDrafts((current) => ({ ...current, about: { ...current.about, sections: [...current.about.sections, { header: '', description: '' }] } }))}><span aria-hidden="true">＋</span> Add section</button></div>{draft.sections.map((item, index) => <div key={index} className="grid gap-2 border border-border p-3"><div className="flex items-center justify-between"><span className="text-xs font-medium">Section {index + 1}</span><button type="button" className="text-xs text-red-500 underline" onClick={() => setSiteContentDrafts((current) => ({ ...current, about: { ...current.about, sections: current.about.sections.filter((_, itemIndex) => itemIndex !== index) } }))}>Remove</button></div><input required maxLength={120} className={inputClass} placeholder="Section header" value={item.header} onChange={(event) => setSiteContentDrafts((current) => ({ ...current, about: { ...current.about, sections: current.about.sections.map((section, itemIndex) => itemIndex === index ? { ...section, header: event.target.value } : section) } }))} /><textarea required rows={4} maxLength={5000} className={inputClass} placeholder="Section description" value={item.description} onChange={(event) => setSiteContentDrafts((current) => ({ ...current, about: { ...current.about, sections: current.about.sections.map((section, itemIndex) => itemIndex === index ? { ...section, description: event.target.value } : section) } }))} /></div>)}</section> : null}
                     <button disabled={busy} className={buttonClass}>Save and publish {label} <ArrowRight /></button>
                   </form>
                 })}
