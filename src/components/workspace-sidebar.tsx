@@ -16,11 +16,12 @@ const memberItems = [
   ['support','Support','/support'],
 ] as const
 const adminItems = [
-  ['overview','Overview'],['properties','Properties'],['enquiries','Enquiries'],
-  ['users','Customers'],['promotions','Promotions'],['finance','Wallet'],
-  ['investments','Investments'],['commissions','Commissions'],['verifications','ID Checks'],
-  ['tasks','Tasks'],['payments','Payments'],['content','Journal'],
-  ['team','Admin Team'],['support','Support'],['settings','Settings'],
+  ['overview','Dashboard'],
+  ['users','Users'],
+  ['properties','Projects'],
+  ['finance','Cashout'],
+  ['transactions','Transactions'],
+  ['settings','Settings'],
 ] as const
 
 export function WorkspaceSidebar({ mode, active, onSelect }: Props) {
