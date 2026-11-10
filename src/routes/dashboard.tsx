@@ -26,7 +26,7 @@ type Property = {
   cover_image_url: string | null
 }
 
-type Notice = {
+type WalletSummary = { balance: number; hold_balance: number }\n\ntype Notice = {
   id: string
   title: string
   body: string
@@ -63,7 +63,7 @@ function DashboardPage() {
     preferred_currency: 'AED',
   })
   const [properties, setProperties] = useState<Property[]>([])
-  const [notifications, setNotifications] = useState<Notice[]>([])
+  const [notifications, setNotifications] = useState<Notice[]>([])\n  const [wallet, setWallet] = useState<WalletSummary>({ balance: 0, hold_balance: 0 })\n  const [walletRequestCount, setWalletRequestCount] = useState(0)
   const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -77,12 +77,12 @@ function DashboardPage() {
     let active = true
     const loadMemberArea = async (id: string) => {
       setUserId(id)
-      const [{ data: authData }, { data: propertyData }, { data: profileData }, { data: noticeData }] =
+      const [{ data: authData }, { data: propertyData }, { data: profileData }, { data: noticeData }, { data: walletData }, { count: requestCount }] =
         await Promise.all([
           supabase.auth.getUser(),
           supabase.from('properties').select('id,slug,name,location,description,price_label,cover_image_url').eq('status', 'published').order('created_at', { ascending: false }),
           supabase.from('profiles').select('full_name,mobile,preferred_language,preferred_currency').eq('id', id).maybeSingle(),
-          supabase.from('notifications').select('id,title,body,created_at,read_at').eq('user_id', id).order('created_at', { ascending: false }).limit(10),
+          supabase.from('notifications').select('id,title,body,created_at,read_at').eq('user_id', id).order('created_at', { ascending: false }).limit(10),\n          supabase.from('member_wallets').select('balance,hold_balance').eq('user_id', id).maybeSingle(),\n          supabase.from('wallet_requests').select('id', { count: 'exact', head: true }).eq('user_id', id),
         ])
       if (!active) return
       setEmail(authData.user?.email ?? '')
@@ -115,7 +115,7 @@ function DashboardPage() {
       active = false
       listener.subscription.unsubscribe()
     }
-  }, [navigate, userId])
+  }, [navigate])
 
   const signOut = async () => {
     if (supabase) await supabase.auth.signOut()
@@ -175,28 +175,35 @@ function DashboardPage() {
                 {error ? <p role="alert" className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}
                 {notice ? <p role="status" className="mb-5 rounded-xl border border-[#d9c99e] bg-[#fbf8ef] px-4 py-3 text-sm">{notice}</p> : null}
 
-                <section className="relative overflow-hidden rounded-2xl border border-[#e7e8e1] bg-[#eaf1ed] px-7 py-10 sm:px-11 sm:py-12">
-                  <div className="pointer-events-none absolute -right-16 -top-28 h-80 w-80 rounded-full bg-[#d9e4dc]/70" />
-                  <div className="relative">
-                    <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-[#9a804b]">Member workspace</p>
-                    <h1 className="display max-w-3xl text-4xl leading-tight text-[#171b2a] sm:text-5xl">Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}, {profile.full_name?.split(' ')[0] || 'Member'}.</h1>
-                    <div className="mt-8 flex flex-wrap gap-3">
-                      <Link to="/residences" className="inline-flex items-center rounded-lg bg-[#171b2a] px-6 py-4 text-sm font-semibold text-white transition hover:bg-[#30374d]">Explore projects <ArrowRight /></Link>
-                      <Link to="/account" className="inline-flex items-center rounded-lg border border-[#d8d8d2] bg-white px-6 py-4 text-sm font-semibold text-[#171b2a] hover:border-[#b89b59]">View account</Link>
+                <section className="relative isolate min-h-[310px] overflow-hidden rounded-2xl bg-[#101d32] text-white sm:min-h-[360px]">
+                  <img src={IMAGES.marinaNight} alt="Dubai waterfront skyline" className="absolute inset-0 -z-20 h-full w-full object-cover opacity-55" />
+                  <div className="absolute inset-0 -z-10 bg-gradient-to-r from-[#071426]/95 via-[#0d2038]/75 to-[#0d2038]/15" />
+                  <div className="relative max-w-3xl px-7 py-10 sm:px-11 sm:py-14">
+                    <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-[#d3b36c]">Dubai · Private member workspace</p>
+                    <h1 className="display text-4xl leading-tight text-white sm:text-5xl">Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}, {profile.full_name?.split(' ')[0] || 'Member'}.</h1>
+                    <p className="mt-4 max-w-xl text-sm leading-7 text-white/75">Discover exceptional residences and manage your private account in one place.</p>
+                    <div className="mt-7 flex flex-wrap gap-3">
+                      <Link to="/residences" className="inline-flex items-center gap-2 rounded-lg bg-[#c4a568] px-6 py-3.5 text-sm font-semibold text-[#111d30] transition hover:bg-[#d6bd8d]">Explore projects <ArrowRight /></Link>
+                      <Link to="/account" className="inline-flex items-center rounded-lg border border-white/40 bg-white/5 px-6 py-3.5 text-sm font-semibold text-white hover:bg-white/10">My account</Link>
                     </div>
                   </div>
                 </section>
-
+                <section className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <Link to="/wallet" className="rounded-xl border border-[#e5e0d5] bg-white p-5 transition hover:border-[#b89b59]"><p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#92815e]">Wallet balance</p><p className="mt-3 text-2xl font-semibold text-[#172238]">{new Intl.NumberFormat('en-AE',{style:'currency',currency:'AED',maximumFractionDigits:2}).format(wallet.balance)}</p><p className="mt-1 text-xs text-[#858585]">Available balance</p></Link>
+                  <Link to="/wallet" className="rounded-xl border border-[#e5e0d5] bg-white p-5 transition hover:border-[#b89b59]"><p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#92815e]">Hold balance</p><p className="mt-3 text-2xl font-semibold text-[#172238]">{new Intl.NumberFormat('en-AE',{style:'currency',currency:'AED',maximumFractionDigits:2}).format(wallet.hold_balance)}</p><p className="mt-1 text-xs text-[#858585]">Funds on hold</p></Link>
+                  <Link to="/wallet" className="rounded-xl border border-[#e5e0d5] bg-white p-5 transition hover:border-[#b89b59]"><p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#92815e]">Wallet requests</p><p className="mt-3 text-2xl font-semibold text-[#172238]">{walletRequestCount}</p><p className="mt-1 text-xs text-[#858585]">Deposit and withdrawal requests</p></Link>
+                  <Link to="/support" className="rounded-xl border border-[#e5e0d5] bg-white p-5 transition hover:border-[#b89b59]"><p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#92815e]">Notifications</p><p className="mt-3 text-2xl font-semibold text-[#172238]">{notifications.length}</p><p className="mt-1 text-xs text-[#858585]">Latest account updates</p></Link>
+                </section>
                 <section className="mt-9">
                   <div className="mb-5 flex items-center justify-between">
                     <div><p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#a18a58]">Discover your workspace</p><h2 className="mt-1 text-2xl font-semibold tracking-tight">Project groups</h2></div>
                     <Link to="/residences" className="text-sm font-medium text-[#8b7445] hover:underline">View all projects →</Link>
                   </div>
-                  <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                     {projectGroups.map((group, index) => (
                       <Link key={group.name} to="/residences" className="group relative isolate aspect-[1.55] overflow-hidden rounded-2xl bg-[#18202b] shadow-sm">
                         <img src={group.image} alt="" className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-[#071b1a]/95 via-[#071b1a]/15 to-black/5" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-[#071426]/95 via-[#071426]/15 to-black/5" />
                         {!group.available ? <div className="absolute inset-0 bg-[#111827]/25" /> : null}
                         {!group.available ? <span className="absolute left-1/2 top-1/2 grid h-14 w-14 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white text-xl text-[#171b2a] shadow-lg">⌑</span> : null}
                         <div className="absolute bottom-0 left-0 right-0 p-5 text-white sm:p-6">
