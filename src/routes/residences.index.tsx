@@ -266,6 +266,7 @@ function ResidencesPage() {
             </div>
           </section>
         )}
+        </div>
       </main>
 
     </div>
