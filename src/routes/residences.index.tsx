@@ -49,6 +49,9 @@ function ResidencesPage() {
   const [requests, setRequests] = useState<ProjectRequest[]>([])
   const [selectedLevel, setSelectedLevel] = useState<string>(search.level ?? 'Junior Trial')
   const [selectedSet, setSelectedSet] = useState<number>(1)
+  const [projectSearch, setProjectSearch] = useState('')
+  const [projectFilter, setProjectFilter] = useState<'all' | 'available' | 'ordered'>('all')
+  const [projectSort, setProjectSort] = useState<'admin' | 'name' | 'price'>('admin')
   const [loadingProjects, setLoadingProjects] = useState(false)
   const [busyProject, setBusyProject] = useState('')
   const [orderSelections, setOrderSelections] = useState<Record<string, { quantity: number; percentage: number }>>({})
@@ -108,6 +111,20 @@ function ResidencesPage() {
   const currentLevelUnlocked = customerLevelAccess.find((item) => item.user_id === currentUserId && item.level_name === selectedLevel)?.is_unlocked ?? selectedLevel === 'Junior Trial'
   const levelProjects = useMemo(() => projects.filter((project) => project.project_level === selectedLevel), [projects, selectedLevel])
   const selectedSetProjects = useMemo(() => levelProjects.filter((project) => Number(project.set_number) === selectedSet), [levelProjects, selectedSet])
+  const visibleProjects = useMemo(() => {
+    const query = projectSearch.trim().toLowerCase()
+    const rows = selectedSetProjects.filter((project) => {
+      const matchesSearch = !query || [project.name, project.location ?? '', project.description ?? ''].some((value) => value.toLowerCase().includes(query))
+      const hasOrder = requests.some((request) => request.property_id === project.id && !['rejected', 'cancelled'].includes(String(request.status).toLowerCase()))
+      return matchesSearch && (projectFilter === 'all' || (projectFilter === 'ordered' ? hasOrder : !hasOrder))
+    })
+    if (projectSort === 'name') rows.sort((a, b) => a.name.localeCompare(b.name))
+    if (projectSort === 'price') rows.sort((a, b) => Number(a.price_amount ?? 0) - Number(b.price_amount ?? 0))
+    return rows
+  }, [selectedSetProjects, projectSearch, projectFilter, projectSort, requests])
+  const projectCards: (Project | null)[] = projectSearch.trim() || projectFilter !== 'all'
+    ? visibleProjects
+    : Array.from({ length: 20 }, (_, index) => visibleProjects[index] ?? null)
   const completedSets = useMemo(() => {
     const completedIds = new Set(requests.filter((request) => ['funded', 'approved', 'completed'].includes(String(request.status).toLowerCase())).map((request) => request.property_id).filter(Boolean))
     return new Set(SETS.filter((setNo) => {
@@ -182,16 +199,34 @@ function ResidencesPage() {
                     {SETS.map((setNo) => <button key={setNo} type="button" disabled={!setIsUnlocked(setNo)} onClick={() => { setSelectedSet(setNo); setError(''); setNotice('') }} className={`eyebrow border px-5 py-3 text-[0.56rem] ${selectedSet === setNo ? 'border-brass bg-primary text-primary-foreground' : 'border-border'} ${!setIsUnlocked(setNo) ? 'cursor-not-allowed opacity-40' : ''}`}>Set {setNo}{!setIsUnlocked(setNo) ? ' · Locked' : ''}</button>)}
                   </div>
                   {!setIsUnlocked(selectedSet) ? <p className="mt-5 text-sm text-ink-soft">Complete all 20 projects in the previous set before this set opens.</p> : loadingProjects ? <p className="mt-8 text-sm text-ink-soft">Loading projects…</p> : (
+                    <>
+                    <div className="mt-7 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]">
+                      <label className="flex items-center gap-3 border border-border bg-card px-4 py-3">
+                        <span className="eyebrow text-[0.5rem] text-ink-soft">Search</span>
+                        <input value={projectSearch} onChange={(event) => setProjectSearch(event.target.value)} type="search" placeholder="Search properties" className="min-w-0 flex-1 bg-transparent text-sm outline-none" />
+                      </label>
+                      <select value={projectFilter} onChange={(event) => setProjectFilter(event.target.value as typeof projectFilter)} aria-label="Filter properties" className="border border-border bg-card px-4 py-3 text-sm">
+                        <option value="all">All properties</option>
+                        <option value="available">Not ordered</option>
+                        <option value="ordered">Ordered</option>
+                      </select>
+                      <select value={projectSort} onChange={(event) => setProjectSort(event.target.value as typeof projectSort)} aria-label="Sort properties" className="border border-border bg-card px-4 py-3 text-sm">
+                        <option value="admin">Admin order</option>
+                        <option value="name">Name</option>
+                        <option value="price">Price: low to high</option>
+                      </select>
+                    </div>
                     <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                      {Array.from({ length: 20 }, (_, index) => {
-                        const project = selectedSetProjects[index]
+                      {projectCards.map((project, index) => {
                         const image = project?.cover_image_url || SAMPLE_IMAGES[index % SAMPLE_IMAGES.length]
                         return <article key={project?.id || index} className="group flex h-full flex-col overflow-hidden border border-border bg-card">
                           <div className="relative overflow-hidden"><img src={image} alt={project?.name || `Sample project ${index + 1}`} loading="lazy" className="aspect-[4/3] w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]" /><span className="eyebrow absolute left-3 top-3 bg-deep/85 px-3 py-1.5 text-[0.48rem] text-on-deep">Project {String(index + 1).padStart(2, '0')}</span></div>
                           <div className="flex flex-1 flex-col p-4"><h3 className="display text-xl">{project?.name || `Sample Project ${String(index + 1).padStart(2, '0')}`}</h3><p className="mt-2 text-xs text-ink-soft">{project?.location || 'Dubai, UAE'}</p><p className="mt-3 text-sm text-ink-soft">{project?.price_label || 'Sample — price to be set by admin'}</p>{project?.price_amount ? <p className="mt-1 text-sm font-medium">Base price: AED {Number(project.price_amount).toLocaleString('en', { maximumFractionDigits: 2 })}</p> : null}<p className="mt-2 line-clamp-2 text-xs text-ink-soft">{project?.description || 'Sample project card. The administrator can replace the image and all project details.'}</p>{project?.price_amount && project.price_amount > 0 ? <div className="mt-4 grid gap-3 border-t border-border pt-3"><div><span className="eyebrow text-[0.5rem] text-ink-soft">Quantity</span><div className="mt-2 flex items-center gap-3"><button type="button" aria-label="Decrease quantity" disabled={(orderSelections[project.id]?.quantity ?? 1) <= 1} onClick={() => setOrderSelections((current) => ({ ...current, [project.id]: { quantity: Math.max(1, (current[project.id]?.quantity ?? 1) - 1), percentage: current[project.id]?.percentage ?? (project.order_percentages?.[0] ?? 10) } }))} className="border border-border px-3 py-2">−</button><span className="min-w-8 text-center text-sm">{orderSelections[project.id]?.quantity ?? 1}</span><button type="button" aria-label="Increase quantity" disabled={(orderSelections[project.id]?.quantity ?? 1) >= 20} onClick={() => setOrderSelections((current) => ({ ...current, [project.id]: { quantity: Math.min(20, (current[project.id]?.quantity ?? 1) + 1), percentage: current[project.id]?.percentage ?? (project.order_percentages?.[0] ?? 10) } }))} className="border border-border px-3 py-2">+</button></div></div><div><span className="eyebrow text-[0.5rem] text-ink-soft">Select percentage</span><div className="mt-2 flex flex-wrap gap-2">{(project.order_percentages?.length ? project.order_percentages : []).map((percent) => <button key={percent} type="button" onClick={() => setOrderSelections((current) => ({ ...current, [project.id]: { quantity: current[project.id]?.quantity ?? 1, percentage: percent } }))} className={`border px-3 py-2 text-xs ${(orderSelections[project.id]?.percentage ?? (project.order_percentages?.[0] ?? 10)) === percent ? 'border-brass bg-brass/10' : 'border-border'}`}>{percent}%</button>)}</div></div><p className="text-xs text-ink-soft">Order total: <strong className="text-foreground">AED {(Number(project.price_amount) * (orderSelections[project.id]?.quantity ?? 1) * (orderSelections[project.id]?.percentage ?? (project.order_percentages?.[0] ?? 10)) / 100).toLocaleString('en', { maximumFractionDigits: 2 })}</strong></p><button type="button" disabled={busyProject === project.id || !project.order_percentages?.length} onClick={() => void requestProject(project)} className="eyebrow w-full bg-primary px-4 py-3 text-[0.55rem] text-primary-foreground disabled:cursor-not-allowed disabled:opacity-40">{busyProject === project.id ? 'Sending…' : 'Order project'}</button></div> : <p className="mt-5 border border-dashed border-border p-3 text-xs text-ink-soft">Awaiting admin price and order settings</p>}</div>
                         </article>
                       })}
+                      {projectCards.length === 0 ? <p className="border border-border bg-card p-6 text-sm text-ink-soft sm:col-span-2 xl:col-span-4">No properties match these filters. Try another search or choose All properties.</p> : null}
                     </div>
+                    </>
                   )}
                 </>
               )}
