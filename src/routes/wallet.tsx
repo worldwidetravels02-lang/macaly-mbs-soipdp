@@ -21,6 +21,15 @@ function money(value: number | string, currency: Currency) {
   const numeric = Number(value)
   return new Intl.NumberFormat('en', { style: 'currency', currency, maximumFractionDigits: 2 }).format(Number.isFinite(numeric) ? numeric : 0)
 }
+type FxRates = Record<Currency, number>
+const emptyFxRates: FxRates = { OMR: 1, AED: 0, SAR: 0, KWD: 0, BHD: 0, QAR: 0, PKR: 0, BDT: 0 }
+function convertCurrency(value: number | string, from: Currency, to: Currency, rates: FxRates) {
+  const amount = Number(value)
+  if (!Number.isFinite(amount)) return 0
+  if (from === to) return amount
+  const fromRate = rates[from], toRate = rates[to]
+  return fromRate > 0 && toRate > 0 ? amount / fromRate * toRate : amount
+}
 function normalizeStatus(value: unknown) { return String(value ?? '').trim().toLowerCase().replace(/[\s-]+/g, '_') }
 function displayStatus(value: unknown) {
   const status = normalizeStatus(value)
@@ -48,6 +57,9 @@ function WalletPage() {
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
   const [currency, setCurrency] = useState<Currency>('OMR')
+  const [fxRates, setFxRates] = useState<FxRates>(emptyFxRates)
+  const [fxDate, setFxDate] = useState('')
+  const [fxError, setFxError] = useState('')
   const [balance, setBalance] = useState(0)
   const [transactions, setTransactions] = useState<WalletRow[]>([])
   const [transactionLimit, setTransactionLimit] = useState(30)
@@ -83,7 +95,7 @@ function WalletPage() {
       setUserId(authData.user.id)
       const [profileResult, balanceResult, transactionResult, profitResult, commissionResult, topupResult, withdrawalResult, notificationResult] = await Promise.all([
         client.from('profiles').select('preferred_currency').eq('id', authData.user.id).maybeSingle(),
-        client.from('wallet_balances').select('balance').eq('user_id', authData.user.id).eq('currency', currency).maybeSingle(),
+        client.from('wallet_balances').select('balance').eq('user_id', authData.user.id).eq('currency', 'OMR').maybeSingle(),
         client.from('wallet_transactions').select('id,amount,currency,status,created_at,description,transaction_type,direction').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(transactionLimit),
         client.from('profit_payouts').select('id,amount,currency,status,created_at').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(20),
         client.from('commission_records').select('id,amount,currency,status,created_at,commission_type,description').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(30),
@@ -127,26 +139,42 @@ function WalletPage() {
   }, [currency, transactionLimit])
 
   useEffect(() => {
+    let active = true
+    async function loadFxRates() {
+      try {
+        const response = await fetch('https://api.frankfurter.dev/v2/rates?base=OMR&quotes=AED,SAR,KWD,BHD,QAR,PKR,BDT')
+        if (!response.ok) throw new Error('Exchange-rate service is temporarily unavailable.')
+        const rows = await response.json() as Array<{ date: string; quote: string; rate: number }>
+        const next = { ...emptyFxRates }
+        for (const row of rows) if (currencies.includes(row.quote as Currency) && Number(row.rate) > 0) next[row.quote as Currency] = Number(row.rate)
+        const missing = currencies.filter((item) => item !== 'OMR' && !next[item])
+        if (missing.length) throw new Error('Reference rate unavailable for: ' + missing.join(', '))
+        if (active) { setFxRates(next); setFxDate(rows[0]?.date ?? ''); setFxError('') }
+      } catch (cause) { if (active) setFxError(cause instanceof Error ? cause.message : 'Could not update exchange rates.') }
+    }
+    void loadFxRates()
     void loadWallet()
     const client = requireSupabase()
     const { data: listener } = client.auth.onAuthStateChange(() => { void loadWallet() })
-    return () => listener.subscription.unsubscribe()
+    return () => { active = false; listener.subscription.unsubscribe() }
   }, [loadWallet])
 
   async function submitWalletRequest(kind: 'deposit' | 'withdrawal') {
     const rawAmount = kind === 'deposit' ? depositAmount : withdrawalAmount
-    const amount = Number(rawAmount)
-    if (!Number.isFinite(amount) || amount <= 0 || amount > 100000000 || !/^\\d+(?:\\.\\d{1,2})?$/.test(rawAmount.trim())) { setError('Enter a valid amount with no more than 2 decimal places (maximum 100,000,000).'); return }
+    const enteredAmount = Number(rawAmount)
+    if (!Number.isFinite(enteredAmount) || amount <= 0 || amount > 100000000 || !/^\\d+(?:\\.\\d{1,2})?$/.test(rawAmount.trim())) { setError('Enter a valid amount with no more than 2 decimal places (maximum 100,000,000).'); return }
+    if (currency !== 'OMR' && (!fxRates[currency] || fxError)) { setError('The exchange rate is unavailable. Please select OMR or try again later.'); return }
+    const amount = convertCurrency(enteredAmount, currency, 'OMR', fxRates)
     const method = payoutMethod.trim()
     const details = payoutDetails.trim()
     if (kind === 'withdrawal') {
       if (!['Bank transfer', 'Other'].includes(method)) { setError('Choose a supported withdrawal method.'); return }
       if (!details || details.length > 1000) { setError('Enter payout instructions between 1 and 1,000 characters.'); return }
       const reservedWithdrawals = withdrawals
-        .filter((row) => row.currency === currency && ['pending', 'submitted', 'under_review', 'approved', 'processing', 'in_progress'].includes(normalizeStatus(row.status)))
+        .filter((row) => row.currency === 'OMR' && ['pending', 'submitted', 'under_review', 'approved', 'processing', 'in_progress'].includes(normalizeStatus(row.status)))
         .reduce((total, row) => total + (Number(row.amount) || 0), 0)
       if (amount + reservedWithdrawals > balance) {
-        setError(`Your request plus ${money(reservedWithdrawals, currency)} in pending or approved withdrawals would exceed your available posted balance.`)
+        setError(`Your request plus ${money(convertCurrency(reservedWithdrawals, 'OMR', currency, fxRates), currency)} in pending or approved withdrawals would exceed your available posted balance.`)
         return
       }
     }
@@ -161,20 +189,20 @@ function WalletPage() {
           .from('withdrawal_requests')
           .select('amount, currency, status')
           .eq('user_id', authData.user.id)
-          .eq('currency', currency)
+          .eq('currency', 'OMR')
         if (latestError) throw latestError
         const activeStatuses = ['pending', 'submitted', 'under_review', 'approved', 'processing', 'in_progress']
         const latestReserved = (latestWithdrawals ?? [])
           .filter((row) => activeStatuses.includes(String(row.status ?? '').toLowerCase().replace(/-/g, '_')))
           .reduce((total, row) => total + (Number(row.amount) || 0), 0)
         if (amount + latestReserved > balance) {
-          throw new Error(`Your available balance has changed. Existing active withdrawals reserve ${money(latestReserved, currency)}. Refresh your wallet and try again.`)
+          throw new Error(`Your available balance has changed. Existing active withdrawals reserve ${money(convertCurrency(latestReserved, 'OMR', currency, fxRates), currency)}. Refresh your wallet and try again.`)
         }
       }
       const table = kind === 'deposit' ? 'topup_requests' : 'withdrawal_requests'
       const requestPayload = kind === 'withdrawal'
-        ? { user_id: authData.user.id, amount, currency, status: 'pending', payout_method: method, payout_details: { instructions: details } }
-        : { user_id: authData.user.id, amount, currency, status: 'pending' }
+        ? { user_id: authData.user.id, amount, currency: 'OMR', status: 'pending', payout_method: method, payout_details: { instructions: details } }
+        : { user_id: authData.user.id, amount, currency: 'OMR', status: 'pending' }
       const { error: insertError } = await client.from(table).insert(requestPayload)
       if (insertError) throw insertError
       if (kind === 'deposit') {
@@ -220,9 +248,10 @@ function WalletPage() {
   }
 
   const reservedWithdrawalAmount = withdrawals
-    .filter((row) => row.currency === currency && ['pending', 'submitted', 'under_review', 'approved', 'processing', 'in_progress'].includes(normalizeStatus(row.status)))
+    .filter((row) => row.currency === 'OMR' && ['pending', 'submitted', 'under_review', 'approved', 'processing', 'in_progress'].includes(normalizeStatus(row.status)))
     .reduce((total, row) => total + (Number(row.amount) || 0), 0)
   const withdrawableAmount = Math.max(0, balance - reservedWithdrawalAmount)
+  const displayMoney = (value: number | string, source: Currency) => money(convertCurrency(value, source, currency, fxRates), currency)
 
   const currencyTransactions = transactions.filter((row) => row.currency === currency)
   const getTransactionDirection = (row: WalletRow): 'credit' | 'debit' | 'unknown' => {
@@ -279,7 +308,10 @@ function WalletPage() {
             <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div className="border border-brass/40 bg-brass/5 p-6">
                 <p className="eyebrow text-[0.5rem] text-brass">Posted wallet balance</p>
-                <p data-testid="wallet-balance" className="display mt-3 text-3xl">{money(balance, currency)}</p>
+                <p data-testid="wallet-balance" className="display mt-3 text-3xl">{money(convertCurrency(balance, 'OMR', currency, fxRates), currency)}</p>
+                <p className="mt-2 text-xs text-ink-soft">Base balance: {money(balance, 'OMR')}</p>
+                <p className="mt-1 text-xs text-ink-soft">{currency === 'OMR' ? 'OMR is the wallet base currency.' : fxRates[currency] ? `1 OMR = ${fxRates[currency].toFixed(6)} ${currency}` : 'Exchange rate unavailable.'} {fxDate ? `Rate date: ${fxDate}` : ''}</p>
+                {fxError ? <p role="status" className="mt-1 text-xs text-amber-700">{fxError} Showing original amounts where conversion is unavailable.</p> : null}
                 <p className="mt-2 text-xs text-ink-soft">Calculated from posted ledger entries only.</p>
                 <p className="mt-2 text-xs text-ink-soft">Reserved in pending, approved or processing withdrawals: {money(withdrawals.filter((row) => row.currency === currency && ['pending', 'submitted', 'under_review', 'approved', 'processing', 'in_progress'].includes(normalizeStatus(row.status))).reduce((total, row) => total + (Number(row.amount) || 0), 0), currency)}. New requests are checked against this amount.</p>
               </div>
@@ -356,7 +388,7 @@ function WalletPage() {
                     <button type="button" onClick={() => { setTransactionSearch(''); setTransactionFilter('all'); setTransactionFromDate(''); setTransactionToDate('') }} className="border border-border px-3 py-2 text-xs text-ink-soft hover:border-brass" disabled={!transactionSearch && transactionFilter === 'all' && !transactionFromDate && !transactionToDate}>Clear filters</button>
                   </div>
                 </div>
-                {currencyTransactions.length === 0 ? <p className="px-6 py-6 text-sm text-ink-soft">No posted wallet activity yet.</p> : visibleTransactions.length === 0 ? <p className="px-6 py-6 text-sm text-ink-soft">No matching wallet activity found in {currency}.</p> : <><ul data-testid="wallet-transactions" className="divide-y divide-border">{visibleTransactions.map((row) => { const direction = getTransactionDirection(row); const sign = direction === 'debit' ? '−' : direction === 'credit' ? '+' : ''; const amountTone = direction === 'debit' ? 'text-destructive' : direction === 'credit' ? 'text-emerald-700' : 'text-foreground'; const label = row.transaction_type?.replace(/_/g, ' ') || 'Wallet transaction'; return <li key={row.id} className="flex items-start justify-between gap-4 px-6 py-4"><div className="min-w-0"><p className="truncate text-sm font-medium">{row.description || label}</p><p className="mt-1 text-xs capitalize text-ink-soft">{label} · {direction === 'unknown' ? 'Direction not specified' : direction}</p><p className="mt-1 text-xs text-ink-soft">{date(row.created_at)} · {displayStatus(row.status)}</p></div><p className={`display shrink-0 text-lg ${amountTone}`}>{sign}{money(row.amount, row.currency)}</p></li> })}</ul><div className="border-t border-border px-6 py-3"><p className="text-xs text-ink-soft">Showing {visibleTransactions.length} matching transactions from {currencyTransactions.length} loaded {currency} records.</p>{transactions.length === transactionLimit ? <button type="button" onClick={() => setTransactionLimit((current) => current + 30)} className="mt-3 text-xs text-brass underline underline-offset-4">Load 30 more {transactionFilter === 'all' ? '' : `${transactionFilter} `}transactions</button> : null}</div></>}
+                {currencyTransactions.length === 0 ? <p className="px-6 py-6 text-sm text-ink-soft">No posted wallet activity yet.</p> : visibleTransactions.length === 0 ? <p className="px-6 py-6 text-sm text-ink-soft">No matching wallet activity found in {currency}.</p> : <><ul data-testid="wallet-transactions" className="divide-y divide-border">{visibleTransactions.map((row) => { const direction = getTransactionDirection(row); const sign = direction === 'debit' ? '−' : direction === 'credit' ? '+' : ''; const amountTone = direction === 'debit' ? 'text-destructive' : direction === 'credit' ? 'text-emerald-700' : 'text-foreground'; const label = row.transaction_type?.replace(/_/g, ' ') || 'Wallet transaction'; return <li key={row.id} className="flex items-start justify-between gap-4 px-6 py-4"><div className="min-w-0"><p className="truncate text-sm font-medium">{row.description || label}</p><p className="mt-1 text-xs capitalize text-ink-soft">{label} · {direction === 'unknown' ? 'Direction not specified' : direction}</p><p className="mt-1 text-xs text-ink-soft">{date(row.created_at)} · {displayStatus(row.status)}</p></div><p className={`display shrink-0 text-lg ${amountTone}`}>{sign}{displayMoney(row.amount, row.currency)}</p></li> })}</ul><div className="border-t border-border px-6 py-3"><p className="text-xs text-ink-soft">Showing {visibleTransactions.length} matching transactions from {currencyTransactions.length} loaded {currency} records.</p>{transactions.length === transactionLimit ? <button type="button" onClick={() => setTransactionLimit((current) => current + 30)} className="mt-3 text-xs text-brass underline underline-offset-4">Load 30 more {transactionFilter === 'all' ? '' : `${transactionFilter} `}transactions</button> : null}</div></>}
               </div>
             </section>
             <p className="text-xs leading-relaxed text-ink-soft">Wallet entries and profit credits shown here are internal platform records. They are not proof of a bank transfer, regulated investment return, or external payment settlement.</p>
