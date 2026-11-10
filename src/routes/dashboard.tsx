@@ -176,28 +176,28 @@ function DashboardPage() {
   const todayCommission = creditedCommissions.filter((row) => new Date(row.created_at).toLocaleDateString('en-CA') === todayKey).reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-[#f5f3ee] text-[#172238]">
       <WorkspaceSidebar mode="member" />
 
-      <header className="fixed inset-x-0 top-0 z-40 flex h-[72px] items-center justify-between border-b border-[#e8e4dc] bg-white/95 px-5 pl-20 backdrop-blur lg:left-64 lg:px-7">
-        <div className="text-xs text-[#7b7b7b]"><span>Workspace</span><span className="mx-2">/</span><strong className="text-[#172238]">Dashboard</strong></div>
+      <header className="fixed inset-x-0 top-0 z-40 flex h-[72px] items-center justify-between border-b border-white/10 bg-[#101d35]/95 px-5 pl-20 text-white shadow-lg backdrop-blur lg:left-64 lg:px-7">
+        <div className="text-xs text-white/55"><span>Member area</span><span className="mx-2 text-[#d8b56d]">/</span><strong className="text-white">Dashboard</strong></div>
         <div className="flex items-center gap-3 sm:gap-5">
-          <label className="flex items-center gap-2 text-[10px] font-semibold tracking-widest text-[#888]">CURRENCY
-            <select aria-label="Dashboard currency" value={currency} onChange={(event) => { const nextCurrency = event.target.value as Currency; setCurrency(nextCurrency); if (user?.id) void requireSupabase().from("profiles").update({ preferred_currency: nextCurrency }).eq("id", user.id) }} className="rounded-md border border-[#e6e1d8] bg-white px-3 py-2 text-xs font-semibold text-[#172238]">{currencies.map((code) => <option key={code} value={code}>{code}</option>)}</select>
+          <label className="flex items-center gap-2 text-[10px] font-semibold tracking-widest text-white/60">CURRENCY
+            <select aria-label="Dashboard currency" value={currency} onChange={(event) => { const nextCurrency = event.target.value as Currency; setCurrency(nextCurrency); if (user?.id) void requireSupabase().from("profiles").update({ preferred_currency: nextCurrency }).eq("id", user.id) }} className="rounded-md border border-white/20 bg-[#182944] px-3 py-2 text-xs font-semibold text-white">{currencies.map((code) => <option key={code} value={code}>{code}</option>)}</select>
           </label>
-          <Link to="/account" className="flex items-center gap-2 rounded-xl border border-[#e8e4dc] bg-[#fbfaf8] px-2 py-1.5 text-xs text-[#172238]"><span className="grid h-8 w-8 place-items-center rounded-lg bg-[#f2e9e7] font-semibold">{name.slice(0,1).toUpperCase()}</span><span className="hidden text-left sm:block"><strong className="block">{name.split(' ')[0]}</strong><span className="text-[10px] text-[#888]">User</span></span></Link>
+          <Link to="/account" className="flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"><span className="grid h-8 w-8 place-items-center rounded-lg bg-[#d8b56d] font-semibold text-[#101d35]">{name.slice(0,1).toUpperCase()}</span><span className="hidden text-left sm:block"><strong className="block">{name.split(' ')[0]}</strong><span className="text-[10px] text-white/55">Member</span></span></Link>
         </div>
       </header>
 
       <main id="main" className="pb-20 pt-24 lg:ml-64">
         <div className="mx-auto grid w-full max-w-[1500px] gap-5 px-5 sm:px-7">
-          <section className="relative overflow-hidden rounded-xl border border-[#e2e8e2] bg-gradient-to-r from-[#e8f2ec] via-[#eef5f1] to-[#f1f1eb] px-7 py-7 sm:px-9 sm:py-8">
-            <div className="pointer-events-none absolute -right-12 -top-16 h-64 w-64 rounded-full bg-white/40" />
+          <section className="relative overflow-hidden rounded-2xl border border-[#b89b59]/45 bg-gradient-to-br from-[#101d35] via-[#172b49] to-[#263b55] px-7 py-8 shadow-xl sm:px-10 sm:py-10">
+            <div className="pointer-events-none absolute -right-12 -top-16 h-72 w-72 rounded-full border border-[#d8b56d]/20 bg-[#d8b56d]/5" /><div className="pointer-events-none absolute bottom-0 right-0 h-1 w-2/5 bg-gradient-to-l from-[#d8b56d] to-transparent" />
             <div className="relative">
-              <h1 className="display text-3xl leading-tight text-[#211f1c] sm:text-4xl">Good afternoon, {name.split(' ')[0]}.</h1>
+              <p className="eyebrow mb-3 text-[0.58rem] tracking-[0.25em] text-[#d8b56d]">MSHEIREB PROPERTIES · PRIVATE MEMBER SPACE</p><h1 className="display text-3xl leading-tight text-white sm:text-4xl">Welcome back, {name.split(' ')[0]}.</h1><p className="mt-3 max-w-xl text-sm leading-6 text-white/65">Your property journey, wallet and investment activity — together in one place.</p>
               <div className="mt-5 flex flex-wrap gap-2.5">
-                <Link to="/residences" className="inline-flex items-center gap-2 rounded-md bg-[#201f1d] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#3a3732]">Explore projects <ArrowRight /></Link>
-                <Link to="/account" className="inline-flex items-center rounded-md border border-[#e1ded7] bg-white px-5 py-3 text-sm font-semibold text-[#282622] transition hover:border-[#b99a59]">View account</Link>
+                <Link to="/residences" className="inline-flex items-center gap-2 rounded-md bg-[#d8b56d] px-5 py-3 text-sm font-semibold text-[#101d35] transition hover:bg-[#e6c984]">Explore projects <ArrowRight /></Link>
+                <Link to="/account" className="inline-flex items-center rounded-md border border-white/25 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:border-[#d8b56d]">View account</Link>
               </div>
             </div>
           </section>
@@ -207,9 +207,9 @@ function DashboardPage() {
           {error ? <p role="alert" className="border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</p> : null}
           {user && !loading ? <>
             <section id="tasks-achievements" className="grid gap-6">
-              <section aria-label="Explore Dubai video" className="relative isolate w-full overflow-hidden bg-[#071426]">
+              <section aria-label="Explore Dubai video" className="relative isolate w-full overflow-hidden rounded-2xl border border-[#b89b59]/35 bg-[#071426] shadow-xl">
                 <video
-                  className="block aspect-video w-full object-cover"
+                  className="block aspect-[16/7] w-full object-cover"
                   src="https://videos.pexels.com/video-files/30048213/12888884_1920_1080_30fps.mp4"
                   autoPlay
                   muted
@@ -226,11 +226,11 @@ function DashboardPage() {
                 </div>
               </section>
               <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <Link to="/wallet" className="rounded-xl border border-[#e5e0d5] bg-white p-4 shadow-sm transition hover:border-[#b89b59]"><p className="text-[11px] text-[#858585]">Wallet balance</p><p data-testid="dashboard-balance" className="mt-1 text-xl font-semibold text-[#222]">{formatMoney(balance, currency)}</p><p className="mt-1 text-[10px] text-[#8b9a91]">Available</p></Link>
-                <Link to="/wallet#withdrawals" className="rounded-xl border border-[#e5e0d5] bg-white p-4 shadow-sm transition hover:border-[#b89b59]"><p className="text-[11px] text-[#858585]">Hold balance</p><p className="mt-1 text-xl font-semibold text-[#222]">{formatMoney(holdBalance, currency)}</p><p className="mt-1 text-[10px] text-[#8b9a91]">Group in progress</p></Link>
-                <Link to="/wallet#commissions" className="rounded-xl border border-[#e5e0d5] bg-white p-4 shadow-sm transition hover:border-[#b89b59]"><p className="text-[11px] text-[#858585]">Today’s commission</p><p className="mt-1 text-xl font-semibold text-[#222]">{formatMoney(todayCommission, currency)}</p><p className="mt-1 text-[10px] text-[#8b9a91]">Credited today</p></Link>
-                <Link to="/wallet#commissions" className="rounded-xl border border-[#e5e0d5] bg-white p-4 shadow-sm transition hover:border-[#b89b59]"><p className="text-[11px] text-[#858585]">Total commission</p><p className="mt-1 text-xl font-semibold text-[#222]">{formatMoney(totalCommission, currency)}</p><p className="mt-1 text-[10px] text-[#8b9a91]">All completed credits</p></Link>
-                <Link to="/wallet#transactions" className="rounded-xl border border-[#e5e0d5] bg-white p-4 shadow-sm transition hover:border-[#b89b59]"><p className="text-[11px] text-[#858585]">Orders</p><p className="mt-1 text-xl font-semibold text-[#222]">{investmentRequests.length}</p><p className="mt-1 text-[10px] text-[#8b9a91]">Submitted orders</p></Link>
+                <Link to="/wallet" className="rounded-xl border border-[#e5dfd2] bg-white p-5 shadow-[0_8px_25px_rgba(16,29,53,0.05)] transition hover:-translate-y-0.5 hover:border-[#b89b59]"><p className="text-[11px] text-[#858585]">Wallet balance</p><p data-testid="dashboard-balance" className="mt-1 text-xl font-semibold text-[#222]">{formatMoney(balance, currency)}</p><p className="mt-1 text-[10px] text-[#8b9a91]">Available</p></Link>
+                <Link to="/wallet#withdrawals" className="rounded-xl border border-[#e5dfd2] bg-white p-5 shadow-[0_8px_25px_rgba(16,29,53,0.05)] transition hover:-translate-y-0.5 hover:border-[#b89b59]"><p className="text-[11px] text-[#858585]">Hold balance</p><p className="mt-1 text-xl font-semibold text-[#222]">{formatMoney(holdBalance, currency)}</p><p className="mt-1 text-[10px] text-[#8b9a91]">Group in progress</p></Link>
+                <Link to="/wallet#commissions" className="rounded-xl border border-[#e5dfd2] bg-white p-5 shadow-[0_8px_25px_rgba(16,29,53,0.05)] transition hover:-translate-y-0.5 hover:border-[#b89b59]"><p className="text-[11px] text-[#858585]">Today’s commission</p><p className="mt-1 text-xl font-semibold text-[#222]">{formatMoney(todayCommission, currency)}</p><p className="mt-1 text-[10px] text-[#8b9a91]">Credited today</p></Link>
+                <Link to="/wallet#commissions" className="rounded-xl border border-[#e5dfd2] bg-white p-5 shadow-[0_8px_25px_rgba(16,29,53,0.05)] transition hover:-translate-y-0.5 hover:border-[#b89b59]"><p className="text-[11px] text-[#858585]">Total commission</p><p className="mt-1 text-xl font-semibold text-[#222]">{formatMoney(totalCommission, currency)}</p><p className="mt-1 text-[10px] text-[#8b9a91]">All completed credits</p></Link>
+                <Link to="/wallet#transactions" className="rounded-xl border border-[#e5dfd2] bg-white p-5 shadow-[0_8px_25px_rgba(16,29,53,0.05)] transition hover:-translate-y-0.5 hover:border-[#b89b59]"><p className="text-[11px] text-[#858585]">Orders</p><p className="mt-1 text-xl font-semibold text-[#222]">{investmentRequests.length}</p><p className="mt-1 text-[10px] text-[#8b9a91]">Submitted orders</p></Link>
               </section>
               <div className="border border-border bg-card">
                 <div className="border-b border-border px-6 py-5"><h2 className="display text-xl">Your assigned tasks</h2><p className="mt-1 text-xs text-ink-soft">Submit completed tasks for administrator review. Returned tasks can be submitted again.</p></div>
