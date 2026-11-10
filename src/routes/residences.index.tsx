@@ -1,8 +1,8 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 import { requireSupabase } from '../lib/supabase-client'
 import { ListingsGate } from '../components/listings-gate'
-import { PageIntro, SiteFooter, SiteHeader } from '../components/site-chrome'
+import { WorkspaceSidebar } from '../components/workspace-sidebar'
 import { IMAGES } from '../data/site'
 import { canonicalUrl } from '../lib/canonical-url'
 import siteMetadata from '../metadata.json'
@@ -48,6 +48,11 @@ function ResidencesPage() {
   const [currentUserId, setCurrentUserId] = useState('')
   const [requests, setRequests] = useState<ProjectRequest[]>([])
   const [selectedLevel, setSelectedLevel] = useState<string>(search.level ?? 'Junior Trial')
+  const [groupSearch, setGroupSearch] = useState('')
+  const [groupFilter, setGroupFilter] = useState<'all' | 'trial'>('all')
+  const [groupSort, setGroupSort] = useState<'oldest' | 'newest'>('oldest')
+  const [currency, setCurrency] = useState('AED')
+  const [currentUserName, setCurrentUserName] = useState('Member')
   const [selectedSet, setSelectedSet] = useState<number>(1)
   const [projectSearch, setProjectSearch] = useState('')
   const [projectFilter, setProjectFilter] = useState<'all' | 'available' | 'ordered'>('all')
@@ -101,6 +106,7 @@ function ResidencesPage() {
       setProjects((propertyResult.data ?? []) as Project[])
       setRequests((requestResult.data ?? []) as ProjectRequest[])
       setCurrentUserId(userResult.data.user.id)
+      setCurrentUserName(String(userResult.data.user.user_metadata?.full_name || userResult.data.user.email?.split('@')[0] || 'Member'))
       setCustomerLevelAccess((accessResult.data ?? []) as { user_id: string; level_name: string; is_unlocked: boolean }[])
     })().catch((cause) => {
       if (active) setError(cause instanceof Error ? cause.message : 'Could not load the project catalogue.')
@@ -169,28 +175,58 @@ function ResidencesPage() {
     } finally { setBusyProject('') }
   }
 
+  const visibleLevels = useMemo(() => {
+    const query = groupSearch.trim().toLowerCase()
+    let rows = LEVELS.filter((level) => (!query || level.toLowerCase().includes(query)) && (groupFilter === 'all' || level === 'Junior Trial'))
+    if (groupSort === 'newest') rows = [...rows].reverse()
+    return rows
+  }, [groupSearch, groupFilter, groupSort])
+
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <SiteHeader />
-      <main id="main">
-        <PageIntro eyebrow="Project catalogue" title="Choose your project level." intro="Open a level, choose a set, and browse its 20 project cards in the original order. Sample cards are editable by the administrator; orders remain disabled until a confirmed price is entered." image={IMAGES.tower} imageAlt="Msheireb Properties tower at dusk" />
+    <div className="min-h-screen bg-[#faf9f7] text-[#25231f]">
+      <WorkspaceSidebar mode="member" />
+      <header className="fixed inset-x-0 top-0 z-40 flex h-[62px] items-center justify-between border-b border-[#e8e4dc] bg-white/95 px-5 pl-20 backdrop-blur lg:left-64 lg:px-7">
+        <div className="text-xs text-[#777]"><span>Workspace</span><span className="mx-2">/</span><strong className="text-[#25231f]">Projects</strong></div>
+        <div className="flex items-center gap-3 sm:gap-5">
+          <label className="flex items-center gap-2 text-[10px] font-semibold tracking-widest text-[#888]">CURRENCY
+            <select aria-label="Currency" value={currency} onChange={(event) => setCurrency(event.target.value)} className="rounded-md border border-[#e6e1d8] bg-white px-3 py-2 text-xs font-semibold text-[#172238]"><option>AED</option><option>OMR</option><option>SAR</option><option>KWD</option><option>BHD</option><option>QAR</option></select>
+          </label>
+          <Link to="/account" className="flex items-center gap-2 rounded-xl border border-[#e8e4dc] bg-[#fbfaf8] px-2 py-1.5 text-xs text-[#172238]"><span className="grid h-8 w-8 place-items-center rounded-lg bg-[#f2e9e7] font-semibold">{currentUserName.slice(0,1).toUpperCase()}</span><span className="hidden text-left sm:block"><strong className="block">{currentUserName.split(" ")[0]}</strong><span className="text-[10px] text-[#888]">User</span></span></Link>
+        </div>
+      </header>
+      <main id="main" className="pb-20 pt-[86px] lg:ml-64">
+        <div className="mx-auto w-full max-w-[1500px] px-5 sm:px-7">
         {checkingSession ? <p className="mx-auto w-full max-w-7xl px-5 py-16 text-sm text-ink-soft sm:px-8">Checking your session…</p> : !signedIn ? <ListingsGate /> : (
           <section className="py-12 sm:py-16">
             <div className="mx-auto w-full max-w-7xl px-5 sm:px-8">
               {error ? <p role="alert" className="mb-5 border border-destructive/40 p-4 text-sm text-destructive">{error}</p> : null}
               {notice ? <p role="status" className="mb-5 border border-brass/40 p-4 text-sm text-ink-soft">{notice}</p> : null}
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                {LEVELS.map((level) => {
+              <h1 className="display text-3xl text-[#25231f]">Projects</h1>
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+                <label className="flex min-h-[50px] w-full max-w-[420px] items-center gap-3 rounded-lg border border-[#e5e1da] bg-white px-4"><span aria-hidden="true" className="text-lg text-[#888]">⌕</span><input value={groupSearch} onChange={(event) => setGroupSearch(event.target.value)} type="search" placeholder="Search groups" className="min-w-0 flex-1 bg-transparent text-sm outline-none" /></label>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button type="button" onClick={() => setGroupFilter("all")} className={groupFilter === "all" ? "rounded-lg bg-[#201f1d] px-3 py-2 text-xs text-white" : "rounded-lg border border-[#e5e1da] bg-white px-3 py-2 text-xs text-[#444]"}>All</button>
+                  <button type="button" onClick={() => setGroupFilter("trial")} className={groupFilter === "trial" ? "rounded-lg bg-[#201f1d] px-3 py-2 text-xs text-white" : "rounded-lg border border-[#e5e1da] bg-white px-3 py-2 text-xs text-[#444]"}>Trial</button>
+                  <select aria-label="Sort project groups" value={groupSort} onChange={(event) => setGroupSort(event.target.value as typeof groupSort)} className="rounded-lg border border-[#e5e1da] bg-white px-3 py-2 text-xs text-[#444]"><option value="oldest">Oldest first</option><option value="newest">Newest first</option></select>
+                </div>
+              </div>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                {visibleLevels.map((level) => {
                   const unlocked = customerLevelAccess.find((item) => item.user_id === currentUserId && item.level_name === level)?.is_unlocked ?? level === 'Junior Trial'
-                  return <button key={level} type="button" disabled={!unlocked} onClick={() => { setSelectedLevel(level); setSelectedSet(1); setError(''); setNotice('') }} className={`border p-5 text-left transition-colors ${selectedLevel === level ? 'border-brass bg-card' : 'border-border bg-card'} ${!unlocked ? 'cursor-not-allowed opacity-50' : 'hover:border-brass'}`}>
-                    <span className="eyebrow text-[0.5rem] text-brass">{unlocked ? 'Available' : 'Locked by admin'}</span>
-                    <span className="display mt-2 block text-xl">{level}</span>
-                    <span className="mt-2 block text-xs text-ink-soft">{projects.filter((item) => item.project_level === level).length || 60} project slots</span>
+                  const isTrial = level === 'Junior Trial'
+                  const levelImage = isTrial ? IMAGES.marinaNight : level === "Senior" ? IMAGES.tower : level === "Master" ? IMAGES.detail : IMAGES.villas
+                  const count = isTrial ? 20 : 60
+                  return <button key={level} type="button" disabled={!unlocked} onClick={() => { setSelectedLevel(level); setSelectedSet(1); setError(""); setNotice(""); document.getElementById("project-group-details")?.scrollIntoView({ behavior: "smooth", block: "start" }) }} className="group relative flex min-h-[245px] flex-col justify-end overflow-hidden rounded-xl border border-[#e6e1da] bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md disabled:cursor-not-allowed">
+                    <img src={levelImage} alt="" className="absolute inset-x-0 top-0 h-[148px] w-full object-cover" />
+                    {!unlocked ? <div className="absolute inset-x-0 top-0 h-[148px] bg-[#071426]/30" /> : null}
+                    {!unlocked ? <span className="absolute left-1/2 top-[74px] grid h-11 w-11 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white text-[#25231f] shadow">♙</span> : null}
+                    <div className="relative mt-[148px] flex flex-1 flex-col bg-white p-4"><span className="text-[10px] font-medium text-[#777]">{count} projects</span><strong className="mt-1 text-sm text-[#25231f]">{isTrial ? "Junior (Trial)" : level}</strong>{!unlocked ? <span className="mt-3 inline-flex w-fit items-center gap-1 rounded-md bg-[#f7efd9] px-3 py-1.5 text-[11px] text-[#806b3c]">♙ Locked</span> : null}</div>
                   </button>
                 })}
+                {visibleLevels.length === 0 ? <p className="rounded-lg border border-[#e8e4dc] bg-white p-5 text-sm text-[#777]">No project groups match your search.</p> : null}
               </div>
-              <div className="mt-10 flex flex-wrap items-end justify-between gap-4">
-                <div><p className="eyebrow text-brass">Selected level</p><h2 className="display mt-2 text-3xl">{selectedLevel}</h2></div>
+              <div id="project-group-details" className="mt-10 scroll-mt-24 flex flex-wrap items-end justify-between gap-4">
+                <div><p className="eyebrow text-brass">Selected group</p><h2 className="display mt-2 text-3xl">{selectedLevel === "Junior Trial" ? "Junior (Trial)" : selectedLevel}</h2></div>
                 <p className="text-xs text-ink-soft">20 projects in each set · displayed in admin order</p>
               </div>
               {!currentLevelUnlocked ? <p className="mt-6 border border-border p-5 text-sm text-ink-soft">This level is locked. Contact the administrator to request access.</p> : (
@@ -234,7 +270,7 @@ function ResidencesPage() {
           </section>
         )}
       </main>
-      <SiteFooter />
+
     </div>
   )
 }
