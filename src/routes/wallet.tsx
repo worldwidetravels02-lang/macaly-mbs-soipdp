@@ -317,7 +317,7 @@ function WalletPage() {
               </div>
               <div className="border border-border bg-card p-6">
                 <p className="eyebrow text-[0.5rem] text-ink-soft">Credited profit total</p>
-                <p className="display mt-3 text-2xl">{money(profits.filter((row) => row.status === 'credited' && row.currency === currency).reduce((total, row) => total + (Number(row.amount) || 0), 0), currency)}</p>
+                <p className="display mt-3 text-2xl">{money(profits.filter((row) => row.status === 'credited').reduce((total, row) => total + convertCurrency(row.amount, row.currency, currency, fxRates), 0), currency)}</p>
                 <p className="mt-2 text-xs text-ink-soft">Posted profit payout records in {currency}.</p>
               </div>
               <div className="border border-border bg-card p-6">
@@ -364,8 +364,8 @@ function WalletPage() {
               <RequestHistory title="Withdrawal requests" rows={withdrawals} kind="withdrawal" />
             </section>
             <section className="grid gap-6 lg:grid-cols-3">
-              <History title="Profit credits" rows={profits.filter((row) => row.currency === currency)} />
-              <CommissionHistory rows={commissions.filter((row) => row.currency === currency)} />
+              <History title="Profit credits" rows={profits} displayCurrency={currency} rates={fxRates} />
+              <CommissionHistory rows={commissions} displayCurrency={currency} rates={fxRates} />
               <div id="transactions" className="border border-border bg-card">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-6 py-4">
                   <h2 className="display text-lg">Wallet activity</h2>
@@ -467,7 +467,7 @@ function RequestHistory({ title, rows, kind }: { title: string; rows: RequestRow
                   {row.payout_method ? <p className="mt-1 text-xs text-ink-soft">Payout method: {row.payout_method}</p> : null}
                   {row.admin_note ? <p className="mt-2 border-l-2 border-brass/60 pl-3 text-xs leading-5 text-ink-soft">Administrator note: {row.admin_note}</p> : null}
                 </div>
-                <p className="display shrink-0 text-lg">{money(row.amount, row.currency)}</p>
+                <p className="display shrink-0 text-lg">{money(convertCurrency(row.amount, row.currency, displayCurrency, rates), displayCurrency)}</p>
               </div>
             </li>
           })}
@@ -478,7 +478,7 @@ function RequestHistory({ title, rows, kind }: { title: string; rows: RequestRow
   )
 }
 
-function CommissionHistory({ rows }: { rows: CommissionRow[] }) {
+function CommissionHistory({ rows, displayCurrency, rates }: { rows: CommissionRow[]; displayCurrency: Currency; rates: FxRates }) {
   return (
     <div id="commissions" className="border border-border bg-card">
       <div className="flex items-center justify-between gap-3 border-b border-border px-6 py-4">
@@ -503,7 +503,7 @@ function CommissionHistory({ rows }: { rows: CommissionRow[] }) {
   )
 }
 
-function History({ title, rows }: { title: string; rows: ProfitRow[] }) {
+function History({ title, rows, displayCurrency, rates }: { title: string; rows: ProfitRow[]; displayCurrency: Currency; rates: FxRates }) {
   return (
     <div className="border border-border bg-card">
       <div className="flex items-center justify-between gap-3 border-b border-border px-6 py-4">
