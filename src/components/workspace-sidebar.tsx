@@ -11,7 +11,7 @@ type Props = {
 const memberItems = [
   ['dashboard','Dashboard','/dashboard'],
   ['projects','Projects','/residences'],
-  ['orders','Orders','/dashboard#investments'],
+  ['orders','Orders','/orders'],
   ['account','Account','/account'],
   ['support','Support','/support'],
 ] as const
