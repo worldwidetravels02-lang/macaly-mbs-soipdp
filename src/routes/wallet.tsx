@@ -254,7 +254,7 @@ function WalletPage() {
             <div>
               <p className="eyebrow text-brass">Member account</p>
               <h1 className="display mt-3 text-[clamp(1.8rem,4vw,2.6rem)]">Your wallet</h1>
-              <p className="mt-2 text-sm text-ink-soft">View your posted balance, request deposits or withdrawals, and track wallet activity.</p>
+              <p className="mt-2 text-sm text-ink-soft">View your posted balance, request deposits, and track wallet activity.</p>
             </div>
             <label className="block min-w-36">
               <span className="eyebrow text-[0.5rem] text-ink-soft">Display currency</span>
@@ -303,15 +303,10 @@ function WalletPage() {
                 <button disabled={requestBusy || !depositAmount} className="eyebrow inline-flex items-center justify-center gap-2 bg-primary px-5 py-3 text-[0.6rem] text-primary-foreground disabled:opacity-50">Submit deposit request <ArrowRight /></button>
                 <Link to="/support" className="text-sm text-brass underline underline-offset-4">Contact customer support for deposit instructions</Link>
               </form>
-              <form id="withdrawals" onSubmit={(event) => { event.preventDefault(); void submitWalletRequest('withdrawal') }} className="grid gap-3 border border-border bg-card p-6">
-                <div><p className="eyebrow text-brass">Withdraw funds</p><h2 className="display mt-2 text-xl">Withdrawal request</h2><p className="mt-2 text-xs leading-6 text-ink-soft">Choose the amount and submit. Your request stays pending until an administrator reviews it. Contact support if you need help.</p></div>
-                <div className="grid gap-2"><p className="text-xs text-ink-soft">Available for a new withdrawal: <strong className="text-foreground">{money(withdrawableAmount, currency)}</strong></p><label className="text-xs text-ink-soft">Withdrawal amount ({currency})<input required type="number" min="0.01" max={withdrawableAmount} step="0.01" className={fieldClass} value={withdrawalAmount} onChange={(event) => setWithdrawalAmount(event.target.value)} placeholder="Enter amount" disabled={withdrawableAmount < 0.01} /></label>{withdrawableAmount < 0.01 ? <p className="text-xs text-ink-soft">No balance is currently available for another withdrawal request.</p> : <p className="text-xs text-ink-soft">Pending and approved withdrawals are deducted from this amount until completed or rejected.</p>}</div>
-                <label className="text-xs text-ink-soft">Payout method<input required maxLength={80} className={fieldClass} value={payoutMethod} onChange={(event) => setPayoutMethod(event.target.value)} placeholder="e.g. Bank transfer" /></label>
-                <label className="text-xs text-ink-soft">Payout details<textarea required maxLength={1000} rows={3} className={fieldClass} value={payoutDetails} onChange={(event) => setPayoutDetails(event.target.value)} placeholder="Enter the details needed to arrange your payout" /></label>
-                <p className="text-xs leading-5 text-ink-soft">Only provide payout information needed for the transfer. An administrator reviews the request and arranges any external transfer separately.</p>
-                <button disabled={requestBusy || !withdrawalAmount || !payoutMethod.trim() || !payoutDetails.trim()} className="eyebrow inline-flex items-center justify-center gap-2 bg-primary px-5 py-3 text-[0.6rem] text-primary-foreground disabled:opacity-50">Apply for withdrawal <ArrowRight /></button>
-                <Link to="/support" className="text-sm text-brass underline underline-offset-4">Contact customer support</Link>
-              </form>
+              <section id="withdrawals" className="grid content-start gap-3 border border-border bg-card p-6">
+                <div><p className="eyebrow text-brass">Withdraw funds</p><h2 className="display mt-2 text-xl">Contact customer support</h2><p className="mt-2 text-xs leading-6 text-ink-soft">To ask about withdrawing your funds, contact our customer support team. The withdrawal request form is not available in the customer wallet.</p></div>
+                <Link to="/support" className="eyebrow inline-flex w-fit items-center justify-center gap-2 bg-primary px-5 py-3 text-[0.6rem] text-primary-foreground">Contact support <ArrowRight /></Link>
+              </section>
             </section>
             <section className="grid gap-6 lg:grid-cols-2">
             {notifications.length > 0 ? <section id="notifications" className="border border-border bg-card">
