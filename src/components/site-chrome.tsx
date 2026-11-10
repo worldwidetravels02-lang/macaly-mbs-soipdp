@@ -28,14 +28,26 @@ export function BrandMark({ className = 'h-9 w-9' }: { className?: string }) {
 
 export function Wordmark() {
   return (
-    <span className="flex items-center gap-3">
-      <span className="text-brass">
-        <BrandMark className="h-8 w-8" />
+    <span data-testid="msheireb-wordmark" className="inline-flex shrink-0 items-center gap-3 whitespace-nowrap text-[#172238]" aria-label="مشيرب العقارية — MSHEIREB PROPERTIES">
+      <span className="flex flex-col items-end leading-tight">
+        <span lang="ar" dir="rtl" className="block text-base font-bold tracking-normal text-[#172238] sm:text-lg">مشيرب العقارية</span>
+        <span className="mt-1 block text-[0.72rem] font-bold uppercase tracking-[0.09em] text-[#172238] sm:text-sm">MSHEIREB PROPERTIES</span>
       </span>
-      <span className="leading-none">
-        <span className="display block text-[1.28rem] tracking-[0.2em] sm:text-[1.4rem]">MSHEIREB</span>
-        <span className="eyebrow mt-1 block text-[0.52rem] opacity-70">Properties</span>
-      </span>
+      <svg viewBox="0 0 64 64" fill="none" aria-hidden="true" className="h-12 w-12 shrink-0 text-[#b69a5b] sm:h-14 sm:w-14">
+        <circle cx="32" cy="32" r="29" stroke="currentColor" strokeWidth="1.5"/>
+        <g fill="currentColor">
+          <path d="M28 5h8l4 17H24z"/>
+          <path d="M28 5h8l4 17H24z" transform="rotate(45 32 32)"/>
+          <path d="M28 5h8l4 17H24z" transform="rotate(90 32 32)"/>
+          <path d="M28 5h8l4 17H24z" transform="rotate(135 32 32)"/>
+          <path d="M28 5h8l4 17H24z" transform="rotate(180 32 32)"/>
+          <path d="M28 5h8l4 17H24z" transform="rotate(225 32 32)"/>
+          <path d="M28 5h8l4 17H24z" transform="rotate(270 32 32)"/>
+          <path d="M28 5h8l4 17H24z" transform="rotate(315 32 32)"/>
+        </g>
+        <circle cx="32" cy="32" r="8" fill="#172238"/>
+        <circle cx="32" cy="32" r="3.5" fill="#fff"/>
+      </svg>
     </span>
   )
 }
