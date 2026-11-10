@@ -824,14 +824,29 @@ function AdminPage() {
     if (rpcError) throw rpcError
   }, action === 'credit' ? 'Commission approved and credited to the internal wallet.' : 'Commission rejected.')
 
-  const reviewInvestmentRequest = (id: string, action: 'approve' | 'reject') => run(async () => {
-    const { error: rpcError } = await requireSupabase().rpc('admin_review_investment_request', {
-      p_request_id: id,
-      p_action: action,
-      p_admin_note: action === 'approve' ? 'Approved by administrator' : 'Rejected by administrator',
-    })
-    if (rpcError) throw rpcError
-  }, action === 'approve' ? 'Investment approved. Plan percentages were recalculated from the current admin settings.' : 'Investment request rejected.')
+  const reviewInvestmentRequest = async (id: string, action: 'approve' | 'reject') => {
+    setBusy(true)
+    setError('')
+    setNotice('')
+    try {
+      const { error: rpcError } = await requireSupabase().rpc('admin_review_investment_request', {
+        p_request_id: id,
+        p_action: action,
+        p_admin_note: action === 'approve' ? 'Approved by administrator' : 'Rejected by administrator',
+      })
+      if (rpcError) throw rpcError
+      const message = action === 'approve' ? 'Investment request approved successfully.' : 'Investment request rejected successfully.'
+      setNotice(message)
+      window.alert(message)
+      await load()
+    } catch (cause) {
+      const message = errorMessage(cause, 'The investment request could not be updated.')
+      setError(message)
+      window.alert(message)
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const setAccountState = (customerId: string, status: 'active' | 'frozen' | 'blocked') => run(async () => {
     const { error: stateError } = await requireSupabase().from('account_states').upsert({ user_id: customerId, status, reason: status === 'active' ? null : 'Updated by administrator', updated_by: user?.id, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
