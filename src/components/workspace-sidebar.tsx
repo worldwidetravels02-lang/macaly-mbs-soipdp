@@ -6,6 +6,7 @@ type Props = {
   mode: 'member' | 'admin'
   active?: string
   onSelect?: (id: string) => void
+  isOwner?: boolean
 }
 const memberItems = [
   ['dashboard','Dashboard','/dashboard'],
@@ -22,9 +23,10 @@ const adminItems = [
   ['transactions','Transactions'],
   ['support','Support'],
   ['settings','Settings'],
+  ['team','Add Admin'],
 ] as const
 
-export function WorkspaceSidebar({ mode, active, onSelect }: Props) {
+export function WorkspaceSidebar({ mode, active, onSelect, isOwner = false }: Props) {
   const [open, setOpen] = useState(false)
   const [authReady, setAuthReady] = useState(mode === 'admin')
   const [authenticated, setAuthenticated] = useState(mode === 'admin')
@@ -65,7 +67,7 @@ export function WorkspaceSidebar({ mode, active, onSelect }: Props) {
 
   if (!isAdmin && (!authReady || !authenticated)) return null
 
-  const items = isAdmin ? adminItems : memberItems
+  const items = isAdmin ? adminItems.filter(([id]) => id !== 'team' || isOwner) : memberItems
   return <>
     <button type="button" aria-label="Open workspace navigation" onClick={() => setOpen(true)}
       className="fixed left-4 top-4 z-[70] flex h-11 w-11 items-center justify-center border border-brass/50 bg-[#101d35] text-xl text-[#d8b56d] shadow-lg lg:hidden">☰</button>
@@ -88,9 +90,9 @@ export function WorkspaceSidebar({ mode, active, onSelect }: Props) {
       </nav>
       <div className={["border-t px-5 py-4", "border-white/10"].join(" ")}>{isAdmin ? <p className="text-[10px] tracking-widest text-white/45">DUBAI · UNITED ARAB EMIRATES</p> : <button type="button" onClick={() => void signOut()} className="flex w-full items-center gap-3 py-2 text-left text-sm text-white/65 transition hover:text-[#e7c77f]"><span aria-hidden="true">↪</span>Log out</button>}</div>
     </aside>
-    {isAdmin ? <nav aria-label="Admin quick navigation" className="fixed inset-x-0 bottom-0 z-[80] grid grid-cols-7 border-t border-[#e8e4dc] bg-white px-1 pb-[max(env(safe-area-inset-bottom),0.35rem)] pt-2 shadow-[0_-4px_18px_rgba(0,0,0,0.08)] lg:hidden">
+    {isAdmin ? <nav aria-label="Admin quick navigation" className="fixed inset-x-0 bottom-0 z-[80] grid grid-cols-8 border-t border-[#e8e4dc] bg-white px-1 pb-[max(env(safe-area-inset-bottom),0.35rem)] pt-2 shadow-[0_-4px_18px_rgba(0,0,0,0.08)] lg:hidden">
       {adminItems.map(([id, label]) => <button key={id} type="button" onClick={() => onSelect?.(id)} className={['flex min-w-0 flex-col items-center justify-center gap-1 py-1 text-[0.62rem]', active === id ? 'font-semibold text-[#171717]' : 'text-[#777]'].join(' ')}>
-        <span aria-hidden="true" className="text-lg leading-5">{id === 'overview' ? '⌂' : id === 'users' ? '♙' : id === 'properties' ? '▦' : id === 'finance' ? '▱' : id === 'transactions' ? '≡' : id === 'support' ? '✉' : '☼'}</span>
+        <span aria-hidden="true" className="text-lg leading-5">{id === 'overview' ? '⌂' : id === 'users' ? '♙' : id === 'properties' ? '▦' : id === 'finance' ? '▱' : id === 'transactions' ? '≡' : id === 'support' ? '✉' : id === 'team' ? '＋' : '☼'}</span>
         <span className="truncate">{label}</span>
       </button>)}
     </nav> : null}
