@@ -172,19 +172,26 @@ function DashboardPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <WorkspaceSidebar mode="member" />
-      <SiteHeader />
-      <main id="main" className="pb-20 pt-28 sm:pt-36 lg:ml-64">
-        <div className="mx-auto grid w-full max-w-6xl gap-8 px-5 sm:px-8">
-          <section className="relative isolate min-h-[300px] overflow-hidden rounded-2xl bg-[#101d32] text-white sm:min-h-[350px]">
-            <img src={IMAGES.marinaNight} alt="Dubai waterfront skyline" className="absolute inset-0 -z-20 h-full w-full object-cover opacity-55" />
-            <div className="absolute inset-0 -z-10 bg-gradient-to-r from-[#071426]/95 via-[#0d2038]/75 to-[#0d2038]/15" />
-            <div className="relative max-w-3xl px-7 py-10 sm:px-11 sm:py-14">
-              <p className="eyebrow mb-3 text-[0.55rem] text-[#d3b36c]">Dubai · Private member workspace</p>
-              <h1 className="display text-4xl leading-tight text-white sm:text-5xl">Welcome, {name.split(' ')[0]}.</h1>
-              <p className="mt-4 max-w-xl text-sm leading-7 text-white/75">Discover exceptional residences and manage your private account in one place.</p>
-              <div className="mt-7 flex flex-wrap gap-3">
-                <Link to="/residences" className="eyebrow inline-flex items-center gap-2 rounded-lg bg-[#c4a568] px-6 py-3.5 text-[0.58rem] font-semibold text-[#111d30] transition hover:bg-[#d6bd8d]">Explore projects <ArrowRight /></Link>
-                <Link to="/account" className="eyebrow inline-flex items-center rounded-lg border border-white/40 bg-white/5 px-6 py-3.5 text-[0.58rem] font-semibold text-white hover:bg-white/10">My account</Link>
+
+      <header className="fixed inset-x-0 top-0 z-40 flex h-[72px] items-center justify-between border-b border-[#e8e4dc] bg-white/95 px-5 pl-20 backdrop-blur lg:left-64 lg:px-7">
+        <div className="text-xs text-[#7b7b7b]"><span>Workspace</span><span className="mx-2">/</span><strong className="text-[#172238]">Dashboard</strong></div>
+        <div className="flex items-center gap-3 sm:gap-5">
+          <label className="flex items-center gap-2 text-[10px] font-semibold tracking-widest text-[#888]">CURRENCY
+            <select aria-label="Dashboard currency" value={currency} onChange={(event) => setCurrency(event.target.value as Currency)} className="rounded-md border border-[#e6e1d8] bg-white px-3 py-2 text-xs font-semibold text-[#172238]">{currencies.map((code) => <option key={code} value={code}>{code}</option>)}</select>
+          </label>
+          <Link to="/account" className="flex items-center gap-2 rounded-xl border border-[#e8e4dc] bg-[#fbfaf8] px-2 py-1.5 text-xs text-[#172238]"><span className="grid h-8 w-8 place-items-center rounded-lg bg-[#f2e9e7] font-semibold">{name.slice(0,1).toUpperCase()}</span><span className="hidden text-left sm:block"><strong className="block">{name.split(' ')[0]}</strong><span className="text-[10px] text-[#888]">User</span></span></Link>
+        </div>
+      </header>
+
+      <main id="main" className="pb-20 pt-24 lg:ml-64">
+        <div className="mx-auto grid w-full max-w-[1500px] gap-5 px-5 sm:px-7">
+          <section className="relative overflow-hidden rounded-xl border border-[#e2e8e2] bg-gradient-to-r from-[#e8f2ec] via-[#eef5f1] to-[#f1f1eb] px-7 py-7 sm:px-9 sm:py-8">
+            <div className="pointer-events-none absolute -right-12 -top-16 h-64 w-64 rounded-full bg-white/40" />
+            <div className="relative">
+              <h1 className="display text-3xl leading-tight text-[#211f1c] sm:text-4xl">Good afternoon, {name.split(' ')[0]}.</h1>
+              <div className="mt-5 flex flex-wrap gap-2.5">
+                <Link to="/residences" className="inline-flex items-center gap-2 rounded-md bg-[#201f1d] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#3a3732]">Explore projects <ArrowRight /></Link>
+                <Link to="/account" className="inline-flex items-center rounded-md border border-[#e1ded7] bg-white px-5 py-3 text-sm font-semibold text-[#282622] transition hover:border-[#b99a59]">View account</Link>
               </div>
             </div>
           </section>
@@ -193,27 +200,7 @@ function DashboardPage() {
           {!loading && !user ? <section data-testid="dashboard-signed-out" className="border border-border bg-card p-8 sm:p-12"><p className="eyebrow text-brass">Member area</p><h2 className="display mt-4 text-2xl">Sign in to open your dashboard.</h2><p className="mt-3 text-sm text-ink-soft">Your dashboard holds your wallet, property requests, account details and customer support.</p><Link to="/login" className="eyebrow mt-6 inline-flex items-center gap-3 bg-primary px-6 py-4 text-[0.6rem] text-primary-foreground">Login <ArrowRight /></Link></section> : null}
           {error ? <p role="alert" className="border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</p> : null}
           {user && !loading ? <>
-            <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <Link to="/wallet" className="rounded-xl border border-[#e5e0d5] bg-white p-5 transition hover:border-[#b89b59]"><p className="eyebrow text-[0.5rem] text-[#92815e]">Wallet balance · {currency}</p><p data-testid="dashboard-balance" className="display mt-3 text-2xl text-[#172238]">{formatMoney(balance, currency)}</p><p className="mt-1 text-xs text-[#858585]">Available balance</p></Link>
-              <Link to="/residences" className="rounded-xl border border-[#e5e0d5] bg-white p-5 transition hover:border-[#b89b59]"><p className="eyebrow text-[0.5rem] text-[#92815e]">Property requests</p><p className="display mt-3 text-2xl text-[#172238]">{investments.length}</p><p className="mt-1 text-xs text-[#858585]">{pendingProjects} pending review</p></Link>
-              <Link to="/residences" className="rounded-xl border border-[#e5e0d5] bg-white p-5 transition hover:border-[#b89b59]"><p className="eyebrow text-[0.5rem] text-[#92815e]">Approved / funded</p><p className="display mt-3 text-2xl text-[#172238]">{activeProjects}</p><p className="mt-1 text-xs text-[#858585]">Approved or completed</p></Link>
-              <Link to="/support" className="rounded-xl border border-[#e5e0d5] bg-white p-5 transition hover:border-[#b89b59]"><p className="eyebrow text-[0.5rem] text-[#92815e]">Unread notifications</p><p className="display mt-3 text-2xl text-[#172238]">{unread}</p><p className="mt-1 text-xs text-[#858585]">Latest account updates</p></Link>
-            </section>
-
-            <section id="investment-level" className="border border-brass/40 bg-brass/5 p-6">
-              <p className="eyebrow text-[0.5rem] text-brass">Your investment level</p>
-              <h2 className="display mt-2 text-2xl">Level {membershipLevel}</h2>
-              <p className="mt-2 text-sm text-ink-soft">Your membership level is assigned and updated by the administration team.</p>
-            </section>
             <section id="tasks-achievements" className="grid gap-6">
-              <div className="border border-brass/40 bg-brass/5 p-6 sm:p-8">
-                <p className="eyebrow text-[0.5rem] text-brass">Tasks & achievements</p>
-                <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
-                  <div><h2 className="display text-2xl">Level {membershipLevel}</h2><p className="mt-2 text-sm text-ink-soft">Your current achievement level is managed by the administration team.</p></div>
-                  <span className="eyebrow border border-brass/40 px-3 py-2 text-[0.5rem] text-brass">{memberTasks.filter((task) => task.status === 'approved').length} tasks approved</span>
-                </div>
-                {taskMessage ? <p role="status" className="mt-4 border border-brass/30 px-4 py-3 text-sm">{taskMessage}</p> : null}
-              </div>
               <section aria-label="Project groups" className="border border-border bg-card p-5 sm:p-6">
                 <div className="mb-5 flex items-center justify-between gap-3">
                   <div><p className="eyebrow text-[0.5rem] text-brass">Explore Dubai</p><h2 className="display mt-2 text-xl">Project groups</h2></div>
