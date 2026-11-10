@@ -176,7 +176,7 @@ function DashboardPage() {
   const todayCommission = creditedCommissions.filter((row) => new Date(row.created_at).toLocaleDateString('en-CA') === todayKey).reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
 
   return (
-    <div className="min-h-screen bg-[#f5f3ee] text-[#172238]">
+    <div className="customer-dashboard min-h-screen bg-[#f5f3ee] text-[#172238]">
       <WorkspaceSidebar mode="member" />
 
       <header className="fixed inset-x-0 top-0 z-40 flex h-[72px] items-center justify-between border-b border-white/10 bg-[#101d35]/95 px-5 pl-20 text-white shadow-lg backdrop-blur lg:left-64 lg:px-7">
