@@ -21,7 +21,7 @@ const SECTIONS: { id: Section; label: string }[] = [
   { id: 'support', label: 'Support' },
   { id: 'settings', label: 'Settings' },
 ]
-const CURRENCIES = ['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR', 'INR']
+const CURRENCIES = ['OMR', 'AED', 'SAR', 'KWD', 'BHD', 'QAR', 'PKR', 'BDT']
 const meta = siteMetadata['/admin']
 const money = (value: unknown, currency = 'AED') => {
   const amount = Number(value)
