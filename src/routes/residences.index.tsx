@@ -29,6 +29,9 @@ type Project = {
 type ProjectRequest = { property_id: string | null; status: string }
 
 export const Route = createFileRoute('/residences/')({
+  validateSearch: (search: Record<string, unknown>) => ({
+    level: typeof search.level === 'string' && LEVELS.includes(search.level as typeof LEVELS[number]) ? search.level : undefined,
+  }),
   head: () => {
     const canonical = canonicalUrl('/residences')
     return { meta: [{ title: meta.title }, { name: 'description', content: meta.description }], links: canonical ? [{ rel: 'canonical', href: canonical }] : [] }
@@ -37,19 +40,27 @@ export const Route = createFileRoute('/residences/')({
 })
 
 function ResidencesPage() {
+  const search = Route.useSearch()
   const [checkingSession, setCheckingSession] = useState(true)
   const [signedIn, setSignedIn] = useState(false)
   const [projects, setProjects] = useState<Project[]>([])
   const [customerLevelAccess, setCustomerLevelAccess] = useState<{ user_id: string; level_name: string; is_unlocked: boolean }[]>([])
   const [currentUserId, setCurrentUserId] = useState('')
   const [requests, setRequests] = useState<ProjectRequest[]>([])
-  const [selectedLevel, setSelectedLevel] = useState<string>('Junior Trial')
+  const [selectedLevel, setSelectedLevel] = useState<string>(search.level ?? 'Junior Trial')
   const [selectedSet, setSelectedSet] = useState<number>(1)
   const [loadingProjects, setLoadingProjects] = useState(false)
   const [busyProject, setBusyProject] = useState('')
   const [orderSelections, setOrderSelections] = useState<Record<string, { quantity: number; percentage: number }>>({})
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (search.level && LEVELS.includes(search.level as typeof LEVELS[number])) {
+      setSelectedLevel(search.level)
+      setSelectedSet(1)
+    }
+  }, [search.level])
 
   useEffect(() => {
     const client = requireSupabase()
