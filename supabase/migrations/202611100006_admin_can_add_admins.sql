@@ -43,6 +43,9 @@ begin
   limit 1;
 
   if p_action = 'add' then
+    if v_actor_role = 'owner' and not public.owner_is_verified() then
+      raise exception 'Verify the owner security code before adding administrators';
+    end if;
     if p_email is null or btrim(p_email) = '' then
       raise exception 'Enter the registered email address';
     end if;
