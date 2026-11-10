@@ -1050,7 +1050,7 @@ function AdminPage() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <WorkspaceSidebar mode="admin" active={section} onSelect={(id) => setSection(id as Section)} />
-      <SiteHeader />
+      <SiteHeader hideMenuButton />
       <main id="main" className="pb-20 pt-28 sm:pt-36 lg:ml-64">
         <div className="mx-auto w-full max-w-7xl px-4 sm:px-7">
           <header className="mb-7 flex flex-col gap-4 rounded-xl border border-[#d6b56d]/40 bg-[#102744] p-6 text-white shadow-sm sm:flex-row sm:items-end sm:justify-between">
