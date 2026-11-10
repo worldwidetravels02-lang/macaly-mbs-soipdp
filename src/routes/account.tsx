@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { requireSupabase } from '@/lib/supabase-client'
 
 type Currency = 'AED' | 'OMR' | 'SAR' | 'KWD' | 'BHD' | 'QAR'
-type Section = 'records' | 'cashin' | 'cashout' | 'bank' | 'password' | 'withdrawalPassword' | 'deposit' | 'terms'
+type Section = 'records' | 'cashin' | 'cashout' | 'bank' | 'bindForm' | 'password' | 'withdrawalPassword' | 'deposit' | 'terms'
 type BankAccount = { id: string; account_holder: string; bank_name: string; iban: string; account_number: string; mobile_number: string; created_at: string }
 type RecordRow = { id: string; type: string; description: string; amount: number; currency: Currency; status: string; created_at: string }
 const currencies: Currency[] = ['AED','OMR','SAR','KWD','BHD','QAR']
