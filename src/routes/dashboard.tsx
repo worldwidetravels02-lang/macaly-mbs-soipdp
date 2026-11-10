@@ -51,6 +51,7 @@ export const Route = createFileRoute('/dashboard')({
 
 function DashboardPage() {
   const navigate = useNavigate()
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
@@ -110,7 +111,16 @@ function DashboardPage() {
       }
     })
 
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+    return () => {
+      active = false
+      listener.subscription.unsubscribe()
+    }
+  }, [navigate, userId])
+
+  const signOut = async () => {
+    if (supabase) await supabase.auth.signOut()
+    void navigate({ to: '/login' })
+  }
 
   const projectGroups = [
     { name: 'Junior (Trial)', subtitle: 'STARTER COLLECTION', image: IMAGES.villas, available: true },
