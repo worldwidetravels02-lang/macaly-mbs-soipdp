@@ -95,6 +95,8 @@ function AdminPage() {
   const [profitDraft, setProfitDraft] = useState({ user_id: '', amount: '', currency: 'OMR', period_start: '', period_end: '', description: 'Monthly profit credited to customer wallet' })
   const [commissionDraft, setCommissionDraft] = useState({ user_id: '', plan_id: '', base_amount: '', currency: 'OMR', commission_type: 'referral', source_user_id: '', reference: '', description: '' })
   const [manualWalletDraft, setManualWalletDraft] = useState({ user_id: '', amount: '', currency: 'OMR', description: 'Balance added by administrator' })
+  const [walletHoldDraft, setWalletHoldDraft] = useState({ user_id: '', amount: '', currency: 'OMR', reason: 'Amount held by administrator' })
+  const [walletHoldReleaseDrafts, setWalletHoldReleaseDrafts] = useState<Record<string, string>>({})
   const [manualWalletSearch, setManualWalletSearch] = useState('')
   const [walletSearch, setWalletSearch] = useState('')
   const [walletCurrencyFilter, setWalletCurrencyFilter] = useState('all')
@@ -198,6 +200,7 @@ function AdminPage() {
         notifications: client.from('notifications').select('*').order('created_at', { ascending: false }).limit(100),
         financialAudit: client.from('financial_audit_log').select('*').order('created_at', { ascending: false }).limit(200),
         walletTransactions: client.from('wallet_transactions').select('*').order('created_at', { ascending: false }).limit(200),
+        walletHolds: client.from('wallet_holds').select('*').order('created_at', { ascending: false }).limit(200),
       }
       const names = Object.keys(queries)
       const results = await Promise.all(names.map((name) => queries[name]))
@@ -782,6 +785,36 @@ function AdminPage() {
     }, 'Wallet balance added to the customer account.')
   }
 
+  const holdWalletBalance = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const amount = Number(walletHoldDraft.amount)
+    if (!walletHoldDraft.user_id || !(rows.users ?? []).some((profile) => profile.id === walletHoldDraft.user_id)) { setError('Select a valid customer account before placing a hold.'); return }
+    if (!Number.isFinite(amount) || amount <= 0 || amount > 100000000) { setError('Enter a valid hold amount greater than zero.'); return }
+    if (!walletHoldDraft.reason.trim() || walletHoldDraft.reason.trim().length > 240) { setError('Enter a hold reason of 1–240 characters.'); return }
+    await run(async () => {
+      const { error: rpcError } = await requireSupabase().rpc('admin_hold_wallet_balance', {
+        p_user_id: walletHoldDraft.user_id, p_amount: amount,
+        p_currency: walletHoldDraft.currency, p_reason: walletHoldDraft.reason.trim(),
+      })
+      if (rpcError) throw rpcError
+      setWalletHoldDraft({ user_id: '', amount: '', currency: 'OMR', reason: 'Amount held by administrator' })
+    }, 'Customer wallet amount placed on hold. The funds remain in the wallet but cannot be withdrawn.')
+  }
+
+  const releaseWalletHold = async (holdId: string) => {
+    const amountText = walletHoldReleaseDrafts[holdId]
+    const amount = amountText?.trim() ? Number(amountText) : null
+    if (amount !== null && (!Number.isFinite(amount) || amount <= 0)) { setError('Enter a valid release amount greater than zero.'); return }
+    if (!window.confirm(amount === null ? 'Release the full remaining held amount?' : 'Release ' + amount + ' from this wallet hold?')) return
+    await run(async () => {
+      const { error: rpcError } = await requireSupabase().rpc('admin_release_wallet_hold', {
+        p_hold_id: holdId, p_amount: amount,
+      })
+      if (rpcError) throw rpcError
+      setWalletHoldReleaseDrafts((current) => ({ ...current, [holdId]: '' }))
+    }, 'Wallet hold amount released and made available for withdrawal.')
+  }
+
   const creditProfit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     await run(async () => {
@@ -1208,6 +1241,23 @@ function AdminPage() {
               <section className="grid gap-3 border border-border bg-card p-4 sm:grid-cols-[minmax(0,1fr)_14rem]"><div><label className="eyebrow text-[0.55rem] text-ink-soft" htmlFor="finance-request-search">Find a deposit or withdrawal</label><input id="finance-request-search" className={inputClass} value={financeSearch} onChange={(event) => setFinanceSearch(event.target.value)} placeholder="Customer, account ID, amount or reference" /></div><div><label className="eyebrow text-[0.55rem] text-ink-soft" htmlFor="finance-request-status">Request status</label><select id="finance-request-status" className={inputClass} value={financeStatus} onChange={(event) => setFinanceStatus(event.target.value)}><option value="all">All statuses</option><option value="pending">Pending</option><option value="submitted">Submitted</option><option value="under_review">Under review</option><option value="approved">Approved</option><option value="processing">Processing</option><option value="in_progress">In progress</option><option value="paid">Paid</option><option value="completed">Completed</option><option value="rejected">Rejected</option></select></div><div><label className="eyebrow text-[0.55rem] text-ink-soft" htmlFor="finance-from-date">From date</label><input id="finance-from-date" type="date" className={inputClass} value={financeFromDate} max={financeToDate || undefined} onChange={(event) => setFinanceFromDate(event.target.value)} /></div><div><label className="eyebrow text-[0.55rem] text-ink-soft" htmlFor="finance-to-date">To date</label><input id="finance-to-date" type="date" className={inputClass} value={financeToDate} min={financeFromDate || undefined} onChange={(event) => setFinanceToDate(event.target.value)} /></div><div className="flex flex-wrap items-center justify-between gap-3 sm:col-span-2"><p className="text-xs text-ink-soft">Showing {filteredTopupRequests.length} of {topupRequestsWithCustomer.length} deposit requests and {filteredWithdrawalRequests.length} of {withdrawalRequestsWithCustomer.length} withdrawal requests. The same search and status filter apply to both lists.</p><button type="button" className={softButton} onClick={() => { setFinanceSearch(''); setFinanceStatus('all'); setFinanceFromDate(''); setFinanceToDate('') }} disabled={!financeSearch && financeStatus === 'all' && !financeFromDate && !financeToDate}>Clear finance filters</button></div><p className="text-xs text-ink-soft sm:col-span-2">Approving a withdrawal deducts the amount from the customer’s internal wallet immediately. Complete the external bank transfer separately, then mark the request paid.</p></section>
               <DataTable title="Top-up requests" rows={filteredTopupRequests} columns={['customer_name','customer_mobile','user_id','amount','currency','payment_method','payment_reference','status','admin_note','created_at']} render={(item) => ['pending','submitted','under_review'].includes(normalizeAdminStatus(item.status)) ? <div className="flex gap-2"><button disabled={busy} className={softButton} onClick={() => reviewTopup(text(item.id), true)}>Approve</button><button disabled={busy} className={softButton} onClick={() => reviewTopup(text(item.id), false)}>Reject</button></div> : null} />
               <DataTable title="Withdrawal requests" rows={filteredWithdrawalRequests} columns={['customer_name','customer_mobile','user_id','amount','currency','payout_method','payout_details','status','admin_note','created_at']} render={(item) => ['pending','submitted','under_review'].includes(normalizeAdminStatus(item.status)) ? <div className="flex flex-wrap gap-2"><button disabled={busy} className={softButton} onClick={() => reviewWithdrawal(text(item.id), 'approve')}>Approve</button><button disabled={busy} className={softButton} onClick={() => reviewWithdrawal(text(item.id), 'reject')}>Reject</button></div> : ['approved','processing','in_progress'].includes(normalizeAdminStatus(item.status)) ? <button disabled={busy} className={softButton} onClick={() => reviewWithdrawal(text(item.id), 'pay')}>Mark paid after transfer</button> : null} />
+              <section className="grid gap-4 border border-brass/40 bg-card p-6">
+                <div><h2 className="display text-xl">Hold customer wallet amount</h2><p className="mt-2 text-xs leading-6 text-ink-soft">Place a temporary restriction on available wallet funds without removing or debiting them. Customers cannot withdraw the held amount. You can release all or part of a hold below.</p></div>
+                <form onSubmit={holdWalletBalance} className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <select required aria-label="Select customer for wallet hold" className={inputClass} value={walletHoldDraft.user_id} onChange={(event) => setWalletHoldDraft({ ...walletHoldDraft, user_id: event.target.value })}>
+                    <option value="">Select customer</option>
+                    {(rows.users ?? []).map((customer) => <option key={text(customer.id)} value={text(customer.id)}>{text(customer.full_name) || text(customer.mobile) || 'Customer'} · ID {customerNumber(customer.id)}</option>)}
+                  </select>
+                  <input required type="number" min="0.01" max="100000000" step="0.01" className={inputClass} placeholder="Amount to hold" value={walletHoldDraft.amount} onChange={(event) => setWalletHoldDraft({ ...walletHoldDraft, amount: event.target.value })} />
+                  <select aria-label="Hold currency" className={inputClass} value={walletHoldDraft.currency} onChange={(event) => setWalletHoldDraft({ ...walletHoldDraft, currency: event.target.value })}>{CURRENCIES.map((code) => <option key={code}>{code}</option>)}</select>
+                  <input required maxLength={240} className={inputClass} placeholder="Reason for hold" value={walletHoldDraft.reason} onChange={(event) => setWalletHoldDraft({ ...walletHoldDraft, reason: event.target.value })} />
+                  <button disabled={busy || !walletHoldDraft.user_id || !walletHoldDraft.amount} className={buttonClass + ' sm:col-span-2 xl:col-span-4'}>Place wallet hold <ArrowRight /></button>
+                </form>
+                <DataTable title="Wallet holds and released amounts" rows={(rows.walletHolds ?? []).map((item) => {
+                  const customer = (rows.users ?? []).find((profile) => profile.id === item.user_id)
+                  return { ...item, customer_name: text(customer?.full_name) || text(customer?.mobile) || 'Unknown customer', remaining_amount: Math.max(0, Number(item.amount || 0) - Number(item.released_amount || 0)) }
+                })} columns={['customer_name','amount','released_amount','remaining_amount','currency','status','reason','created_at']} render={(item) => Number(item.remaining_amount) > 0 && normalizeAdminStatus(item.status) === 'active' ? <div className="grid min-w-36 gap-2"><input aria-label="Amount to release" type="number" min="0.01" max={String(item.remaining_amount)} step="0.01" className={inputClass} placeholder={String(item.remaining_amount) + ' full'} value={walletHoldReleaseDrafts[text(item.id)] ?? ''} onChange={(event) => setWalletHoldReleaseDrafts((current) => ({ ...current, [text(item.id)]: event.target.value }))} /><button type="button" disabled={busy} className={softButton} onClick={() => void releaseWalletHold(text(item.id))}>Release amount</button><button type="button" disabled={busy} className={softButton} onClick={() => { setWalletHoldReleaseDrafts((current) => ({ ...current, [text(item.id)]: '' })); if (window.confirm('Release the full remaining held amount?')) void requireSupabase().rpc('admin_release_wallet_hold', { p_hold_id: text(item.id), p_amount: null }).then(({ error: rpcError }) => { if (rpcError) setError(errorMessage(rpcError, 'Could not release wallet hold.')); else { setNotice('Full wallet hold released.'); void load() } }) }}>Release all</button></div> : <span className="text-xs text-ink-soft">Fully released</span>} />
+              </section>
               <form onSubmit={addWalletBalance} className="border border-brass/40 bg-card p-6">
                 <h2 className="display text-xl">Add amount to customer wallet</h2>
                 <p className="mt-2 text-xs leading-6 text-ink-soft">Administrator-only manual credit. The amount is posted to the customer's internal wallet ledger and recorded in the financial audit history. This does not transfer real money.</p>
