@@ -18,6 +18,7 @@ type LedgerItem = { id: string; amount: number | string; currency: Currency; tra
 type Commission = { id: string; amount: number | string; currency: Currency; commission_type: string; status: string; description: string | null; created_at: string }
 type MemberTask = { id: string; title: string; detail: string | null; target_level: number | null; status: string; created_at: string; reviewed_at?: string | null; review_note?: string | null }
 type MembershipPlan = { id: string; level: number; name: string; minimum_amount: number | string; profit_percent: number | string; commission_percent: number | string; active: boolean }
+type CustomerLevelAccess = { user_id: string; level_name: string; is_unlocked: boolean }
 
 function formatMoney(amount: number | string, currency: Currency) {
   const numeric = Number(amount)
@@ -54,6 +55,7 @@ function DashboardPage() {
   const [membershipLevel, setMembershipLevel] = useState(0)
   const [memberTasks, setMemberTasks] = useState<MemberTask[]>([])
   const [membershipPlans, setMembershipPlans] = useState<MembershipPlan[]>([])
+  const [levelAccess, setLevelAccess] = useState<CustomerLevelAccess[]>([])
   const [taskBusy, setTaskBusy] = useState<string | null>(null)
   const [taskMessage, setTaskMessage] = useState('')
   const [loading, setLoading] = useState(true)
@@ -68,7 +70,7 @@ function DashboardPage() {
       const current = auth.session?.user ?? null
       setUser(current)
       if (!current) return
-      const [profile, wallet, projects, requests, ledger, notices, commissionRows, memberProfile, taskRows, planRows] = await Promise.all([
+      const [profile, wallet, projects, requests, ledger, notices, commissionRows, memberProfile, taskRows, planRows, accessRows] = await Promise.all([
         client.from('profiles').select('full_name,preferred_currency').eq('id', current.id).maybeSingle(),
         client.from('wallet_balances').select('balance').eq('user_id', current.id).eq('currency', currency).maybeSingle(),
         client.from('investments').select('id,amount,currency,status,created_at,reference,property_id').eq('user_id', current.id).order('created_at', { ascending: false }).limit(8),
@@ -79,8 +81,9 @@ function DashboardPage() {
         client.from('member_profiles').select('membership_level').eq('user_id', current.id).maybeSingle(),
         client.from('member_tasks').select('*').eq('user_id', current.id).order('created_at', { ascending: false }).limit(100),
         client.from('membership_plans').select('*').eq('active', true).order('level', { ascending: true }),
+        client.from('customer_project_level_access').select('user_id,level_name,is_unlocked').eq('user_id', current.id),
       ])
-      for (const result of [profile, wallet, projects, requests, ledger, notices, commissionRows, memberProfile, taskRows, planRows]) if (result.error) throw result.error
+      for (const result of [profile, wallet, projects, requests, ledger, notices, commissionRows, memberProfile, taskRows, planRows, accessRows]) if (result.error) throw result.error
       setName(profile.data?.full_name?.trim() || current.user_metadata?.full_name || current.email?.split('@')[0] || 'Member')
       const preferred = profile.data?.preferred_currency
       if (preferred && currencies.includes(preferred as Currency) && preferred !== currency) {
@@ -95,6 +98,7 @@ function DashboardPage() {
       setMembershipLevel(Number(memberProfile.data?.membership_level ?? 0))
       setMemberTasks((taskRows.data ?? []) as MemberTask[])
       setMembershipPlans((planRows.data ?? []) as MembershipPlan[])
+      setLevelAccess((accessRows.data ?? []) as CustomerLevelAccess[])
       setUnread(notices.count ?? 0)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not load your dashboard.')
@@ -221,7 +225,7 @@ function DashboardPage() {
                 <div id="member-level-track" className="flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-3">
                   {membershipPlans.map((plan, index) => {
                     const isJuniorTrial = plan.name.toLowerCase().includes('junior trial')
-                    const unlocked = isJuniorTrial || Number(plan.level) <= membershipLevel
+                    const unlocked = levelAccess.find((item) => item.user_id === user?.id && item.level_name === plan.name)?.is_unlocked ?? isJuniorTrial
                     const levelTasks = memberTasks.filter((task) => Number(task.target_level ?? 0) === Number(plan.level))
                     const approved = levelTasks.filter((task) => task.status === 'approved').length
                     const image = [IMAGES.marinaNight, IMAGES.tower, IMAGES.villas, IMAGES.penthouse][index % 4]
