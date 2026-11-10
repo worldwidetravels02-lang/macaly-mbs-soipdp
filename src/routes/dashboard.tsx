@@ -155,7 +155,10 @@ function DashboardPage() {
                   <h1 className="display mt-3 text-[clamp(2rem,4vw,3.2rem)]">Welcome{profile.full_name ? `, ${profile.full_name.split(' ')[0]}` : ''}</h1>
                   <p className="mt-3 text-sm text-ink-soft">{email}</p>
                 </div>
-                <button type="button" onClick={signOut} className="eyebrow border border-border px-5 py-3 text-[0.6rem] transition-colors hover:border-brass">Sign out</button>
+                <div className="flex flex-wrap gap-2">
+                  <Link to="/wallet" className="eyebrow border border-brass px-5 py-3 text-[0.6rem] transition-colors hover:bg-brass/10">My wallet</Link>
+                  <button type="button" onClick={signOut} className="eyebrow border border-border px-5 py-3 text-[0.6rem] transition-colors hover:border-brass">Sign out</button>
+                </div>
               </div>
 
               {error ? <p role="alert" className="mt-6 border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</p> : null}
