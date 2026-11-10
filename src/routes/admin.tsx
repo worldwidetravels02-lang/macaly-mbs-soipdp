@@ -1037,37 +1037,18 @@ function AdminPage() {
             </nav>
 
             {section === 'overview' ? <section>
+              <div className="mb-5"><h1 className="display text-2xl">Dashboard</h1><p className="mt-1 text-sm text-ink-soft">A simple overview of your projects, customers and pending actions.</p></div>
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {[
-                  ['Published properties', stats.properties],
-                  ['New enquiries', stats.enquiries],
-                  ['All enquiries', stats.totalEnquiries],
-                  ['Contacted enquiries', stats.contactedEnquiries],
-                  ['Closed enquiries', stats.closedEnquiries],
-                  ['Customer accounts', stats.customers],
-                  ['Pending financial requests', stats.pending],
-                  ['Investment applications to review', stats.pendingInvestmentReviews],
-                  ['Approved investments awaiting funding', stats.approvedInvestmentFunding],
-                  ['Commissions awaiting review', stats.pendingCommissionReviews],
-                  ['Approved commissions awaiting credit', stats.approvedCommissionCredits],
-                  ['Identity checks awaiting review', stats.pendingIdentityReviews],
+                  ['Published projects', stats.properties],
+                  ['Customers', stats.customers],
+                  ['Pending cashouts', stats.pending],
+                  ['Investment reviews', stats.pendingInvestmentReviews],
+                  ['Commissions to review', stats.pendingCommissionReviews],
+                  ['Identity checks', stats.pendingIdentityReviews],
                 ].map(([label, value]) => <div key={label} className="rounded-xl border border-slate-200 border-t-2 border-t-[#c5a45d] bg-white p-5 shadow-sm"><p className="eyebrow text-[0.5rem] text-slate-500">{label}</p><p className="display mt-3 text-3xl">{value}</p></div>)}
               </div>
-              <section className="mt-6 grid gap-4 border border-brass/40 bg-card p-5"><div><h2 className="display text-xl">Financial review queue</h2><p className="mt-1 text-xs leading-5 text-ink-soft">These counts are based on the records currently loaded. Review each item before approving, funding or crediting any customer account.</p></div><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"><button type="button" onClick={() => setSection('investments')} className="border border-border p-4 text-left hover:border-brass"><span className="eyebrow text-[0.5rem] text-ink-soft">Investment applications</span><strong className="display mt-2 block text-2xl">{stats.pendingInvestmentReviews}</strong><span className="mt-1 block text-xs text-ink-soft">Pending review · Open investments</span></button><button type="button" onClick={() => setSection('investments')} className="border border-border p-4 text-left hover:border-brass"><span className="eyebrow text-[0.5rem] text-ink-soft">Investment funding</span><strong className="display mt-2 block text-2xl">{stats.approvedInvestmentFunding}</strong><span className="mt-1 block text-xs text-ink-soft">Approved · Awaiting wallet funding</span></button><button type="button" onClick={() => setSection('commissions')} className="border border-border p-4 text-left hover:border-brass"><span className="eyebrow text-[0.5rem] text-ink-soft">Commission review</span><strong className="display mt-2 block text-2xl">{stats.pendingCommissionReviews}</strong><span className="mt-1 block text-xs text-ink-soft">Pending · Open commissions</span></button><button type="button" onClick={() => setSection('commissions')} className="border border-border p-4 text-left hover:border-brass"><span className="eyebrow text-[0.5rem] text-ink-soft">Commission credits</span><strong className="display mt-2 block text-2xl">{stats.approvedCommissionCredits}</strong><span className="mt-1 block text-xs text-ink-soft">Approved · Awaiting credit</span></button><button type="button" onClick={() => setSection('verifications')} className="border border-border p-4 text-left hover:border-brass"><span className="eyebrow text-[0.5rem] text-ink-soft">Identity checks</span><strong className="display mt-2 block text-2xl">{stats.pendingIdentityReviews}</strong><span className="mt-1 block text-xs text-ink-soft">Pending · Open identity checks</span></button></div></section>
-              <div className="mt-6 grid gap-6 xl:grid-cols-2">
-                <section className="border border-border bg-card p-6">
-                  <div className="flex items-center justify-between gap-3"><div><h2 className="display text-xl">Admin alerts</h2><p className="mt-1 text-xs text-ink-soft">Items that need an administrator's attention</p></div><span className="eyebrow text-brass">{adminAlerts.reduce((total, item) => total + item.count, 0)} pending</span></div>
-                  {adminAlerts.length ? <div className="mt-4 divide-y divide-border">{adminAlerts.map((item) => <button key={item.label} type="button" onClick={() => setSection(item.section)} className="flex w-full items-center justify-between gap-4 py-3 text-left hover:text-brass"><span className="text-sm">{item.label}</span><span className="display text-xl">{item.count}</span></button>)}</div> : <p className="mt-4 text-sm text-ink-soft">No pending admin alerts in the records currently loaded.</p>}
-                </section>
-                <section className="border border-border bg-card p-6">
-                  <h2 className="display text-xl">Recent activity</h2><p className="mt-1 text-xs text-ink-soft">Latest activity from the records currently loaded</p>
-                  {recentAdminActivity.length ? <div className="mt-4 divide-y divide-border">{recentAdminActivity.map((item) => <button key={item.id} type="button" onClick={() => setSection(item.section)} className="flex w-full items-start justify-between gap-4 py-3 text-left hover:text-brass"><span className="min-w-0"><b className="block text-sm font-medium">{item.kind}</b><span className="mt-1 block truncate text-xs text-ink-soft">{item.detail}</span></span><time className="shrink-0 text-[0.65rem] text-ink-soft">{date(item.created_at)}</time></button>)}</div> : <p className="mt-4 text-sm text-ink-soft">No recent activity is available.</p>}
-                </section>
-              </div>
-              <div className="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><h2 className="display text-xl text-slate-900">Quick actions</h2><div className="mt-4 flex flex-wrap gap-3">{SECTIONS.filter((item) => item.id !== 'overview').map((item) => <button key={item.id} onClick={() => setSection(item.id)} className={softButton}>{item.label} <ArrowRight /></button>)}</div></div>
-              <div className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><DataTable title="Latest customer enquiries" rows={(rows.enquiries ?? []).slice(0, 5).map((item) => { const relatedProperty = Array.isArray(item.properties) ? item.properties[0] : item.properties; return { ...item, property_name: relatedProperty?.name || 'General enquiry' } })} columns={['full_name','mobile','property_name','status','created_at']} render={(item) => <button className={softButton} onClick={() => setSection('enquiries')}>Open enquiries <ArrowRight /></button>} /></div>
             </section> : null}
-
             {section === 'properties' ? <section className="grid gap-6">
               <div className="border border-brass/40 bg-card p-5">
                 <h2 className="display text-xl">Customer-specific level access</h2>
