@@ -18,6 +18,7 @@ const SECTIONS: { id: Section; label: string }[] = [
   { id: 'properties', label: 'Projects' },
   { id: 'finance', label: 'Cashout' },
   { id: 'transactions', label: 'Transactions' },
+  { id: 'support', label: 'Support' },
   { id: 'settings', label: 'Settings' },
 ]
 const CURRENCIES = ['AED', 'OMR', 'SAR', 'KWD', 'BHD', 'QAR', 'INR']
