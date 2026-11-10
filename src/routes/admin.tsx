@@ -91,9 +91,9 @@ function AdminPage() {
   const [profileInterest, setProfileInterest] = useState('')
   const [profileLevel, setProfileLevel] = useState('0')
   const [notificationDraft, setNotificationDraft] = useState({ user_id: '', title: '', body: '' })
-  const [profitDraft, setProfitDraft] = useState({ user_id: '', amount: '', currency: 'AED', period_start: '', period_end: '', description: 'Monthly profit credited to customer wallet' })
-  const [commissionDraft, setCommissionDraft] = useState({ user_id: '', plan_id: '', base_amount: '', currency: 'AED', commission_type: 'referral', source_user_id: '', reference: '', description: '' })
-  const [manualWalletDraft, setManualWalletDraft] = useState({ user_id: '', amount: '', currency: 'AED', description: 'Balance added by administrator' })
+  const [profitDraft, setProfitDraft] = useState({ user_id: '', amount: '', currency: 'OMR', period_start: '', period_end: '', description: 'Monthly profit credited to customer wallet' })
+  const [commissionDraft, setCommissionDraft] = useState({ user_id: '', plan_id: '', base_amount: '', currency: 'OMR', commission_type: 'referral', source_user_id: '', reference: '', description: '' })
+  const [manualWalletDraft, setManualWalletDraft] = useState({ user_id: '', amount: '', currency: 'OMR', description: 'Balance added by administrator' })
   const [manualWalletSearch, setManualWalletSearch] = useState('')
   const [walletSearch, setWalletSearch] = useState('')
   const [walletCurrencyFilter, setWalletCurrencyFilter] = useState('all')
@@ -777,7 +777,7 @@ function AdminPage() {
         p_description: manualWalletDraft.description,
       })
       if (rpcError) throw rpcError
-      setManualWalletDraft({ user_id: '', amount: '', currency: 'AED', description: 'Balance added by administrator' })
+      setManualWalletDraft({ user_id: '', amount: '', currency: 'OMR', description: 'Balance added by administrator' })
     }, 'Wallet balance added to the customer account.')
   }
 
@@ -789,7 +789,7 @@ function AdminPage() {
         p_period_start: profitDraft.period_start, p_period_end: profitDraft.period_end, p_description: profitDraft.description,
       })
       if (rpcError) throw rpcError
-      setProfitDraft({ user_id: '', amount: '', currency: 'AED', period_start: '', period_end: '', description: 'Monthly profit credited to customer wallet' })
+      setProfitDraft({ user_id: '', amount: '', currency: 'OMR', period_start: '', period_end: '', description: 'Monthly profit credited to customer wallet' })
     }, 'Profit credited to the customer internal wallet.')
   }
 
@@ -810,7 +810,7 @@ function AdminPage() {
         p_description: commissionDraft.description || null,
       })
       if (rpcError) throw rpcError
-      setCommissionDraft({ user_id: '', plan_id: '', base_amount: '', currency: 'AED', commission_type: 'referral', source_user_id: '', reference: '', description: '' })
+      setCommissionDraft({ user_id: '', plan_id: '', base_amount: '', currency: 'OMR', commission_type: 'referral', source_user_id: '', reference: '', description: '' })
     }, 'Commission calculated from the selected plan rate and added to the pending review queue.')
   }
 
