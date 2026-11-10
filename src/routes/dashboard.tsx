@@ -207,24 +207,23 @@ function DashboardPage() {
           {error ? <p role="alert" className="border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</p> : null}
           {user && !loading ? <>
             <section id="tasks-achievements" className="grid gap-6">
-              <section aria-label="Explore Dubai video" className="overflow-hidden rounded-xl border border-[#b89b59]/40 bg-[#071426] p-4 sm:p-6">
-                <div className="mb-4">
-                  <p className="eyebrow text-[0.5rem] text-[#c6a65b]">Explore Dubai</p>
-                  <h2 className="display mt-2 text-xl text-white">Discover Dubai</h2>
-                  <p className="mt-1 text-xs text-white/65">Explore exceptional properties and destinations</p>
-                </div>
-                <div className="overflow-hidden rounded-lg border border-[#b89b59]/50 bg-black">
-                  <video
-                    className="aspect-video w-full object-cover"
-                    src="https://pixabay.com/videos/download/video-108522_medium.mp4"
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                    controls
-                    preload="metadata"
-                    aria-label="Dubai luxury property showcase video"
-                  />
+              <section aria-label="Explore Dubai video" className="relative isolate w-full overflow-hidden bg-[#071426]">
+                <video
+                  className="block aspect-video w-full object-cover"
+                  src="https://pixabay.com/videos/download/video-108522_medium.mp4"
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  controls
+                  preload="auto"
+                  aria-label="Dubai luxury property showcase video"
+                >
+                  Your browser does not support HTML video.
+                </video>
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#071426]/90 via-[#071426]/35 to-transparent px-5 pb-5 pt-16 sm:px-8 sm:pb-7">
+                  <p className="eyebrow text-[0.55rem] text-[#d2b56e]">Explore Dubai</p>
+                  <h2 className="display mt-2 text-2xl text-white sm:text-3xl">Discover Dubai</h2>
                 </div>
               </section>
               <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
