@@ -623,3 +623,25 @@ body * {
   font-weight: 700 !important;
   letter-spacing: 0.12em;
 }
+
+
+/* Enforce the requested bold Inter typography on the entire public homepage. */
+.public-home,
+.public-home * {
+  font-family: 'Inter', Arial, ui-sans-serif, system-ui, sans-serif !important;
+}
+.public-home .display,
+.public-home .display *,
+.public-home h1,
+.public-home h2,
+.public-home h3 {
+  font-family: 'Inter', Arial, ui-sans-serif, system-ui, sans-serif !important;
+  font-style: normal !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.035em;
+}
+.public-home .eyebrow {
+  font-family: 'Inter', Arial, ui-sans-serif, system-ui, sans-serif !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.09em;
+}
