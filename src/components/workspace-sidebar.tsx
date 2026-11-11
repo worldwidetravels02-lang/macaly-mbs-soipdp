@@ -72,7 +72,7 @@ export function WorkspaceSidebar({ mode, active, onSelect, isOwner = false }: Pr
     <button type="button" aria-label="Open workspace navigation" onClick={() => setOpen(true)}
       className="fixed left-4 top-4 z-[70] flex h-11 w-11 items-center justify-center border border-brass/50 bg-[#123c2d] text-xl text-[#d8b56d] shadow-lg lg:hidden">☰</button>
     {open ? <button aria-label="Close navigation overlay" onClick={() => setOpen(false)} className="fixed inset-0 z-[60] bg-black/55 lg:hidden" /> : null}
-    <aside className={['fixed inset-y-0 left-0 z-[65] flex w-64 flex-col border-r shadow-sm transition-transform duration-200', isAdmin ? 'border-white/10 bg-[#123c2d] text-white shadow-2xl' : 'border-white/10 bg-[#101d35] text-white shadow-2xl', open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'].join(' ')}>
+    <aside className={['fixed inset-y-0 left-0 z-[65] flex w-64 flex-col border-r shadow-sm transition-transform duration-200', 'border-white/10 bg-[#123c2d] text-white shadow-2xl', open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'].join(' ')}>
       <div className={["flex min-h-20 items-center justify-between border-b px-4", "border-white/10"].join(" ")}>
         <Link to={isAdmin ? "/admin" : "/dashboard"} aria-label="Msheireb Properties home" className="flex min-w-0 items-center gap-2.5">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#d8b56d]/70 text-[#d8b56d]"><span className="display text-xl">M</span></span>
