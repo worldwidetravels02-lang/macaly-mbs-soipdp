@@ -115,7 +115,7 @@ function Hero() {
         >
           {[
             { value: 'Sample', label: 'Property collection' },
-            { value: 'Dubai', label: 'Initial market' },
+            { value: 'Oman', label: 'Initial market' },
             { value: 'Preview', label: 'Website demonstration' },
           ].map((stat) => (
             <div key={stat.label}>
@@ -173,7 +173,7 @@ function Residential() {
             <div className="relative -mt-10 ml-0 w-[min(19rem,88%)] border border-border bg-card px-6 py-5 soft-shadow sm:ml-8">
               <p className="eyebrow text-[0.55rem] text-brass">Now previewing</p>
               <p className="display mt-2 text-xl">Sample residence</p>
-              <p className="mt-1 text-sm text-ink-soft">Dubai, UAE · sample location</p>
+              <p className="mt-1 text-sm text-ink-soft">Muscat, Oman · sample location</p>
             </div>
           </div>
         </Reveal>
@@ -522,7 +522,7 @@ function DesignNotes() {
     },
     {
       src: IMAGES.rooftop,
-      alt: 'Rooftop terrace with a lap pool, linen seating and the Dubai skyline at dusk',
+      alt: 'Rooftop terrace with a lap pool, linen seating and the Muscat skyline at dusk',
       caption: 'Illustrative rooftop concept',
       frame: 'aspect-[3/2]',
     },
