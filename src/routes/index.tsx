@@ -72,7 +72,7 @@ function Hero() {
           className="rise mt-8 max-w-xl text-[1.02rem] leading-relaxed text-on-deep/80 sm:text-lg"
           style={{ animationDelay: '300ms' }}
         >
-          Explore a curated presentation of luxury homes in {SITE.city}. This preview uses sample listings while verified project information is being prepared.
+          Explore a concept presentation of luxury homes in {SITE.city}. Property names, images and specifications are illustrative until verified project information is approved.
         </p>
 
         <div
@@ -114,9 +114,9 @@ function Hero() {
           style={{ animationDelay: '560ms' }}
         >
           {[
-            { value: 'Sample', label: 'Property collection' },
+            { value: 'Concept', label: 'Collection status' },
             { value: 'Oman', label: 'Initial market' },
-            { value: 'Preview', label: 'Website demonstration' },
+            { value: 'Concept', label: 'Presentation type' },
           ].map((stat) => (
             <div key={stat.label}>
               <dt className="eyebrow text-[0.55rem] text-on-deep-soft">{stat.label}</dt>
@@ -139,13 +139,13 @@ function Residential() {
             Built on a legacy of elegance, style and lifestyle.
           </h2>
           <p className="mt-6 text-[1.02rem] leading-relaxed text-ink-soft">
-            Browse the sample property presentation. Project specifications, availability, amenities and ownership details will be added after verification.
+            Explore the property concepts. Project specifications, availability, amenities and ownership details will be published after administrator verification.
           </p>
 
           <ul className="mt-8 space-y-4 border-t border-border pt-8">
             {[
               'Illustrative property presentation',
-              'Sample layouts and concept imagery',
+              'Illustrative layouts and concept imagery',
               'Verified project details to be added',
             ].map((item) => (
               <li key={item} className="flex items-start gap-3 text-[0.98rem] text-ink-soft">
@@ -171,9 +171,9 @@ function Residential() {
               loading="lazy"
             />
             <div className="relative -mt-10 ml-0 w-[min(19rem,88%)] border border-border bg-card px-6 py-5 soft-shadow sm:ml-8">
-              <p className="eyebrow text-[0.55rem] text-brass">Now previewing</p>
-              <p className="display mt-2 text-xl">Sample residence</p>
-              <p className="mt-1 text-sm text-ink-soft">Muscat, Oman · sample location</p>
+              <p className="eyebrow text-[0.55rem] text-brass">Concept residence</p>
+              <p className="display mt-2 text-xl">Illustrative residence</p>
+              <p className="mt-1 text-sm text-ink-soft">Muscat, Oman · concept location</p>
             </div>
           </div>
         </Reveal>
@@ -191,11 +191,11 @@ function Collection() {
           <div>
             <p className="eyebrow text-brass">The collection</p>
             <h2 className="display mt-5 max-w-xl text-[clamp(2rem,3.6vw,3.2rem)]">
-              A preview of the collection.
+              Explore the collection concepts.
             </h2>
           </div>
           <p className="max-w-sm text-[0.98rem] leading-relaxed text-ink-soft">
-            The listings below are demonstration content. Names, images and specifications are placeholders, not confirmed projects or offers.
+            The listings below are illustrative concepts. Names, images and specifications are placeholders, not confirmed projects or offers.
           </p>
         </Reveal>
 
