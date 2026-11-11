@@ -66,9 +66,9 @@ export function AuthPanel({ mode, adminOnly = false }: { mode: 'login' | 'regist
   const handleSignInOrUp = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     clearMessages()
+    const digits = mobile.replace(/\D/g, '')
     if (view === 'signup') {
       const cleanName = fullName.trim().replace(/\s+/g, ' ')
-      const digits = mobile.replace(/\D/g, '')
       if (cleanName.length < 2 || cleanName.length > 120 || /[\u0000-\u001f<>]/.test(cleanName)) return setError('Enter a valid full name between 2 and 120 characters.')
       if (digits.length < 7 || digits.length > 15 || !/^[+()\d\s.-]+$/.test(mobile.trim())) return setError('Please enter a valid mobile number with 7–15 digits.')
       if (referralCode.trim().length > 64) return setError('Referral code must be 64 characters or fewer.')
