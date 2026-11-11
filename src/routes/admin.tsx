@@ -807,8 +807,8 @@ function AdminPage() {
     }, 'Customer wallet amount placed on hold. The funds remain in the wallet but cannot be withdrawn.')
   }
 
-  const releaseWalletHold = async (holdId: string) => {
-    const amountText = walletHoldReleaseDrafts[holdId]
+  const releaseWalletHold = async (holdId: string, releaseAll = false) => {
+    const amountText = releaseAll ? '' : walletHoldReleaseDrafts[holdId]
     const amount = amountText?.trim() ? Number(amountText) : null
     if (amount !== null && (!Number.isFinite(amount) || amount <= 0)) { setError('Enter a valid release amount greater than zero.'); return }
     if (!window.confirm(amount === null ? 'Release the full remaining held amount?' : 'Release ' + amount + ' from this wallet hold?')) return
@@ -1262,7 +1262,7 @@ function AdminPage() {
                 <DataTable title="Wallet holds and released amounts" rows={(rows.walletHolds ?? []).map((item) => {
                   const customer = (rows.users ?? []).find((profile) => profile.id === item.user_id)
                   return { ...item, customer_name: text(customer?.full_name) || text(customer?.mobile) || 'Unknown customer', remaining_amount: Math.max(0, Number(item.amount || 0) - Number(item.released_amount || 0)) }
-                })} columns={['customer_name','amount','released_amount','remaining_amount','currency','status','reason','created_at']} render={(item) => Number(item.remaining_amount) > 0 && normalizeAdminStatus(item.status) === 'active' ? <div className="grid min-w-36 gap-2"><input aria-label="Amount to release" type="number" min="0.01" max={String(item.remaining_amount)} step="0.01" className={inputClass} placeholder={String(item.remaining_amount) + ' full'} value={walletHoldReleaseDrafts[text(item.id)] ?? ''} onChange={(event) => setWalletHoldReleaseDrafts((current) => ({ ...current, [text(item.id)]: event.target.value }))} /><button type="button" disabled={busy} className={softButton} onClick={() => void releaseWalletHold(text(item.id))}>Release amount</button><button type="button" disabled={busy} className={softButton} onClick={() => { setWalletHoldReleaseDrafts((current) => ({ ...current, [text(item.id)]: '' })); if (window.confirm('Release the full remaining held amount?')) void requireSupabase().rpc('admin_release_wallet_hold', { p_hold_id: text(item.id), p_amount: null }).then(({ error: rpcError }) => { if (rpcError) setError(errorMessage(rpcError, 'Could not release wallet hold.')); else { setNotice('Full wallet hold released.'); void load() } }) }}>Release all</button></div> : <span className="text-xs text-ink-soft">Fully released</span>} />
+                })} columns={['customer_name','amount','released_amount','remaining_amount','currency','status','reason','created_at']} render={(item) => Number(item.remaining_amount) > 0 && normalizeAdminStatus(item.status) === 'active' ? <div className="grid min-w-36 gap-2"><input aria-label="Amount to release" type="number" min="0.01" max={String(item.remaining_amount)} step="0.01" className={inputClass} placeholder={String(item.remaining_amount) + ' full'} value={walletHoldReleaseDrafts[text(item.id)] ?? ''} onChange={(event) => setWalletHoldReleaseDrafts((current) => ({ ...current, [text(item.id)]: event.target.value }))} /><button type="button" disabled={busy} className={softButton} onClick={() => void releaseWalletHold(text(item.id))}>Release amount</button><button type="button" disabled={busy} className={softButton} onClick={() => void releaseWalletHold(text(item.id), true)}>Release all</button></div> : <span className="text-xs text-ink-soft">Fully released</span>} />
               </section>
               <form onSubmit={addWalletBalance} className="border border-brass/40 bg-card p-6">
                 <h2 className="display text-xl">Add amount to customer wallet</h2>
