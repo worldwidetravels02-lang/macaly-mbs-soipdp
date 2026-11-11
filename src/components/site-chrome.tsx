@@ -31,7 +31,7 @@ export function BrandMark({ className = 'h-9 w-9' }: { className?: string }) {
 export function Wordmark() {
   return (
     <img
-      src="/msheireb-logo-hd.png"
+      src="/msheireb-logo-hd(1).png"
       alt="مشيرب العقارية — MSHEIREB PROPERTIES"
       className="h-auto w-[min(270px,58vw)] shrink-0 object-contain sm:w-[310px]"
       width="1696"
