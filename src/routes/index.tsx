@@ -26,7 +26,7 @@ export const Route = createFileRoute('/')({
 
 function HomePage() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="public-home min-h-screen bg-background text-foreground">
       <SiteHeader overlay />
       <main id="main">
         <Hero />
