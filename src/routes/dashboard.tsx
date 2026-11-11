@@ -118,7 +118,19 @@ function DashboardPage() {
     }
   }, [currency])
 
+  // Keep the wallet currency selector in sync with the shared dashboard selector.
   useEffect(() => {
+    const syncCurrency = (event: Event) => {
+      const nextCurrency = (event as CustomEvent<unknown>).detail
+      if (typeof nextCurrency === 'string' && currencies.includes(nextCurrency as Currency)) {
+        setCurrency(nextCurrency as Currency)
+      }
+    }
+    window.addEventListener('msheireb-currency-change', syncCurrency)
+    return () => window.removeEventListener('msheireb-currency-change', syncCurrency)
+  }, []) // msheireb-currency-sync-listener
+
+    useEffect(() => {
     let active = true
     async function refreshRates() {
       try {
