@@ -334,8 +334,8 @@ export function SiteFooter() {
           <div className="lg:col-span-5">
             <Wordmark />
             <p className="mt-6 max-w-xs text-sm leading-relaxed text-on-deep/60">
-              Luxury residential addresses across Dubai. Built slowly, in fewer places, with the
-              people who live there in mind.
+              Luxury residential addresses across Oman. Rooted in place, shaped with care, and made for
+              the people who live here.
             </p>
           </div>
 
