@@ -20,34 +20,22 @@ export function ArrowRight({ className = 'h-4 w-4' }: { className?: string }) {
 export function BrandMark({ className = 'h-9 w-9' }: { className?: string }) {
   return (
     <svg viewBox="0 0 64 64" fill="none" aria-hidden="true" className={className}>
-      <path d="M11 49V15h9l12 16 12-16h9v34h-9V28.5L32 44.5 20 28.5V49z" fill="currentColor" />
-      <rect x="22" y="53.5" width="20" height="2.5" fill="currentColor" opacity="0.5" />
+      <path d="M9 55V29C9 16.3 19.3 6 32 6s23 10.3 23 23v26" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M17 55V30c0-8.3 6.7-15 15-15s15 6.7 15 15v25" stroke="currentColor" strokeWidth="1.5" opacity="0.55" />
+      <path d="M32 45V25M32 27c-5-7-11-8-17-7 3 6 9 9 17 9M32 27c5-7 11-8 17-7-3 6-9 9-17 9M32 34c-4-5-8-6-12-5 2 4 6 7 12 7M32 34c4-5 8-6 12-5-2 4-6 7-12 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M21 55h22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   )
 }
 
 export function Wordmark() {
   return (
-    <span data-testid="msheireb-wordmark" className="inline-flex shrink-0 items-center gap-3 whitespace-nowrap text-[#172238]" aria-label="مشيرب العقارية — MSHEIREB PROPERTIES">
+    <span data-testid="msheireb-wordmark" className="inline-flex shrink-0 items-center gap-3 whitespace-nowrap text-[#123c2d]" aria-label="مشيرب العقارية — MSHEIREB PROPERTIES">
       <span className="flex flex-col items-end leading-tight">
-        <span lang="ar" dir="rtl" className="block text-base font-bold tracking-normal text-[#172238] sm:text-lg">مشيرب العقارية</span>
-        <span className="mt-1 block text-[0.72rem] font-bold uppercase tracking-[0.09em] text-[#172238] sm:text-sm">MSHEIREB PROPERTIES</span>
+        <span lang="ar" dir="rtl" className="block text-base font-bold tracking-normal text-[#123c2d] sm:text-lg">مشيرب العقارية</span>
+        <span className="mt-1 block text-[0.72rem] font-bold uppercase tracking-[0.09em] text-[#123c2d] sm:text-sm">MSHEIREB PROPERTIES</span>
       </span>
-      <svg viewBox="0 0 64 64" fill="none" aria-hidden="true" className="h-12 w-12 shrink-0 text-[#b69a5b] sm:h-14 sm:w-14">
-        <circle cx="32" cy="32" r="29" stroke="currentColor" strokeWidth="1.5"/>
-        <g fill="currentColor">
-          <path d="M28 5h8l4 17H24z"/>
-          <path d="M28 5h8l4 17H24z" transform="rotate(45 32 32)"/>
-          <path d="M28 5h8l4 17H24z" transform="rotate(90 32 32)"/>
-          <path d="M28 5h8l4 17H24z" transform="rotate(135 32 32)"/>
-          <path d="M28 5h8l4 17H24z" transform="rotate(180 32 32)"/>
-          <path d="M28 5h8l4 17H24z" transform="rotate(225 32 32)"/>
-          <path d="M28 5h8l4 17H24z" transform="rotate(270 32 32)"/>
-          <path d="M28 5h8l4 17H24z" transform="rotate(315 32 32)"/>
-        </g>
-        <circle cx="32" cy="32" r="8" fill="#172238"/>
-        <circle cx="32" cy="32" r="3.5" fill="#fff"/>
-      </svg>
+      <BrandMark className="h-12 w-12 shrink-0 text-[#b69a5b] sm:h-14 sm:w-14" />
     </span>
   )
 }
