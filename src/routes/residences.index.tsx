@@ -197,7 +197,7 @@ function ResidencesPage() {
   }, [groupSearch, groupFilter, groupSort])
 
   return (
-    <div className="min-h-screen bg-[#faf9f7] text-[#25231f]">
+    <div className="dashboard-typography min-h-screen bg-[#faf9f7] text-[#25231f]">
       <WorkspaceSidebar mode="member" />
       <header className="fixed inset-x-0 top-0 z-40 flex h-[62px] items-center justify-between border-b border-[#c9a45c] bg-[#071b38]/95 px-5 pl-20 text-white shadow-lg backdrop-blur lg:left-64 lg:px-7">
         <div className="text-xs text-white/70"><span>Workspace</span><span className="mx-2 text-[#d8b66b]">/</span><strong className="text-[#f1d28d]">Projects</strong></div>
