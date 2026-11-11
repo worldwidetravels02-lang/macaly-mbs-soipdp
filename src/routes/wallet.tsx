@@ -332,7 +332,7 @@ function WalletPage() {
                 <p className="eyebrow text-[0.5rem] text-brass">Posted wallet balance</p>
                 <p data-testid="wallet-balance" className="display mt-3 text-3xl">{money(convertCurrency(balance, 'OMR', currency, fxRates), currency)}</p>
                 <p className="mt-2 text-xs text-ink-soft">Base balance: {money(balance, 'OMR')}</p>
-                <p className="mt-1 text-xs text-ink-soft">{currency === 'OMR' ? 'OMR is the wallet base currency.' : fxRates[currency] ? `1 OMR = ${fxRates[currency].toFixed(6)} ${currency}` : 'Exchange rate unavailable.'} {fxDate ? `Rate date: ${fxDate}` : ''}</p>
+                <p className="mt-1 text-xs text-ink-soft">{currency === 'OMR' ? 'OMR is the wallet base currency.' : fxRates[currency] ? `1 OMR = ${fxRates[currency].toFixed(6)} ${currency}` : 'Exchange rate unavailable.'} {fxDate ? `Rate updated: ${fxDate}` : 'Reference rates in use.'} · Auto-refresh every 15 minutes.</p>
                 {fxError ? <p role="status" className="mt-1 text-xs text-amber-700">{fxError} Reference rates are being used until live rates return.</p> : null}
                 <p className="mt-2 text-xs text-ink-soft">Calculated from posted ledger entries only.</p>
                 <p className="mt-2 text-xs text-ink-soft">Reserved in pending, approved or processing withdrawals: {money(convertCurrency(reservedWithdrawalAmount, 'OMR', currency, fxRates), currency)}. New requests are checked against this amount.</p>
