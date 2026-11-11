@@ -39,19 +39,16 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const admin = createClient(supabaseUrl, serviceRoleKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    })
-    const { data: email, error: lookupError } = await admin.rpc("auth_email_for_mobile", {
-      p_mobile: mobile,
-    })
-    if (lookupError) {
-      console.error("Mobile account lookup failed:", lookupError.message)
-      return json({ error: "Mobile number or password is incorrect." }, 401)
+    // Registration creates the internal Auth email from the local phone digits only.
+    // Keep login's lookup identical, while retaining the country code for profile matching.
+    const callingCode = mobile.match(/^\+(\d{1,3})/)?.[1] ?? ""
+    const localDigits = callingCode
+      ? mobile.replace(/^\+\d{1,3}/, "").replace(/\D/g, "")
+      : digits
+    if (localDigits.length < 7 || localDigits.length > 15) {
+      return json({ error: "Invalid mobile number or password." }, 400)
     }
-    if (!email || typeof email !== "string") {
-      return json({ error: "Mobile number or password is incorrect." }, 401)
-    }
+    const email = `phone-${localDigits}@accounts.msheireb.invalid`
 
     // Password verification is still performed by Supabase Auth.
     // The resolved email and password are never returned to the browser.
