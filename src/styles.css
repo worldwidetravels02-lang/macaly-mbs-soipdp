@@ -586,3 +586,9 @@ button:active, [role="button"]:active, a:active {
 @media (prefers-reduced-motion: reduce) {
   .admin-action-toast { animation: none; }
 }
+
+/* Site-wide semibold typography for the requested bold text style. */
+body,
+body * {
+  font-weight: 600 !important;
+}
