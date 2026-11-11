@@ -70,7 +70,7 @@ export function AuthPanel({ mode, adminOnly = false }: { mode: 'login' | 'regist
     if (view === 'signup') {
       const cleanName = fullName.trim().replace(/\s+/g, ' ')
       if (cleanName.length < 2 || cleanName.length > 120 || /[\u0000-\u001f<>]/.test(cleanName)) return setError('Enter a valid full name between 2 and 120 characters.')
-      if (phoneDigits.length < 7 || phoneDigits.length > 15 || !/^[+()\d\s.-]+$/.test(mobile.trim())) return setError('Please enter a valid mobile number with 7–15 phoneDigits.')
+      if (phoneDigits.length < 7 || phoneDigits.length > 15 || !/^[+()\d\s.-]+$/.test(mobile.trim())) return setError('Please enter a valid mobile number with 7–15 digits.')
       if (referralCode.trim().length > 64) return setError('Referral code must be 64 characters or fewer.')
       if (password.length < 8 || password.length > 72) return setError('Your password must be between 8 and 72 characters.')
       if (password !== confirmPassword) return setError('The two passwords do not match.')
@@ -223,7 +223,7 @@ export function AuthPanel({ mode, adminOnly = false }: { mode: 'login' | 'regist
               </div>
             </label>
           </div>
-          <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Referral code (optional)</span>
+          <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Referral code</span>
             <input type="text" value={referralCode} onChange={e => setReferralCode(e.target.value)} disabled={busy} placeholder="If a resident referred you" data-testid="register-referral" className={inputClass} />
           </label>
           <div className="grid gap-4 sm:grid-cols-2">
