@@ -210,7 +210,7 @@ function DashboardPage() {
           {error ? <p role="alert" className="border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</p> : null}
           {user && !loading ? <>
             <section id="tasks-achievements" className="grid gap-6">
-              <section aria-label="Explore Dubai video" className="relative isolate w-full overflow-hidden rounded-2xl border border-[#b89b59]/35 bg-[#071426] shadow-xl">
+              <section aria-label="Explore Oman video" className="relative isolate w-full overflow-hidden rounded-2xl border border-[#b89b59]/35 bg-[#071426] shadow-xl">
                 <video
                   className="block aspect-[16/7] w-full object-cover"
                   src="https://videos.pexels.com/video-files/30048213/12888884_1920_1080_30fps.mp4"
@@ -219,13 +219,13 @@ function DashboardPage() {
                   loop
                   playsInline
                   preload="auto"
-                  aria-label="Dubai luxury property showcase video"
+                  aria-label="Oman luxury property showcase video"
                 >
                   Your browser does not support HTML video.
                 </video>
                 <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#071426]/90 via-[#071426]/35 to-transparent px-5 pb-5 pt-16 sm:px-8 sm:pb-7">
-                  <p className="eyebrow text-[0.55rem] text-[#d2b56e]">Explore Dubai</p>
-                  <h2 className="display mt-2 text-2xl text-white sm:text-3xl">Discover Dubai</h2>
+                  <p className="eyebrow text-[0.55rem] text-[#d2b56e]">Explore Oman</p>
+                  <h2 className="display mt-2 text-2xl text-white sm:text-3xl">Discover Oman</h2>
                 </div>
               </section>
               <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
