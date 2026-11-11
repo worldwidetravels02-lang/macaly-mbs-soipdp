@@ -74,9 +74,9 @@ export function WorkspaceSidebar({ mode, active, onSelect, isOwner = false }: Pr
     {open ? <button aria-label="Close navigation overlay" onClick={() => setOpen(false)} className="fixed inset-0 z-[60] bg-black/55 lg:hidden" /> : null}
     <aside className={['fixed inset-y-0 left-0 z-[65] flex w-64 flex-col border-r shadow-sm transition-transform duration-200', 'border-white/10 bg-[#123c2d] text-white shadow-2xl', open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'].join(' ')}>
       <div className={["flex min-h-24 items-center justify-between border-b px-4 py-3", "border-white/10"].join(" ")}>
-        <Link to={isAdmin ? "/admin" : "/dashboard"} aria-label="Msheireb Properties home" className={isAdmin ? "flex min-w-0 flex-1 flex-col items-start gap-1.5" : "flex min-w-0 flex-1 items-center"}>
-          <img src="/msheireb-logo-hd(1).png" alt="Msheireb Properties" className={isAdmin ? "block h-auto max-h-14 w-full max-w-[210px] object-contain object-left" : "block h-auto w-full max-w-[224px] object-contain object-left"} width="1696" height="444" decoding="async" />
-          {isAdmin ? <span className="pl-1 text-[8px] font-semibold tracking-[0.18em] text-[#d8b56d]">ADMINISTRATION</span> : null}
+        <Link to={isAdmin ? "/admin" : "/dashboard"} aria-label="Msheireb Properties home" className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1.5">
+          <img src="/msheireb-logo-hd(1).png" alt="Msheireb Properties" className="block h-auto max-h-14 w-full max-w-[210px] object-contain object-center" width="1696" height="444" decoding="async" />
+          {isAdmin ? <span className="text-center text-[8px] font-semibold tracking-[0.18em] text-[#d8b56d]">ADMINISTRATION</span> : null}
         </Link>
         <button type="button" onClick={() => setOpen(false)} aria-label="Close navigation" className="text-xl text-white/60 lg:hidden">×</button>
       </div>
