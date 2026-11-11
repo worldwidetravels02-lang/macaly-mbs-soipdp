@@ -22,7 +22,7 @@ function money(value: number | string, currency: Currency) {
   return new Intl.NumberFormat('en', { style: 'currency', currency, maximumFractionDigits: 2 }).format(Number.isFinite(numeric) ? numeric : 0)
 }
 type FxRates = Record<Currency, number>
-const emptyFxRates: FxRates = { OMR: 1, AED: 0, SAR: 0, KWD: 0, BHD: 0, QAR: 0, PKR: 0, BDT: 0 }
+const emptyFxRates: FxRates = { OMR: 1, AED: 9.55, SAR: 9.7549, KWD: 0.7978, BHD: 0.9805, QAR: 9.4836, PKR: 729, BDT: 313.1 }
 function convertCurrency(value: number | string, from: Currency, to: Currency, rates: FxRates) {
   const amount = Number(value)
   if (!Number.isFinite(amount)) return 0
@@ -142,28 +142,48 @@ function WalletPage() {
     let active = true
     async function loadFxRates() {
       try {
-        const response = await fetch('https://api.frankfurter.dev/v2/rates?base=OMR&quotes=AED,SAR,KWD,BHD,QAR,PKR,BDT')
-        if (!response.ok) throw new Error('Exchange-rate service is temporarily unavailable.')
-        const rows = await response.json() as Array<{ date: string; quote: string; rate: number }>
-        const next = { ...emptyFxRates }
-        for (const row of rows) if (currencies.includes(row.quote as Currency) && Number(row.rate) > 0) next[row.quote as Currency] = Number(row.rate)
-        const missing = currencies.filter((item) => item !== 'OMR' && !next[item])
-        if (missing.length) throw new Error('Reference rate unavailable for: ' + missing.join(', '))
-        if (active) { setFxRates(next); setFxDate(rows[0]?.date ?? ''); setFxError('') }
-      } catch (cause) { if (active) setFxError(cause instanceof Error ? cause.message : 'Could not update exchange rates.') }
+        const response = await fetch('https://open.er-api.com/v6/latest/OMR', { cache: 'no-store' })
+        if (!response.ok) throw new Error('Live exchange-rate service is temporarily unavailable.')
+        const payload = await response.json() as { result?: string; base_code?: string; time_last_update_utc?: string; rates?: Record<string, number> }
+        if (payload.result !== 'success' || payload.base_code !== 'OMR' || !payload.rates) throw new Error('The exchange-rate response was invalid.')
+        const next: FxRates = { ...emptyFxRates, OMR: 1 }
+        for (const code of currencies) {
+          const rate = Number(payload.rates[code])
+          if (code !== 'OMR' && Number.isFinite(rate) && rate > 0) next[code] = rate
+        }
+        const missing = currencies.filter((code) => !Number.isFinite(next[code]) || next[code] <= 0)
+        if (missing.length) throw new Error('Live rates unavailable for: ' + missing.join(', '))
+        if (active) {
+          setFxRates(next)
+          setFxDate(payload.time_last_update_utc ? new Date(payload.time_last_update_utc).toLocaleString('en-GB') : new Date().toLocaleString('en-GB'))
+          setFxError('')
+        }
+      } catch (cause) {
+        if (active) {
+          setFxRates((current) => Object.values(current).some((rate) => rate > 0) ? current : emptyFxRates)
+          setFxError(cause instanceof Error ? cause.message : 'Live rates unavailable; using reference rates.')
+        }
+      }
     }
     void loadFxRates()
+    const refresh = window.setInterval(() => { void loadFxRates() }, 15 * 60 * 1000)
+    window.addEventListener('focus', loadFxRates)
     void loadWallet()
     const client = requireSupabase()
     const { data: listener } = client.auth.onAuthStateChange(() => { void loadWallet() })
-    return () => { active = false; listener.subscription.unsubscribe() }
+    return () => {
+      active = false
+      window.clearInterval(refresh)
+      window.removeEventListener('focus', loadFxRates)
+      listener.subscription.unsubscribe()
+    }
   }, [loadWallet])
 
   async function submitWalletRequest(kind: 'deposit' | 'withdrawal') {
     const rawAmount = kind === 'deposit' ? depositAmount : withdrawalAmount
     const enteredAmount = Number(rawAmount)
     if (!Number.isFinite(enteredAmount) || enteredAmount <= 0 || enteredAmount > 100000000 || !/^\\d+(?:\\.\\d{1,2})?$/.test(rawAmount.trim())) { setError('Enter a valid amount with no more than 2 decimal places (maximum 100,000,000).'); return }
-    if (currency !== 'OMR' && (!fxRates[currency] || fxError)) { setError('The exchange rate is unavailable. Please select OMR or try again later.'); return }
+    if (currency !== 'OMR' && (!fxRates[currency] || fxRates[currency] <= 0)) { setError('The exchange rate is unavailable. Please try again later.'); return }
     const amount = convertCurrency(enteredAmount, currency, 'OMR', fxRates)
     const method = payoutMethod.trim()
     const details = payoutDetails.trim()
@@ -245,6 +265,8 @@ function WalletPage() {
       }
     }
     setCurrency(nextCurrency)
+    try { window.localStorage.setItem('msheireb-currency', nextCurrency) } catch { /* optional */ }
+    window.dispatchEvent(new CustomEvent('msheireb-currency-change', { detail: nextCurrency }))
   }
 
   const reservedWithdrawalAmount = withdrawals
@@ -311,9 +333,9 @@ function WalletPage() {
                 <p data-testid="wallet-balance" className="display mt-3 text-3xl">{money(convertCurrency(balance, 'OMR', currency, fxRates), currency)}</p>
                 <p className="mt-2 text-xs text-ink-soft">Base balance: {money(balance, 'OMR')}</p>
                 <p className="mt-1 text-xs text-ink-soft">{currency === 'OMR' ? 'OMR is the wallet base currency.' : fxRates[currency] ? `1 OMR = ${fxRates[currency].toFixed(6)} ${currency}` : 'Exchange rate unavailable.'} {fxDate ? `Rate date: ${fxDate}` : ''}</p>
-                {fxError ? <p role="status" className="mt-1 text-xs text-amber-700">{fxError} Showing original amounts where conversion is unavailable.</p> : null}
+                {fxError ? <p role="status" className="mt-1 text-xs text-amber-700">{fxError} Reference rates are being used until live rates return.</p> : null}
                 <p className="mt-2 text-xs text-ink-soft">Calculated from posted ledger entries only.</p>
-                <p className="mt-2 text-xs text-ink-soft">Reserved in pending, approved or processing withdrawals: {money(withdrawals.filter((row) => row.currency === currency && ['pending', 'submitted', 'under_review', 'approved', 'processing', 'in_progress'].includes(normalizeStatus(row.status))).reduce((total, row) => total + (Number(row.amount) || 0), 0), currency)}. New requests are checked against this amount.</p>
+                <p className="mt-2 text-xs text-ink-soft">Reserved in pending, approved or processing withdrawals: {money(convertCurrency(reservedWithdrawalAmount, 'OMR', currency, fxRates), currency)}. New requests are checked against this amount.</p>
               </div>
               <div className="border border-border bg-card p-6">
                 <p className="eyebrow text-[0.5rem] text-ink-soft">Credited profit total</p>
@@ -388,7 +410,7 @@ function WalletPage() {
                     <button type="button" onClick={() => { setTransactionSearch(''); setTransactionFilter('all'); setTransactionFromDate(''); setTransactionToDate('') }} className="border border-border px-3 py-2 text-xs text-ink-soft hover:border-brass" disabled={!transactionSearch && transactionFilter === 'all' && !transactionFromDate && !transactionToDate}>Clear filters</button>
                   </div>
                 </div>
-                {currencyTransactions.length === 0 ? <p className="px-6 py-6 text-sm text-ink-soft">No posted wallet activity yet.</p> : visibleTransactions.length === 0 ? <p className="px-6 py-6 text-sm text-ink-soft">No matching wallet activity found in {currency}.</p> : <><ul data-testid="wallet-transactions" className="divide-y divide-border">{visibleTransactions.map((row) => { const direction = getTransactionDirection(row); const sign = direction === 'debit' ? '−' : direction === 'credit' ? '+' : ''; const amountTone = direction === 'debit' ? 'text-destructive' : direction === 'credit' ? 'text-emerald-700' : 'text-foreground'; const label = row.transaction_type?.replace(/_/g, ' ') || 'Wallet transaction'; return <li key={row.id} className="flex items-start justify-between gap-4 px-6 py-4"><div className="min-w-0"><p className="truncate text-sm font-medium">{row.description || label}</p><p className="mt-1 text-xs capitalize text-ink-soft">{label} · {direction === 'unknown' ? 'Direction not specified' : direction}</p><p className="mt-1 text-xs text-ink-soft">{date(row.created_at)} · {displayStatus(row.status)}</p></div><p className={`display shrink-0 text-lg ${amountTone}`}>{sign}{displayMoney(row.amount, row.currency)}</p></li> })}</ul><div className="border-t border-border px-6 py-3"><p className="text-xs text-ink-soft">Showing {visibleTransactions.length} matching transactions from {currencyTransactions.length} loaded {currency} records.</p>{transactions.length === transactionLimit ? <button type="button" onClick={() => setTransactionLimit((current) => current + 30)} className="mt-3 text-xs text-brass underline underline-offset-4">Load 30 more {transactionFilter === 'all' ? '' : `${transactionFilter} `}transactions</button> : null}</div></>}
+                {currencyTransactions.length === 0 ? <p className="px-6 py-6 text-sm text-ink-soft">No posted wallet activity yet.</p> : visibleTransactions.length === 0 ? <p className="px-6 py-6 text-sm text-ink-soft">No matching wallet activity found in {currency}.</p> : <><ul data-testid="wallet-transactions" className="divide-y divide-border">{visibleTransactions.map((row) => { const direction = getTransactionDirection(row); const sign = direction === 'debit' ? '−' : direction === 'credit' ? '+' : ''; const amountTone = direction === 'debit' ? 'text-destructive' : direction === 'credit' ? 'text-emerald-700' : 'text-foreground'; const label = row.transaction_type?.replace(/_/g, ' ') || 'Wallet transaction'; return <li key={row.id} className="flex items-start justify-between gap-4 px-6 py-4"><div className="min-w-0"><p className="truncate text-sm font-medium">{row.description || label}</p><p className="mt-1 text-xs capitalize text-ink-soft">{label} · {direction === 'unknown' ? 'Direction not specified' : direction}</p><p className="mt-1 text-xs text-ink-soft">{date(row.created_at)} · {displayStatus(row.status)}</p></div><p className={`display shrink-0 text-lg ${amountTone}`}>{sign}{displayMoney(row.amount, row.currency)}</p></li> })}</ul><div className="border-t border-border px-6 py-3"><p className="text-xs text-ink-soft">Showing {visibleTransactions.length} matching transactions from {currencyTransactions.length} loaded records, converted to {currency}.</p>{transactions.length === transactionLimit ? <button type="button" onClick={() => setTransactionLimit((current) => current + 30)} className="mt-3 text-xs text-brass underline underline-offset-4">Load 30 more {transactionFilter === 'all' ? '' : `${transactionFilter} `}transactions</button> : null}</div></>}
               </div>
             </section>
             <p className="text-xs leading-relaxed text-ink-soft">Wallet entries and profit credits shown here are internal platform records. They are not proof of a bank transfer, regulated investment return, or external payment settlement.</p>
