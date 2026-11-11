@@ -246,7 +246,6 @@ function DashboardPage() {
                   <p className="eyebrow text-[0.55rem] text-[#d2b56e]">Explore Oman</p>
                   <h2 className="display mt-2 text-2xl text-white sm:text-3xl">Discover Oman</h2>
                 </div>
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#032d20]/90 via-[#063d2b]/55 to-transparent" />
               </section>
               <aside className="overflow-hidden rounded-2xl border border-[#dce7dd] bg-white shadow-[0_8px_24px_rgba(18,60,45,.07)]">
                 <div className="bg-[#075337] px-5 py-4 text-white"><h2 className="text-lg font-bold">Quick actions</h2><p className="mt-1 text-xs font-semibold text-white/70">Your account shortcuts</p></div>
