@@ -1100,7 +1100,7 @@ function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="dashboard-typography min-h-screen bg-slate-50 text-slate-900">
       <WorkspaceSidebar mode="admin" active={section} isOwner={adminRole === 'owner'} onSelect={(id) => setSection(id as Section)} />
       <SiteHeader hideMenuButton />
       <main id="main" className="pb-20 pt-28 sm:pt-36 lg:ml-64">
