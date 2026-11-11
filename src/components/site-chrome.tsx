@@ -33,7 +33,7 @@ export function Wordmark() {
     <img
       src="/msheireb-logo-hd(1).png"
       alt="مشيرب العقارية — MSHEIREB PROPERTIES"
-      className="h-auto w-[min(270px,58vw)] shrink-0 object-contain sm:w-[310px]"
+      className="block h-auto max-h-[54px] w-[min(190px,48vw)] shrink-0 object-contain object-left sm:max-h-[62px] sm:w-[230px]"
       width="1696"
       height="444"
       decoding="async"
