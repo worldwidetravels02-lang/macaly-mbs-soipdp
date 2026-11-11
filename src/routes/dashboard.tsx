@@ -44,7 +44,7 @@ export const Route = createFileRoute('/dashboard')({
 function DashboardPage() {
   const [user, setUser] = useState<User | null>(null)
   const [name, setName] = useState('Member')
-  const [currency, setCurrency] = useState<Currency>('AED')
+  const [currency, setCurrency] = useState<Currency>('OMR')
   const [balance, setBalance] = useState(0)
   const [holdBalance, setHoldBalance] = useState(0)
   const [investments, setInvestments] = useState<Investment[]>([])
@@ -176,17 +176,17 @@ function DashboardPage() {
   const todayCommission = creditedCommissions.filter((row) => new Date(row.created_at).toLocaleDateString('en-CA') === todayKey).reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
 
   return (
-    <div className="customer-dashboard min-h-screen bg-[#f5f3ee] text-[#172238]">
+    <div className="customer-dashboard min-h-screen bg-[#f3f6f0] text-[#123c2d]">
       <WorkspaceSidebar mode="member" />
 
-      <header className="fixed inset-x-0 top-0 z-40 flex h-[72px] items-center justify-between border-b border-white/10 bg-[#123c2d]/95 px-4 pl-20 text-white shadow-lg backdrop-blur sm:px-6 sm:pl-20 lg:left-64 lg:px-7">
+      <header className="fixed inset-x-0 top-0 z-40 flex h-[72px] items-center justify-between border-b border-[#d4e2d7] bg-[#06452f]/98 px-4 pl-20 text-white shadow-lg backdrop-blur sm:px-6 sm:pl-20 lg:left-64 lg:px-7">
         <Link to="/dashboard" aria-label="Msheireb Properties dashboard" className="flex min-w-0 items-center gap-2.5">
           <BrandMark className="h-9 w-9 shrink-0 text-[#d8b56d]" />
           <span className="min-w-0 leading-tight"><span className="block truncate text-[11px] font-semibold tracking-[0.18em] text-white sm:text-xs">MSHEIREB</span><span className="mt-1 block truncate text-[8px] tracking-[0.2em] text-[#d8b56d] sm:text-[9px]">PROPERTIES</span></span>
         </Link>
         <div className="flex items-center gap-3 sm:gap-5">
           <label className="flex items-center gap-2 text-[10px] font-semibold tracking-widest text-white/60">CURRENCY
-            <select aria-label="Dashboard currency" value={currency} onChange={(event) => { const nextCurrency = event.target.value as Currency; setCurrency(nextCurrency); if (user?.id) void requireSupabase().from("profiles").update({ preferred_currency: nextCurrency }).eq("id", user.id) }} className="rounded-md border border-white/20 bg-[#0d3024] px-3 py-2 text-xs font-semibold text-white">{currencies.map((code) => <option key={code} value={code}>{code}</option>)}</select>
+            <select aria-label="Dashboard currency" value={currency} onChange={(event) => { const nextCurrency = event.target.value as Currency; setCurrency(nextCurrency); if (user?.id) void requireSupabase().from("profiles").update({ preferred_currency: nextCurrency }).eq("id", user.id) }} className="rounded-lg border border-white/25 bg-[#0b3828] px-3 py-2 text-xs font-semibold text-white">{currencies.map((code) => <option key={code} value={code}>{code}</option>)}</select>
           </label>
           <Link to="/account" className="flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"><span className="grid h-8 w-8 place-items-center rounded-lg bg-[#d8b56d] font-semibold text-[#123c2d]">{name.slice(0,1).toUpperCase()}</span><span className="hidden text-left sm:block"><strong className="block">{name.split(' ')[0]}</strong><span className="text-[10px] text-white/55">Member</span></span></Link>
         </div>
@@ -194,7 +194,7 @@ function DashboardPage() {
 
       <main id="main" className="pb-20 pt-24 lg:ml-64">
         <div className="mx-auto grid w-full max-w-[1500px] gap-5 px-5 sm:px-7">
-          <section className="relative overflow-hidden rounded-2xl border border-[#b89b59]/45 bg-gradient-to-br from-[#101d35] via-[#172b49] to-[#263b55] px-7 py-8 shadow-xl sm:px-10 sm:py-10">
+          <section className="relative overflow-hidden rounded-2xl border border-[#c8ad68]/50 bg-gradient-to-br from-[#06452f] via-[#0b5a3c] to-[#123c2d] px-7 py-8 shadow-xl sm:px-10 sm:py-10">
             <div className="pointer-events-none absolute -right-12 -top-16 h-72 w-72 rounded-full border border-[#d8b56d]/20 bg-[#d8b56d]/5" /><div className="pointer-events-none absolute bottom-0 right-0 h-1 w-2/5 bg-gradient-to-l from-[#d8b56d] to-transparent" />
             <div className="relative">
               <p className="eyebrow mb-3 text-[0.58rem] tracking-[0.25em] text-[#d8b56d]">MSHEIREB PROPERTIES · PRIVATE MEMBER SPACE</p><h1 className="display text-3xl leading-tight text-white sm:text-4xl">Welcome back, {name.split(' ')[0]}.</h1><p className="mt-3 max-w-xl text-sm leading-6 text-white/65">Your property journey, wallet and investment activity — together in one place.</p>
@@ -209,7 +209,26 @@ function DashboardPage() {
           {!loading && !user ? <section data-testid="dashboard-signed-out" className="border border-border bg-card p-8 sm:p-12"><p className="eyebrow text-brass">Member area</p><h2 className="display mt-4 text-2xl">Sign in to open your dashboard.</h2><p className="mt-3 text-sm text-ink-soft">Your dashboard holds your wallet, property requests, account details and customer support.</p><Link to="/login" className="eyebrow mt-6 inline-flex items-center gap-3 bg-primary px-6 py-4 text-[0.6rem] text-primary-foreground">Login <ArrowRight /></Link></section> : null}
           {error ? <p role="alert" className="border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</p> : null}
           {user && !loading ? <>
-            <section id="tasks-achievements" className="grid gap-6">
+            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Account overview">
+              <Link to="/wallet" className="group rounded-2xl border border-[#dce7dd] bg-white p-5 shadow-[0_8px_24px_rgba(18,60,45,.07)] transition hover:-translate-y-0.5 hover:border-[#c8ad68]">
+                <div className="flex items-center justify-between"><span className="text-xs font-semibold text-[#62766a]">Wallet balance</span><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e7f1e9] text-xl text-[#0b5a3c]">▣</span></div>
+                <p data-testid="dashboard-balance" className="mt-3 text-2xl font-bold tracking-tight text-[#123c2d]">{formatMoney(balance, currency)}</p><p className="mt-1 text-xs font-semibold text-[#718477]">Available funds</p>
+              </Link>
+              <Link to="/wallet#withdrawals" className="group rounded-2xl border border-[#dce7dd] bg-white p-5 shadow-[0_8px_24px_rgba(18,60,45,.07)] transition hover:-translate-y-0.5 hover:border-[#c8ad68]">
+                <div className="flex items-center justify-between"><span className="text-xs font-semibold text-[#62766a]">Pending withdrawals</span><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e7f1e9] text-xl text-[#0b5a3c]">◈</span></div>
+                <p className="mt-3 text-2xl font-bold tracking-tight text-[#123c2d]">{formatMoney(holdBalance, currency)}</p><p className="mt-1 text-xs font-semibold text-[#718477]">Awaiting processing</p>
+              </Link>
+              <Link to="/wallet#commissions" className="group rounded-2xl border border-[#c8ad68] bg-gradient-to-br from-[#f7e8bd] to-[#e7cb83] p-5 shadow-[0_8px_24px_rgba(18,60,45,.08)] transition hover:-translate-y-0.5">
+                <div className="flex items-center justify-between"><span className="text-xs font-bold text-[#624b1e]">Total commission</span><span className="grid h-10 w-10 place-items-center rounded-xl bg-white/55 text-xl text-[#775b20]">↗</span></div>
+                <p className="mt-3 text-2xl font-bold tracking-tight text-[#3e321b]">{formatMoney(totalCommission, currency)}</p><p className="mt-1 text-xs font-semibold text-[#705a2b]">Credited commissions</p>
+              </Link>
+              <Link to="/wallet#commissions" className="group rounded-2xl border border-[#dce7dd] bg-white p-5 shadow-[0_8px_24px_rgba(18,60,45,.07)] transition hover:-translate-y-0.5 hover:border-[#c8ad68]">
+                <div className="flex items-center justify-between"><span className="text-xs font-semibold text-[#62766a]">Investment requests</span><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e7f1e9] text-xl text-[#0b5a3c]">⌂</span></div>
+                <p className="mt-3 text-2xl font-bold tracking-tight text-[#123c2d]">{investmentRequests.length}</p><p className="mt-1 text-xs font-semibold text-[#718477]">{pendingProjects} awaiting action</p>
+              </Link>
+            </section>
+
+            <section className="grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(280px,.9fr)]">
               <section aria-label="Explore Oman video" className="relative isolate w-full overflow-hidden rounded-2xl border border-[#b89b59]/35 bg-[#071426] shadow-xl">
                 <video
                   className="block aspect-[16/7] w-full object-cover"
@@ -227,14 +246,19 @@ function DashboardPage() {
                   <p className="eyebrow text-[0.55rem] text-[#d2b56e]">Explore Oman</p>
                   <h2 className="display mt-2 text-2xl text-white sm:text-3xl">Discover Oman</h2>
                 </div>
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#032d20]/90 via-[#063d2b]/55 to-transparent" />
               </section>
-              <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <Link to="/wallet" className="rounded-xl border border-[#e5dfd2] bg-white p-5 shadow-[0_8px_25px_rgba(16,29,53,0.05)] transition hover:-translate-y-0.5 hover:border-[#b89b59]"><p className="text-[11px] text-[#858585]">Wallet balance</p><p data-testid="dashboard-balance" className="mt-1 text-xl font-semibold text-[#222]">{formatMoney(balance, currency)}</p><p className="mt-1 text-[10px] text-[#8b9a91]">Available</p></Link>
-                <Link to="/wallet#withdrawals" className="rounded-xl border border-[#e5dfd2] bg-white p-5 shadow-[0_8px_25px_rgba(16,29,53,0.05)] transition hover:-translate-y-0.5 hover:border-[#b89b59]"><p className="text-[11px] text-[#858585]">Hold balance</p><p className="mt-1 text-xl font-semibold text-[#222]">{formatMoney(holdBalance, currency)}</p><p className="mt-1 text-[10px] text-[#8b9a91]">Group in progress</p></Link>
-                <Link to="/wallet#commissions" className="rounded-xl border border-[#e5dfd2] bg-white p-5 shadow-[0_8px_25px_rgba(16,29,53,0.05)] transition hover:-translate-y-0.5 hover:border-[#b89b59]"><p className="text-[11px] text-[#858585]">Today’s commission</p><p className="mt-1 text-xl font-semibold text-[#222]">{formatMoney(todayCommission, currency)}</p><p className="mt-1 text-[10px] text-[#8b9a91]">Credited today</p></Link>
-                <Link to="/wallet#commissions" className="rounded-xl border border-[#e5dfd2] bg-white p-5 shadow-[0_8px_25px_rgba(16,29,53,0.05)] transition hover:-translate-y-0.5 hover:border-[#b89b59]"><p className="text-[11px] text-[#858585]">Total commission</p><p className="mt-1 text-xl font-semibold text-[#222]">{formatMoney(totalCommission, currency)}</p><p className="mt-1 text-[10px] text-[#8b9a91]">All completed credits</p></Link>
-                <Link to="/wallet#transactions" className="rounded-xl border border-[#e5dfd2] bg-white p-5 shadow-[0_8px_25px_rgba(16,29,53,0.05)] transition hover:-translate-y-0.5 hover:border-[#b89b59]"><p className="text-[11px] text-[#858585]">Orders</p><p className="mt-1 text-xl font-semibold text-[#222]">{investmentRequests.length}</p><p className="mt-1 text-[10px] text-[#8b9a91]">Submitted orders</p></Link>
-              </section>
+              <aside className="overflow-hidden rounded-2xl border border-[#dce7dd] bg-white shadow-[0_8px_24px_rgba(18,60,45,.07)]">
+                <div className="bg-[#075337] px-5 py-4 text-white"><h2 className="text-lg font-bold">Quick actions</h2><p className="mt-1 text-xs font-semibold text-white/70">Your account shortcuts</p></div>
+                <div className="grid grid-cols-2 gap-3 p-4">
+                  <Link to="/residences" className="rounded-xl border border-[#e0e9df] bg-[#f7faf6] p-4 text-center transition hover:border-[#c8ad68] hover:bg-[#edf5ed]"><span className="block text-2xl text-[#075337]">⌂</span><span className="mt-2 block text-xs font-bold text-[#123c2d]">Browse properties</span></Link>
+                  <Link to="/dashboard#investments" className="rounded-xl border border-[#e0e9df] bg-[#f7faf6] p-4 text-center transition hover:border-[#c8ad68] hover:bg-[#edf5ed]"><span className="block text-2xl text-[#075337]">↗</span><span className="mt-2 block text-xs font-bold text-[#123c2d]">Investment requests</span></Link>
+                  <Link to="/wallet#withdrawals" className="rounded-xl border border-[#e0e9df] bg-[#f7faf6] p-4 text-center transition hover:border-[#c8ad68] hover:bg-[#edf5ed]"><span className="block text-2xl text-[#075337]">▣</span><span className="mt-2 block text-xs font-bold text-[#123c2d]">Withdraw funds</span></Link>
+                  <Link to="/support" className="rounded-xl border border-[#e0e9df] bg-[#f7faf6] p-4 text-center transition hover:border-[#c8ad68] hover:bg-[#edf5ed]"><span className="block text-2xl text-[#075337]">◉</span><span className="mt-2 block text-xs font-bold text-[#123c2d]">Contact support</span></Link>
+                </div>
+              </aside>
+            </section>
+            <section id="tasks-achievements" className="grid gap-6">
               <div className="border border-border bg-card">
                 <div className="border-b border-border px-6 py-5"><h2 className="display text-xl">Your assigned tasks</h2><p className="mt-1 text-xs text-ink-soft">Submit completed tasks for administrator review. Returned tasks can be submitted again.</p></div>
                 {memberTasks.length === 0 ? <p className="px-6 py-7 text-sm text-ink-soft">No tasks have been assigned to your account yet.</p> : <ul className="divide-y divide-border">{memberTasks.map((task) => {
