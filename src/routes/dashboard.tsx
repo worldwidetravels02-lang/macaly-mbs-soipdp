@@ -198,7 +198,7 @@ function DashboardPage() {
             <div className="relative">
               <p className="eyebrow mb-3 text-[0.58rem] tracking-[0.25em] text-[#d8b56d]">MSHEIREB PROPERTIES · PRIVATE MEMBER SPACE</p><h1 className="display text-3xl leading-tight text-white sm:text-4xl">Welcome back, {name.split(' ')[0]}.</h1><p className="mt-3 max-w-xl text-sm leading-6 text-white/65">Your property journey, wallet and investment activity — together in one place.</p>
               <div className="mt-5 flex flex-wrap gap-2.5">
-                <Link to="/residences" className="inline-flex items-center gap-2 rounded-md bg-[#d8b56d] px-5 py-3 text-sm font-semibold text-[#101d35] transition hover:bg-[#e6c984]">Explore projects <ArrowRight /></Link>
+                <Link to="/residences" className="inline-flex items-center gap-2 rounded-md bg-[#d8b56d] px-5 py-3 text-sm font-semibold text-[#123c2d] transition hover:bg-[#e6c984]">Explore projects <ArrowRight /></Link>
                 <Link to="/account" className="inline-flex items-center rounded-md border border-white/25 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:border-[#d8b56d]">View account</Link>
               </div>
             </div>
@@ -228,7 +228,7 @@ function DashboardPage() {
             </section>
 
             <section className="grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(280px,.9fr)]">
-              <section aria-label="Explore Oman video" className="relative isolate w-full overflow-hidden rounded-2xl border border-[#b89b59]/35 bg-[#071426] shadow-xl">
+              <section aria-label="Explore Oman video" className="relative isolate w-full overflow-hidden rounded-2xl border border-[#b89b59]/35 bg-[#123c2d] shadow-xl">
                 <video
                   className="block aspect-[16/7] w-full object-cover"
                   src="https://videos.pexels.com/video-files/30048213/12888884_1920_1080_30fps.mp4"
@@ -241,7 +241,7 @@ function DashboardPage() {
                 >
                   Your browser does not support HTML video.
                 </video>
-                <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#071426]/90 via-[#071426]/35 to-transparent px-5 pb-5 pt-16 sm:px-8 sm:pb-7">
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#123c2d]/90 via-[#123c2d]/35 to-transparent px-5 pb-5 pt-16 sm:px-8 sm:pb-7">
                   <p className="eyebrow text-[0.55rem] text-[#d2b56e]">Explore Oman</p>
                   <h2 className="display mt-2 text-2xl text-white sm:text-3xl">Discover Oman</h2>
                 </div>
