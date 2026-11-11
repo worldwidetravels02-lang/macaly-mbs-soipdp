@@ -5,7 +5,6 @@ import { requireSupabase } from '@/lib/supabase-client'
 import { ArrowRight } from './site-chrome'
 
 type View = 'signin' | 'signup' | 'forgot' | 'reset'
-type LoginMethod = 'email' | 'mobile'
 
 const countryCodes = [
   ['+971', 'UAE'], ['+44', 'UK'], ['+91', 'India'], ['+855', 'Cambodia'], ['+1', 'USA / Canada'],
@@ -26,7 +25,7 @@ function mapError(err: unknown, view: View) {
   if (/email not confirmed/i.test(message)) return 'Please confirm your email address before signing in.'
   if (/invalid email/i.test(message)) return 'Enter a valid email address.'
   if (/password.*(weak|short)|weak password/i.test(message)) return 'Choose a stronger password with at least 8 characters.'
-  if (view === 'signin') return 'Email or password is incorrect. Please try again.'
+  if (view === 'signin') return 'Phone number or password is incorrect. Please try again.'
   if (view === 'reset') return 'That code is invalid or has expired. Please request a new one.'
   return message || 'Something went wrong. Please try again.'
 }
@@ -41,7 +40,6 @@ export function AuthPanel({ mode, adminOnly = false }: { mode: 'login' | 'regist
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [loginIdentifier, setLoginIdentifier] = useState('')
-  const [loginMethod, setLoginMethod] = useState<LoginMethod>('email')
   const [phoneCountryCode, setPhoneCountryCode] = useState('+91')
   const [mobile, setMobile] = useState('')
   const [referralCode, setReferralCode] = useState('')
@@ -71,10 +69,8 @@ export function AuthPanel({ mode, adminOnly = false }: { mode: 'login' | 'regist
     if (view === 'signup') {
       const cleanName = fullName.trim().replace(/\s+/g, ' ')
       const digits = mobile.replace(/\D/g, '')
-      const cleanEmail = email.trim().toLowerCase()
       if (cleanName.length < 2 || cleanName.length > 120 || /[\u0000-\u001f<>]/.test(cleanName)) return setError('Enter a valid full name between 2 and 120 characters.')
       if (digits.length < 7 || digits.length > 15 || !/^[+()\d\s.-]+$/.test(mobile.trim())) return setError('Please enter a valid mobile number with 7–15 digits.')
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail) || cleanEmail.length > 254) return setError('Enter a valid email address.')
       if (referralCode.trim().length > 64) return setError('Referral code must be 64 characters or fewer.')
       if (password.length < 8 || password.length > 72) return setError('Your password must be between 8 and 72 characters.')
       if (password !== confirmPassword) return setError('The two passwords do not match.')
@@ -83,13 +79,15 @@ export function AuthPanel({ mode, adminOnly = false }: { mode: 'login' | 'regist
     try {
       const supabase = requireSupabase()
       if (view === 'signup') {
+        const normalizedMobile = phoneCountryCode + digits
+        const internalAuthEmail = 'phone-' + digits + '@accounts.msheireb.invalid'
         const { data: signUpData, error: authError } = await supabase.auth.signUp({
-          email: email.trim().toLowerCase(),
+          email: internalAuthEmail,
           password,
           options: {
             data: {
               full_name: fullName.trim().replace(/\s+/g, ' '),
-              mobile: `${phoneCountryCode} ${mobile.replace(/\D/g, '')}`,
+              mobile: normalizedMobile,
               referral_code: referralCode.trim() || null,
             },
           },
@@ -106,26 +104,17 @@ export function AuthPanel({ mode, adminOnly = false }: { mode: 'login' | 'regist
         return
       } else {
         let signedInUserId = ''
-        if (loginMethod === 'email') {
-          const { data: signInData, error: authError } = await supabase.auth.signInWithPassword({
-            email: loginIdentifier.trim().toLowerCase(),
-            password,
-          })
-          if (authError) throw authError
-          signedInUserId = signInData.user?.id ?? ''
-        } else {
-          const { data, error: invokeError } = await supabase.functions.invoke('phone-password-login', {
-            body: { mobile: `${phoneCountryCode} ${loginIdentifier.replace(/\D/g, '')}`, password },
-          })
-          if (invokeError) throw invokeError
-          if (!data?.access_token || !data?.refresh_token) throw new Error('Invalid login details.')
-          const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-            access_token: data.access_token,
-            refresh_token: data.refresh_token,
-          })
-          if (sessionError) throw sessionError
-          signedInUserId = sessionData.user?.id ?? sessionData.session?.user.id ?? ''
-        }
+        const { data, error: invokeError } = await supabase.functions.invoke('phone-password-login', {
+          body: { mobile: phoneCountryCode + loginIdentifier.replace(/\D/g, ''), password },
+        })
+        if (invokeError) throw invokeError
+        if (!data?.access_token || !data?.refresh_token) throw new Error('Invalid login details.')
+        const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+          access_token: data.access_token,
+          refresh_token: data.refresh_token,
+        })
+        if (sessionError) throw sessionError
+        signedInUserId = sessionData.user?.id ?? sessionData.session?.user.id ?? ''
         if (!signedInUserId) throw new Error('Sign-in succeeded but no user session was returned. Please sign in again.')
         if (adminOnly) {
           const { data: membership, error: membershipError } = await supabase
@@ -198,7 +187,7 @@ export function AuthPanel({ mode, adminOnly = false }: { mode: 'login' | 'regist
     view === 'signup' ? 'Register to save residences, receive private previews and manage your booking.'
       : view === 'forgot' ? 'We will send a password-reset email if an account exists.'
         : view === 'reset' ? 'Your recovery link is verified. Enter a new password below.'
-          : 'Sign in with your email address or registered mobile number and password.'
+          : 'Sign in with your registered phone number and password.'
 
   return (
     <div className="border border-border bg-card p-6 soft-shadow sm:p-9" data-testid="auth-panel" data-state={busy ? 'loading' : 'ready'}>
@@ -257,24 +246,14 @@ export function AuthPanel({ mode, adminOnly = false }: { mode: 'login' | 'regist
 
       {view === 'signin' ? (
         <form className="mt-8 grid gap-4" onSubmit={handleSignInOrUp} data-testid="login-form">
-          <div className="grid grid-cols-2 border border-border p-1" role="group" aria-label="Login method">
-            <button type="button" onClick={() => { setLoginMethod('email'); setLoginIdentifier(''); clearMessages() }} className={`px-3 py-2 text-xs tracking-wide ${loginMethod === 'email' ? 'bg-primary text-primary-foreground' : 'text-ink-soft'}`} aria-pressed={loginMethod === 'email'}>Email</button>
-            <button type="button" onClick={() => { setLoginMethod('mobile'); setLoginIdentifier(''); clearMessages() }} className={`px-3 py-2 text-xs tracking-wide ${loginMethod === 'mobile' ? 'bg-primary text-primary-foreground' : 'text-ink-soft'}`} aria-pressed={loginMethod === 'mobile'}>Mobile number</button>
-          </div>
-          {loginMethod === 'email' ? (
-            <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Email address</span>
-              <input type="email" required autoComplete="username" value={loginIdentifier} onChange={e => { setLoginIdentifier(e.target.value); clearMessages() }} disabled={busy} placeholder="you@example.com" data-testid="login-identifier" className={inputClass} />
-            </label>
-          ) : (
-            <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Mobile number</span>
-              <div className="mt-2 grid grid-cols-[minmax(110px,0.38fr)_1fr] gap-2">
-                <select aria-label="Country calling code" value={phoneCountryCode} onChange={e => setPhoneCountryCode(e.target.value)} disabled={busy} className="min-w-0 border border-input bg-background px-2 py-3 text-sm outline-none focus:border-brass" data-testid="login-country-code">
-                  {countryCodes.map(([code, country]) => <option key={code} value={code}>{code} {country}</option>)}
-                </select>
-                <input type="tel" required autoComplete="tel-national" value={loginIdentifier} onChange={e => { setLoginIdentifier(e.target.value); clearMessages() }} disabled={busy} placeholder="50 000 0000" data-testid="login-identifier" className="min-w-0 border border-input bg-background px-4 py-3 text-[0.95rem] outline-none transition-colors placeholder:text-ink-soft/60 focus:border-brass disabled:opacity-60" />
-              </div>
-            </label>
-          )}
+          <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Phone number</span>
+            <div className="mt-2 grid grid-cols-[minmax(110px,0.38fr)_1fr] gap-2">
+              <select aria-label="Country calling code" value={phoneCountryCode} onChange={e => setPhoneCountryCode(e.target.value)} disabled={busy} className="min-w-0 border border-input bg-background px-2 py-3 text-sm outline-none focus:border-brass" data-testid="login-country-code">
+                {countryCodes.map(([code, country]) => <option key={code} value={code}>{code} {country}</option>)}
+              </select>
+              <input type="tel" required autoComplete="tel-national" value={loginIdentifier} onChange={e => { setLoginIdentifier(e.target.value); clearMessages() }} disabled={busy} placeholder="50 000 0000" data-testid="login-identifier" className="min-w-0 border border-input bg-background px-4 py-3 text-[0.95rem] outline-none transition-colors placeholder:text-ink-soft/60 focus:border-brass disabled:opacity-60" />
+            </div>
+          </label>
           <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Password</span>
             <input type="password" required autoComplete="current-password" value={password} onChange={e => { setPassword(e.target.value); clearMessages() }} disabled={busy} placeholder="Your password" data-testid="login-password" className={inputClass} />
           </label>
