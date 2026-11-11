@@ -18,6 +18,13 @@ type Commission = { id: string; amount: number | string; currency: Currency; com
 type MemberTask = { id: string; title: string; detail: string | null; target_level: number | null; status: string; created_at: string; reviewed_at?: string | null; review_note?: string | null }
 type MembershipPlan = { id: string; level: number; name: string; minimum_amount: number | string; profit_percent: number | string; commission_percent: number | string; active: boolean }
 type CustomerLevelAccess = { user_id: string; level_name: string; is_unlocked: boolean }
+const fallbackFxRates: Record<Currency, number> = { OMR: 1, AED: 9.55, SAR: 9.7549, KWD: 0.7978, BHD: 0.9805, QAR: 9.4836, PKR: 729, BDT: 313.1 }
+function convertDisplayCurrency(value: number | string, from: Currency, to: Currency, rates: Record<Currency, number>) {
+  const amount = Number(value)
+  if (!Number.isFinite(amount)) return 0
+  if (from === to) return amount
+  return amount / rates[from] * rates[to]
+}
 
 function formatMoney(amount: number | string, currency: Currency) {
   const numeric = Number(amount)
@@ -45,6 +52,8 @@ function DashboardPage() {
   const [user, setUser] = useState<User | null>(null)
   const [name, setName] = useState('Member')
   const [currency, setCurrency] = useState<Currency>('OMR')
+  const [fxRates, setFxRates] = useState<Record<Currency, number>>(fallbackFxRates)
+  const [fxUpdatedAt, setFxUpdatedAt] = useState('')
   const [balance, setBalance] = useState(0)
   const [holdBalance, setHoldBalance] = useState(0)
   const [investments, setInvestments] = useState<Investment[]>([])
@@ -72,8 +81,8 @@ function DashboardPage() {
       if (!current) return
       const [profile, wallet, pendingWithdrawals, projects, requests, ledger, notices, commissionRows, memberProfile, taskRows, planRows, accessRows] = await Promise.all([
         client.from('profiles').select('full_name,preferred_currency').eq('id', current.id).maybeSingle(),
-        client.from('wallet_balances').select('balance').eq('user_id', current.id).eq('currency', currency).maybeSingle(),
-        client.from('wallet_pending_withdrawals').select('pending_amount').eq('user_id', current.id).eq('currency', currency).maybeSingle(),
+        client.from('wallet_balances').select('balance').eq('user_id', current.id).eq('currency', 'OMR').maybeSingle(),
+        client.from('wallet_pending_withdrawals').select('pending_amount').eq('user_id', current.id).eq('currency', 'OMR').maybeSingle(),
         client.from('investments').select('id,amount,currency,status,created_at,reference,property_id').eq('user_id', current.id).order('created_at', { ascending: false }).limit(8),
         client.from('investment_requests').select('id,property_name,plan_code,amount,currency,profit_percent,expected_profit,commission_percent,expected_commission,status,created_at').eq('user_id', current.id).order('created_at', { ascending: false }),
         client.from('wallet_transactions').select('id,amount,currency,transaction_type,direction,status,description,created_at').eq('user_id', current.id).order('created_at', { ascending: false }).limit(8),
@@ -111,6 +120,37 @@ function DashboardPage() {
 
   useEffect(() => {
     let active = true
+    async function refreshRates() {
+      try {
+        const response = await fetch('https://open.er-api.com/v6/latest/OMR', { cache: 'no-store' })
+        if (!response.ok) throw new Error('Live exchange rates unavailable.')
+        const payload = await response.json() as { result?: string; base_code?: string; time_last_update_utc?: string; rates?: Record<string, number> }
+        if (payload.result !== 'success' || payload.base_code !== 'OMR' || !payload.rates) throw new Error('Invalid exchange-rate response.')
+        const next = { ...fallbackFxRates }
+        for (const code of currencies) {
+          const rate = Number(payload.rates[code])
+          if (code !== 'OMR' && Number.isFinite(rate) && rate > 0) next[code] = rate
+        }
+        if (active) {
+          setFxRates(next)
+          setFxUpdatedAt(payload.time_last_update_utc ? new Date(payload.time_last_update_utc).toLocaleString('en-GB') : new Date().toLocaleString('en-GB'))
+        }
+      } catch {
+        // Keep the last good or fallback reference rates visible if the live service is offline.
+      }
+    }
+    void refreshRates()
+    const timer = window.setInterval(() => { void refreshRates() }, 15 * 60 * 1000)
+    window.addEventListener('focus', refreshRates)
+    return () => {
+      active = false
+      window.clearInterval(timer)
+      window.removeEventListener('focus', refreshRates)
+    }
+  }, [])
+
+  useEffect(() => {
+    let active = true
     const client = requireSupabase()
     const run = async () => { if (active) await load() }
     void run()
@@ -144,7 +184,7 @@ function DashboardPage() {
 
   const activeProjects = investments.filter((row) => ['approved', 'funded', 'active', 'completed'].includes(normalizeInvestmentStatus(row.status))).length
   const pendingProjects = investmentRequests.filter((row) => ['pending', 'approved'].includes(normalizeInvestmentStatus(row.status))).length
-  const fundedTotal = investments.filter((row) => ['funded', 'active', 'approved', 'completed'].includes(normalizeInvestmentStatus(row.status)) && row.currency === currency).reduce((total, row) => total + (Number(row.amount) || 0), 0)
+  const fundedTotal = investments.filter((row) => ['funded', 'active', 'approved', 'completed'].includes(normalizeInvestmentStatus(row.status))).reduce((total, row) => total + convertDisplayCurrency(row.amount, row.currency, currency, fxRates), 0)
   const investmentStatus = (value: string) => {
     const status = normalizeInvestmentStatus(value)
     if (status === 'pending') return { label: 'Awaiting review', detail: 'Your application is waiting for the administration team to review it.', tone: 'text-ink-soft' }
@@ -170,10 +210,10 @@ function DashboardPage() {
     return totals
   }, {})
   const commissionCurrencyRows = Object.entries(commissionTotals).sort(([a], [b]) => a.localeCompare(b))
-  const creditedCommissions = commissions.filter((row) => ['credited', 'paid', 'completed'].includes(normalizeInvestmentStatus(row.status)) && row.currency === currency)
-  const totalCommission = creditedCommissions.reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
+  const creditedCommissions = commissions.filter((row) => ['credited', 'paid', 'completed'].includes(normalizeInvestmentStatus(row.status)))
+  const totalCommission = creditedCommissions.reduce((sum, row) => sum + convertDisplayCurrency(row.amount, row.currency, currency, fxRates), 0)
   const todayKey = new Date().toLocaleDateString('en-CA')
-  const todayCommission = creditedCommissions.filter((row) => new Date(row.created_at).toLocaleDateString('en-CA') === todayKey).reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
+  const todayCommission = creditedCommissions.filter((row) => new Date(row.created_at).toLocaleDateString('en-CA') === todayKey).reduce((sum, row) => sum + convertDisplayCurrency(row.amount, row.currency, currency, fxRates), 0)
 
   return (
     <div className="customer-dashboard dashboard-typography min-h-screen bg-[#f3f6f0] text-[#123c2d]">
@@ -185,7 +225,7 @@ function DashboardPage() {
         </Link>
         <div className="flex items-center gap-3 sm:gap-5">
           <label className="flex items-center gap-2 text-[10px] font-semibold tracking-widest text-white/60">CURRENCY
-            <select aria-label="Dashboard currency" value={currency} onChange={(event) => { const nextCurrency = event.target.value as Currency; setCurrency(nextCurrency); if (user?.id) void requireSupabase().from("profiles").update({ preferred_currency: nextCurrency }).eq("id", user.id) }} className="rounded-lg border border-white/25 bg-[#0b3828] px-3 py-2 text-xs font-semibold text-white">{currencies.map((code) => <option key={code} value={code}>{code}</option>)}</select>
+            <select aria-label="Dashboard currency" value={currency} onChange={(event) => { const nextCurrency = event.target.value as Currency; setCurrency(nextCurrency); try { window.localStorage.setItem("msheireb-currency", nextCurrency) } catch { /* optional */ } window.dispatchEvent(new CustomEvent("msheireb-currency-change", { detail: nextCurrency })); if (user?.id) void requireSupabase().from("profiles").update({ preferred_currency: nextCurrency }).eq("id", user.id) }} className="rounded-lg border border-white/25 bg-[#0b3828] px-3 py-2 text-xs font-semibold text-white">{currencies.map((code) => <option key={code} value={code}>{code}</option>)}</select>
           </label>
           <Link to="/account" className="flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"><span className="grid h-8 w-8 place-items-center rounded-lg bg-[#d8b56d] font-semibold text-[#123c2d]">{name.slice(0,1).toUpperCase()}</span><span className="hidden text-left sm:block"><strong className="block">{name.split(' ')[0]}</strong><span className="text-[10px] text-white/55">Member</span></span></Link>
         </div>
@@ -211,11 +251,11 @@ function DashboardPage() {
             <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Account overview">
               <Link to="/wallet" className="group rounded-2xl border border-[#dce7dd] bg-white p-5 shadow-[0_8px_24px_rgba(18,60,45,.07)] transition hover:-translate-y-0.5 hover:border-[#c8ad68]">
                 <div className="flex items-center justify-between"><span className="text-xs font-semibold text-[#62766a]">Wallet balance</span><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e7f1e9] text-xl text-[#0b5a3c]">▣</span></div>
-                <p data-testid="dashboard-balance" className="mt-3 text-2xl font-bold tracking-tight text-[#123c2d]">{formatMoney(balance, currency)}</p><p className="mt-1 text-xs font-semibold text-[#718477]">Available funds</p>
+                <p data-testid="dashboard-balance" className="mt-3 text-2xl font-bold tracking-tight text-[#123c2d]">{formatMoney(convertDisplayCurrency(balance, 'OMR', currency, fxRates), currency)}</p><p className="mt-1 text-xs font-semibold text-[#718477]">Available funds</p>
               </Link>
               <Link to="/wallet#withdrawals" className="group rounded-2xl border border-[#dce7dd] bg-white p-5 shadow-[0_8px_24px_rgba(18,60,45,.07)] transition hover:-translate-y-0.5 hover:border-[#c8ad68]">
                 <div className="flex items-center justify-between"><span className="text-xs font-semibold text-[#62766a]">Pending withdrawals</span><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e7f1e9] text-xl text-[#0b5a3c]">◈</span></div>
-                <p className="mt-3 text-2xl font-bold tracking-tight text-[#123c2d]">{formatMoney(holdBalance, currency)}</p><p className="mt-1 text-xs font-semibold text-[#718477]">Awaiting processing</p>
+                <p className="mt-3 text-2xl font-bold tracking-tight text-[#123c2d]">{formatMoney(convertDisplayCurrency(holdBalance, 'OMR', currency, fxRates), currency)}</p><p className="mt-1 text-xs font-semibold text-[#718477]">Awaiting processing</p>
               </Link>
               <Link to="/wallet#commissions" className="group rounded-2xl border border-[#c8ad68] bg-gradient-to-br from-[#f7e8bd] to-[#e7cb83] p-5 shadow-[0_8px_24px_rgba(18,60,45,.08)] transition hover:-translate-y-0.5">
                 <div className="flex items-center justify-between"><span className="text-xs font-bold text-[#624b1e]">Total commission</span><span className="grid h-10 w-10 place-items-center rounded-xl bg-white/55 text-xl text-[#775b20]">↗</span></div>
