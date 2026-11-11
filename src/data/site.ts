@@ -345,9 +345,9 @@ export const AMENITIES = [
 export const SITE = {
   name: 'Msheireb Properties',
   tagline: 'Redefining urban living',
-  city: 'Dubai',
-  country: 'United Arab Emirates',
-  address: ['Dubai, United Arab Emirates', 'Sales address to be confirmed'],
+  city: 'Muscat',
+  country: 'Oman',
+  address: ['Muscat, Sultanate of Oman', 'Sales address to be confirmed'],
   hours: 'Appointment details to be confirmed',
   phone: '',
 }
@@ -832,32 +832,32 @@ const EXTRA_RESIDENCES: Residence[] = LISTING_SEEDS.map((seed) => ({
 RESIDENCES.push(...EXTRA_RESIDENCES)
 
  
-// Curated Dubai catalogue. Names are proposed marketing labels; verify all project details before publication.
+// Curated Oman catalogue. Names are proposed marketing labels; verify all project details before publication.
 const jvcTemplate = RESIDENCES.find((residence) => residence.slug === 'business-bay')
 if (!jvcTemplate) throw new Error('Missing residence template for JVC listing')
 const jvcResidence: Residence = { ...jvcTemplate, slug: 'jvc' as ResidenceSlug }
 RESIDENCES.push(jvcResidence)
 
 const PROPERTY_CATALOGUE = [
-  { slug: 'downtown', name: 'Burj Vista Residences', area: 'Downtown Dubai' },
-  { slug: 'business-bay', name: 'The Opus Residences', area: 'Business Bay' },
-  { slug: 'marina', name: 'Marina Gate Residences', area: 'Dubai Marina' },
-  { slug: 'palm-jumeirah', name: 'Palm Luxury Residences', area: 'Palm Jumeirah' },
-  { slug: 'dubai-hills', name: 'Hills Estate Villas', area: 'Dubai Hills Estate' },
-  { slug: 'jvc', name: 'Garden Heights Residences', area: 'Jumeirah Village Circle' },
-  { slug: 'creek-harbour', name: 'Creek Waterfront Residences', area: 'Dubai Creek Harbour' },
-  { slug: 'arabian-ranches', name: 'Arabian Ranches Villas', area: 'Arabian Ranches' },
+  { slug: 'downtown', name: 'Muscat Heritage Residences', area: 'Muttrah' },
+  { slug: 'business-bay', name: 'Al Mouj Garden Residences', area: 'Al Mouj, Seeb' },
+  { slug: 'marina', name: 'Qurum Shore Residences', area: 'Qurum' },
+  { slug: 'palm-jumeirah', name: 'Bandar Jissah Villas', area: 'Bandar Jissah' },
+  { slug: 'dubai-hills', name: 'Muscat Hills Villas', area: 'Muscat Hills' },
+  { slug: 'jvc', name: 'Al Khuwair Garden Homes', area: 'Al Khuwair' },
+  { slug: 'creek-harbour', name: 'Madinat Al Irfan Residences', area: 'Madinat Al Irfan' },
+  { slug: 'arabian-ranches', name: 'Bausher Courtyard Villas', area: 'Bausher' },
 ] as const
 
 const selectedResidences = PROPERTY_CATALOGUE.map((listing) => {
   const residence = RESIDENCES.find((item) => item.slug === listing.slug)
   if (!residence) throw new Error(`Missing property detail for ${listing.slug}`)
   residence.name = listing.name
-  residence.area = listing.area + ', Dubai'
+  residence.area = listing.area + ', Oman'
   residence.configuration = 'Property details on request'
   residence.price = 'Price on request'
   residence.alt = 'Illustrative luxury property concept image; actual property imagery to be confirmed'
-  residence.summary = `Luxury property listing in ${listing.area}, Dubai.`
+  residence.summary = `Illustrative luxury property listing in ${listing.area}, Oman.`
   residence.description = 'This is a proposed catalogue listing name and location. The development identity, ownership, availability, specifications, images and prices have not been independently verified. Contact the Msheireb Properties team for confirmed information.'
   residence.bedrooms = 'Details on request'
   residence.size = 'Details on request'
