@@ -30,13 +30,14 @@ export function BrandMark({ className = 'h-9 w-9' }: { className?: string }) {
 
 export function Wordmark() {
   return (
-    <span data-testid="msheireb-wordmark" className="inline-flex shrink-0 items-center gap-3 whitespace-nowrap text-[#123c2d]" aria-label="مشيرب العقارية — MSHEIREB PROPERTIES">
-      <span className="flex flex-col items-end leading-tight">
-        <span lang="ar" dir="rtl" className="block text-base font-bold tracking-normal text-[#123c2d] sm:text-lg">مشيرب العقارية</span>
-        <span className="mt-1 block text-[0.72rem] font-bold uppercase tracking-[0.09em] text-[#123c2d] sm:text-sm">MSHEIREB PROPERTIES</span>
-      </span>
-      <BrandMark className="h-12 w-12 shrink-0 text-[#b69a5b] sm:h-14 sm:w-14" />
-    </span>
+    <img
+      src="/msheireb-logo-hd.png"
+      alt="مشيرب العقارية — MSHEIREB PROPERTIES"
+      className="h-auto w-[min(270px,58vw)] shrink-0 object-contain sm:w-[310px]"
+      width="1696"
+      height="444"
+      decoding="async"
+    />
   )
 }
 
