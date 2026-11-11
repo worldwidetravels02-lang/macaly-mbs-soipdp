@@ -1,5 +1,3 @@
-import { createClient } from "npm:@supabase/supabase-js@2.49.1"
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -17,9 +15,8 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Invalid login details." }, 405)
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY")
-  if (!supabaseUrl || !serviceRoleKey || !anonKey) {
+  if (!supabaseUrl || !anonKey) {
     console.error("Phone login function is missing Supabase environment configuration.")
     return json({ error: "Login is temporarily unavailable." }, 500)
   }
