@@ -140,7 +140,7 @@ function DashboardPage() {
       }
     }
     void refreshRates()
-    const timer = window.setInterval(() => { void refreshRates() }, 15 * 60 * 1000)
+    const timer = window.setInterval(() => { void refreshRates() }, 5 * 60 * 1000)
     window.addEventListener('focus', refreshRates)
     return () => {
       active = false
