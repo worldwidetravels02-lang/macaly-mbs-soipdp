@@ -79,7 +79,7 @@ export function AuthPanel({ mode, adminOnly = false }: { mode: 'login' | 'regist
     try {
       const supabase = requireSupabase()
       if (view === 'signup') {
-        const normalizedMobile = phoneCountryCode + digits
+        const normalizedMobile = phoneCountryCode + ' ' + digits
         const internalAuthEmail = 'phone-' + digits + '@accounts.msheireb.invalid'
         const { data: signUpData, error: authError } = await supabase.auth.signUp({
           email: internalAuthEmail,
@@ -105,7 +105,7 @@ export function AuthPanel({ mode, adminOnly = false }: { mode: 'login' | 'regist
       } else {
         let signedInUserId = ''
         const { data, error: invokeError } = await supabase.functions.invoke('phone-password-login', {
-          body: { mobile: phoneCountryCode + loginIdentifier.replace(/\D/g, ''), password },
+          body: { mobile: phoneCountryCode + ' ' + loginIdentifier.replace(/\D/g, ''), password },
         })
         if (invokeError) throw invokeError
         if (!data?.access_token || !data?.refresh_token) throw new Error('Invalid login details.')
@@ -214,9 +214,6 @@ export function AuthPanel({ mode, adminOnly = false }: { mode: 'login' | 'regist
             <input type="text" required autoComplete="name" value={fullName} onChange={e => { setFullName(e.target.value); clearMessages() }} disabled={busy} placeholder="Your name" data-testid="register-name" className={inputClass} />
           </label>
           <div className="grid gap-4 sm:grid-cols-2">
-            <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Email</span>
-              <input type="email" required autoComplete="email" value={email} onChange={e => { setEmail(e.target.value); clearMessages() }} disabled={busy} placeholder="you@example.com" data-testid="register-email" className={inputClass} />
-            </label>
             <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Mobile number</span>
               <div className="mt-2 grid grid-cols-[minmax(110px,0.38fr)_1fr] gap-2">
                 <select aria-label="Country calling code" value={phoneCountryCode} onChange={e => setPhoneCountryCode(e.target.value)} disabled={busy} className="min-w-0 border border-input bg-background px-2 py-3 text-sm outline-none focus:border-brass" data-testid="register-country-code">
