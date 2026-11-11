@@ -93,7 +93,7 @@ function OrdersPage() {
   }).filter((row) => row.currency === currency)
 
   return (
-    <div className="min-h-screen bg-[#faf9f7] text-[#25231f]">
+    <div className="dashboard-typography min-h-screen bg-[#faf9f7] text-[#25231f]">
       <WorkspaceSidebar mode="member" />
       <header className="fixed inset-x-0 top-0 z-40 flex h-[62px] items-center justify-between border-b border-[#e8e4dc] bg-white/95 px-5 pl-20 backdrop-blur lg:left-64 lg:px-7">
         <div className="text-xs text-[#777]"><span>Workspace</span><span className="mx-2">/</span><strong className="text-[#25231f]">Orders</strong></div>
