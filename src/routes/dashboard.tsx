@@ -181,7 +181,7 @@ function DashboardPage() {
 
       <header className="fixed inset-x-0 top-0 z-40 flex h-[72px] items-center justify-between border-b border-[#d4e2d7] bg-[#06452f]/98 px-4 pl-20 text-white shadow-lg backdrop-blur sm:px-6 sm:pl-20 lg:left-64 lg:px-7">
         <Link to="/dashboard" aria-label="Msheireb Properties dashboard" className="flex min-w-0 items-center gap-2.5">
-          <img src="/msheireb-logo-hd.png" alt="MSHEIREB PROPERTIES" className="h-auto w-[min(190px,42vw)] shrink-0 object-contain" width="1696" height="444" decoding="async" />
+          <img src="/msheireb-logo-hd(1).png" alt="MSHEIREB PROPERTIES" className="h-auto w-[min(190px,42vw)] shrink-0 object-contain" width="1696" height="444" decoding="async" />
         </Link>
         <div className="flex items-center gap-3 sm:gap-5">
           <label className="flex items-center gap-2 text-[10px] font-semibold tracking-widest text-white/60">CURRENCY
