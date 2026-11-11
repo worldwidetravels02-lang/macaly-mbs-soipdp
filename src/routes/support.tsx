@@ -131,7 +131,7 @@ function SupportPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="dashboard-typography min-h-screen bg-background text-foreground">
       <WorkspaceSidebar mode="member" />
       <SiteHeader />
       <main id="main" className="pb-20 pt-28 sm:pt-36 lg:ml-64">
