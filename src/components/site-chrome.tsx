@@ -270,7 +270,7 @@ export function SiteHeader({ overlay = false, hideMenuButton = false }: { overla
             ))}
           </nav>
           <div className="mt-6 flex flex-col gap-3">
-            {wallet ? (
+            {isAuthenticated ? (
               <>
                 <Link
                   to="/dashboard"
