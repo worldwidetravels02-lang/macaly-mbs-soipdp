@@ -219,10 +219,7 @@ function DashboardPage() {
     <div className="customer-dashboard dashboard-typography min-h-screen bg-[#f3f6f0] text-[#123c2d]">
       <WorkspaceSidebar mode="member" />
 
-      <header className="fixed inset-x-0 top-0 z-40 flex h-[72px] items-center justify-between border-b border-[#d4e2d7] bg-[#06452f]/98 px-4 pl-20 text-white shadow-lg backdrop-blur sm:px-6 sm:pl-20 lg:left-64 lg:px-7">
-        <Link to="/dashboard" aria-label="Msheireb Properties dashboard" className="flex min-w-0 items-center gap-2.5">
-          <img src="/msheireb-logo-hd(1).png" alt="MSHEIREB PROPERTIES" className="h-auto w-[min(190px,42vw)] shrink-0 object-contain" width="1696" height="444" decoding="async" />
-        </Link>
+      <header className="fixed inset-x-0 top-0 z-40 flex h-[72px] items-center justify-end border-b border-[#d4e2d7] bg-[#06452f]/98 px-4 pl-20 text-white shadow-lg backdrop-blur sm:px-6 sm:pl-20 lg:left-64 lg:px-7">
         <div className="flex items-center gap-3 sm:gap-5">
           <label className="flex items-center gap-2 text-[10px] font-semibold tracking-widest text-white/60">CURRENCY
             <select aria-label="Dashboard currency" title={fxUpdatedAt ? `Exchange rates updated ${fxUpdatedAt}` : "Using reference exchange rates"} value={currency} onChange={(event) => { const nextCurrency = event.target.value as Currency; setCurrency(nextCurrency); try { window.localStorage.setItem("msheireb-currency", nextCurrency) } catch { /* optional */ } window.dispatchEvent(new CustomEvent("msheireb-currency-change", { detail: nextCurrency })); if (user?.id) void requireSupabase().from("profiles").update({ preferred_currency: nextCurrency }).eq("id", user.id) }} className="rounded-lg border border-white/25 bg-[#0b3828] px-3 py-2 text-xs font-semibold text-white">{currencies.map((code) => <option key={code} value={code}>{code}</option>)}</select>
