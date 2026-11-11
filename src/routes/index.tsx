@@ -114,9 +114,9 @@ function Hero() {
           style={{ animationDelay: '560ms' }}
         >
           {[
-            { value: 'Curated', label: 'Property collection' },
-            { value: 'Oman', label: 'Initial market' },
-            { value: 'Dedicated', label: 'Client support' },
+            { value: 'Luxury Homes', label: 'Property collection' },
+            { value: 'Oman', label: 'Our home market' },
+            { value: 'Exceptional Living', label: 'Our promise' },
           ].map((stat) => (
             <div key={stat.label}>
               <dt className="eyebrow text-[0.55rem] text-on-deep-soft">{stat.label}</dt>
