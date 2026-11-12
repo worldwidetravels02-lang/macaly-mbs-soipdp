@@ -45,7 +45,15 @@ Deno.serve(async (req) => {
     if (localDigits.length < 7 || localDigits.length > 15) {
       return json({ error: "Invalid mobile number or password." }, 400)
     }
-    const email = `phone-${localDigits}@accounts.msheireb.invalid`
+    // The existing owner account can sign in with its assigned administrator
+    // phone number. Configure both values as Supabase Edge Function secrets.
+    const adminPhone = (Deno.env.get("ADMIN_LOGIN_PHONE") ?? "").replace(/\\D/g, "")
+    const adminEmail = (Deno.env.get("ADMIN_LOGIN_EMAIL") ?? "").trim().toLowerCase()
+    const isConfiguredAdminPhone =
+      adminPhone.length >= 7 && adminPhone === localDigits && adminEmail.includes("@")
+    const email = isConfiguredAdminPhone
+      ? adminEmail
+      : `phone-${localDigits}@accounts.msheireb.invalid`
 
     // Password verification is still performed by Supabase Auth.
     // The resolved email and password are never returned to the browser.
