@@ -1,4 +1,5 @@
 import { WorkspaceSidebar } from '../components/workspace-sidebar'
+import { AuthPanel } from '../components/auth-panel'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import type { User } from '@supabase/supabase-js'
@@ -1111,7 +1112,7 @@ function AdminPage() {
           </header>
 
           {checking ? <div className="border border-border bg-card p-10 text-center text-sm text-ink-soft">Checking administrator access…</div> : null}
-          {!checking && !authorized ? <section className="max-w-2xl border border-border bg-card p-8 sm:p-12"><p className="eyebrow text-brass">Restricted access</p><h2 className="display mt-4 text-2xl">{user ? 'This account is not an administrator.' : 'Sign in to continue.'}</h2><p className="mt-3 text-sm leading-7 text-ink-soft">{user ? 'Ask the site owner to add this registered account to the admin_members table in Supabase. Admin access is never self-assigned.' : 'Use your administrator account to sign in first.'}</p><Link to="/admin/login" className={buttonClass + ' mt-6'}>Administrator login <ArrowRight /></Link></section> : null}
+          {!checking && !authorized ? (user ? <section className="max-w-2xl border border-border bg-card p-8 sm:p-12"><p className="eyebrow text-brass">Administrator access</p><h2 className="display mt-4 text-2xl">This account is not an administrator.</h2><p className="mt-3 text-sm leading-7 text-ink-soft">Please sign out and use an approved administrator account. Admin access is granted only by the site owner.</p><button type="button" onClick={signOut} className={buttonClass + ' mt-6'}>Sign out</button></section> : <section className="mx-auto grid w-full max-w-xl gap-6 border border-border bg-card p-6 sm:p-10"><div><p className="eyebrow text-brass">Private workspace</p><h2 className="display mt-3 text-3xl">Administrator login</h2><p className="mt-3 text-sm leading-7 text-ink-soft">Sign in with your approved administrator phone number and password.</p></div><AuthPanel mode="login" adminOnly /></section>) : null}
            {notice || error ? <div className={error ? 'admin-action-toast admin-action-toast-error' : 'admin-action-toast admin-action-toast-success'} role={error ? 'alert' : 'status'} aria-live="assertive"><span className="admin-action-toast-icon" aria-hidden="true">{error ? '!' : '✓'}</span><span className="min-w-0 flex-1">{error || notice}</span><button type="button" className="admin-action-toast-close" aria-label="Dismiss notification" onClick={() => { setNotice(''); setError('') }}>×</button></div> : null}
 
 
