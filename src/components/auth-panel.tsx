@@ -148,7 +148,7 @@ export function AuthPanel({ mode, adminOnly = false }: { mode: 'login' | 'regist
     try {
       const { error: authError } = await requireSupabase().auth.resetPasswordForEmail(
         email.trim().toLowerCase(),
-        { redirectTo: `${window.location.origin}/login` },
+        { redirectTo: `${window.location.origin}${adminOnly ? '/admin/login' : '/login'}` },
       )
       if (authError) throw authError
       setNotice('If an account exists for this email, a password-reset link has been sent. Open it on this device, then return here to sign in with your new password.')
@@ -180,14 +180,14 @@ export function AuthPanel({ mode, adminOnly = false }: { mode: 'login' | 'regist
 
   const heading =
     view === 'signup' ? 'Create your member account'
-      : view === 'forgot' ? 'Reset your password'
-        : view === 'reset' ? 'Choose a new password' : 'Welcome back'
+       : view === 'forgot' ? 'Reset your password'
+        : view === 'reset' ? 'Choose a new password' : adminOnly ? 'Administrator sign in' : 'Welcome back'
 
   const subheading =
     view === 'signup' ? 'Register to save residences, receive private previews and manage your booking.'
       : view === 'forgot' ? 'We will send a password-reset email if an account exists.'
         : view === 'reset' ? 'Your recovery link is verified. Enter a new password below.'
-          : 'Sign in with your registered phone number and password.'
+          : adminOnly ? 'Sign in with your administrator phone number and password.' : 'Sign in with your registered phone number and password.'
 
   return (
     <div className="border border-border bg-card p-6 soft-shadow sm:p-9" data-testid="auth-panel" data-state={busy ? 'loading' : 'ready'}>
@@ -204,7 +204,7 @@ export function AuthPanel({ mode, adminOnly = false }: { mode: 'login' | 'regist
           </div>
         </div>
       ) : null}
-      <p className="eyebrow text-brass">{view === 'signup' ? 'Registration' : 'Member portal'}</p>
+      <p className="eyebrow text-brass">{adminOnly ? 'Administrator access' : view === 'signup' ? 'Registration' : 'Member portal'}</p>
       <h1 className="display mt-4 text-[clamp(1.8rem,3vw,2.5rem)]">{heading}</h1>
       <p className="mt-3 text-sm leading-relaxed text-ink-soft">{subheading}</p>
 
@@ -259,7 +259,7 @@ export function AuthPanel({ mode, adminOnly = false }: { mode: 'login' | 'regist
           <button type="submit" disabled={busy} data-testid="login-submit" className="eyebrow mt-2 inline-flex items-center justify-between gap-8 bg-primary px-6 py-4 text-[0.6rem] text-primary-foreground transition-colors hover:bg-ink/85 disabled:opacity-60">{busy ? 'Signing in…' : 'Sign in'}<ArrowRight /></button>
           <div className="mt-1 flex flex-wrap items-center justify-between gap-3 text-sm text-ink-soft">
             <button type="button" onClick={() => { setView('forgot'); clearMessages() }} data-testid="forgot-password" className="underline decoration-brass underline-offset-4 hover:text-ink">Forgot password?</button>
-            <Link to="/register" className="underline decoration-brass underline-offset-4 hover:text-ink">Create an account</Link>
+            {!adminOnly ? <Link to="/register" className="underline decoration-brass underline-offset-4 hover:text-ink">Create an account</Link> : <span className="text-xs text-ink-soft">Administrator accounts are created by the site owner.</span>}
           </div>
         </form>
       ) : null}
