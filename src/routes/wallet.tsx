@@ -268,6 +268,11 @@ function WalletPage() {
   }
 
   async function changeCurrency(nextCurrency: Currency) {
+    // Change the display immediately. A profile-save error must never leave the
+    // selector stuck on the previous currency or alter any ledger records.
+    setCurrency(nextCurrency)
+    try { window.localStorage.setItem('msheireb-currency', nextCurrency) } catch { /* optional */ }
+    window.dispatchEvent(new CustomEvent('msheireb-currency-change', { detail: nextCurrency }))
     setError('')
     if (userId) {
       try {
@@ -275,13 +280,9 @@ function WalletPage() {
           .update({ preferred_currency: nextCurrency }).eq('id', userId)
         if (updateError) throw updateError
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : 'Could not save your preferred currency.')
-        return
+        setError(cause instanceof Error ? cause.message : 'Currency changed for this session, but could not be saved to your profile.')
       }
     }
-    setCurrency(nextCurrency)
-    try { window.localStorage.setItem('msheireb-currency', nextCurrency) } catch { /* optional */ }
-    window.dispatchEvent(new CustomEvent('msheireb-currency-change', { detail: nextCurrency }))
   }
 
   const reservedWithdrawalAmount = withdrawals
@@ -430,7 +431,7 @@ function WalletPage() {
                     <button type="button" onClick={() => { setTransactionSearch(''); setTransactionFilter('all'); setTransactionFromDate(''); setTransactionToDate('') }} className="border border-border px-3 py-2 text-xs text-ink-soft hover:border-brass" disabled={!transactionSearch && transactionFilter === 'all' && !transactionFromDate && !transactionToDate}>Clear filters</button>
                   </div>
                 </div>
-                {currencyTransactions.length === 0 ? <p className="px-6 py-6 text-sm text-ink-soft">No posted wallet activity yet.</p> : visibleTransactions.length === 0 ? <p className="px-6 py-6 text-sm text-ink-soft">No matching wallet activity found in {currency}.</p> : <><ul data-testid="wallet-transactions" className="divide-y divide-border">{visibleTransactions.map((row) => { const direction = getTransactionDirection(row); const sign = direction === 'debit' ? '−' : direction === 'credit' ? '+' : ''; const amountTone = direction === 'debit' ? 'text-destructive' : direction === 'credit' ? 'text-emerald-700' : 'text-foreground'; const label = row.transaction_type?.replace(/_/g, ' ') || 'Wallet transaction'; return <li key={row.id} className="flex items-start justify-between gap-4 px-6 py-4"><div className="min-w-0"><p className="truncate text-sm font-medium">{row.description || label}</p><p className="mt-1 text-xs capitalize text-ink-soft">{label} · {direction === 'unknown' ? 'Direction not specified' : direction}</p><p className="mt-1 text-xs text-ink-soft">{date(row.created_at)} · {displayStatus(row.status)}</p><p className="mt-1 text-[0.65rem] text-ink-soft">Reference: {row.id.slice(0, 8).toUpperCase()}</p></div><p className={`display shrink-0 text-lg ${amountTone}`}>{sign}{displayMoney(row.amount, row.currency)}</p></li> })}</ul><div className="border-t border-border px-6 py-3"><p className="text-xs text-ink-soft">Showing {visibleTransactions.length} matching transactions from {currencyTransactions.length} loaded records, converted to {currency}.</p>{transactions.length === transactionLimit ? <button type="button" onClick={() => setTransactionLimit((current) => current + 30)} className="mt-3 text-xs text-brass underline underline-offset-4">Load 30 more {transactionFilter === 'all' ? '' : `${transactionFilter} `}transactions</button> : null}</div></>}
+                {currencyTransactions.length === 0 ? <p className="px-6 py-6 text-sm text-ink-soft">No posted wallet activity yet.</p> : visibleTransactions.length === 0 ? <p className="px-6 py-6 text-sm text-ink-soft">No matching wallet activity found in {currency}.</p> : <><ul data-testid="wallet-transactions" className="divide-y divide-border">{visibleTransactions.map((row) => { const direction = getTransactionDirection(row); const sign = direction === 'debit' ? '−' : direction === 'credit' ? '+' : ''; const amountTone = direction === 'debit' ? 'text-destructive' : direction === 'credit' ? 'text-emerald-700' : 'text-foreground'; const label = row.transaction_type?.replace(/_/g, ' ') || 'Wallet transaction'; return <li key={row.id} className="flex items-start justify-between gap-4 px-6 py-4"><div className="min-w-0"><p className="truncate text-sm font-medium">{row.description || label}</p><p className="mt-1 text-xs capitalize text-ink-soft">{label} · {direction === 'unknown' ? 'Direction not specified' : direction}</p><p className="mt-1 text-xs text-ink-soft">{date(row.created_at)} · {displayStatus(row.status)}</p><p className="mt-1 text-[0.65rem] text-ink-soft">Reference: {row.id.slice(0, 8).toUpperCase()}</p></div><p className={`display shrink-0 text-lg ${amountTone}`}>{sign}{money(row.amount, row.currency)}</p></li> })}</ul><div className="border-t border-border px-6 py-3"><p className="text-xs text-ink-soft">Showing {visibleTransactions.length} matching transactions from {currencyTransactions.length} loaded records in their original recorded currencies.</p>{transactions.length === transactionLimit ? <button type="button" onClick={() => setTransactionLimit((current) => current + 30)} className="mt-3 text-xs text-brass underline underline-offset-4">Load 30 more {transactionFilter === 'all' ? '' : `${transactionFilter} `}transactions</button> : null}</div></>}
               </div>
             </section>
             <p className="text-xs leading-relaxed text-ink-soft">Wallet entries and profit credits shown here are internal platform records. They are not proof of a bank transfer, regulated investment return, or external payment settlement.</p>
@@ -509,7 +510,7 @@ function RequestHistory({ title, rows, kind, displayCurrency, rates }: { title: 
                   {row.payout_method ? <p className="mt-1 text-xs text-ink-soft">Payout method: {row.payout_method}</p> : null}
                   {row.admin_note ? <p className="mt-2 border-l-2 border-brass/60 pl-3 text-xs leading-5 text-ink-soft">Administrator note: {row.admin_note}</p> : null}
                 </div>
-                <p className="display shrink-0 text-lg">{money(convertCurrency(row.amount, row.currency, displayCurrency, rates), displayCurrency)}</p>
+                <p className="display shrink-0 text-lg">{money(row.amount, row.currency)}</p>
               </div>
             </li>
           })}
@@ -536,7 +537,7 @@ function CommissionHistory({ rows, displayCurrency, rates }: { rows: CommissionR
                 <p className="mt-1 text-xs text-ink-soft">{date(row.created_at)} · {displayStatus(row.status)}</p>
                 {row.description ? <p className="mt-2 text-xs text-ink-soft">{row.description}</p> : null}
               </div>
-              <p className="display shrink-0 text-lg">{money(convertCurrency(row.amount, row.currency, displayCurrency, rates), displayCurrency)}</p>
+              <p className="display shrink-0 text-lg">{money(row.amount, row.currency)}</p>
             </li>
           ))}
         </ul>
