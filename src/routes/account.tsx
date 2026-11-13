@@ -8,6 +8,9 @@ type Section = 'records' | 'cashin' | 'cashout' | 'bank' | 'bindForm' | 'passwor
 type BankAccount = { id: string; account_holder: string; bank_name: string; iban: string; account_number: string; mobile_number: string; created_at: string }
 type RecordRow = { id: string; type: string; description: string; amount: number; currency: Currency; status: string; created_at: string }
 const currencies: Currency[] = ['OMR','AED','SAR','KWD','BHD','QAR']
+type FxRates = Record<Currency, number>
+const fallbackFxRates: FxRates = { OMR: 1, AED: 9.55, SAR: 9.7549, KWD: 0.7978, BHD: 0.9805, QAR: 9.4836 }
+function convertCurrency(value: number | string, from: Currency, to: Currency, rates: FxRates) { const amount = Number(value); if (!Number.isFinite(amount)) return 0; if (from === to) return amount; return rates[from] > 0 && rates[to] > 0 ? amount / rates[from] * rates[to] : amount }
 const menu: {id: Section; label: string; icon: string}[] = [
   {id:'records',label:'Records',icon:'☷'},{id:'cashin',label:'Cash in',icon:'＋'},
   {id:'cashout',label:'Cash out',icon:'▱'},{id:'bank',label:'Bind wallet',icon:'▣'},
@@ -27,6 +30,10 @@ function AccountPage() {
   const [name,setName] = useState('Member')
   const [mobile,setMobile] = useState('')
   const [email,setEmail] = useState('')
+  const [currency,setCurrency] = useState<Currency>('OMR')
+  const [fxRates,setFxRates] = useState<FxRates>(fallbackFxRates)
+  const [fxDate,setFxDate] = useState('')
+  const [fxError,setFxError] = useState('')
   const [section,setSection] = useState<Section>('records')
   const [records,setRecords] = useState<RecordRow[]>([])
   const [banks,setBanks] = useState<BankAccount[]>([])
@@ -87,6 +94,7 @@ function AccountPage() {
       if(codeResult.error) throw new Error('Apply the account security migration first: '+codeResult.error.message)
       setName(profile.data?.full_name || auth.user.user_metadata?.full_name || auth.user.email?.split('@')[0] || 'Member')
       setMobile(profile.data?.mobile || auth.user.user_metadata?.mobile || '')
+      if (profile.data?.preferred_currency && currencies.includes(profile.data.preferred_currency as Currency)) setCurrency(profile.data.preferred_currency as Currency)
       setBalance(Number(wallet.data?.balance ?? 0))
       const activeWithdrawals=(withdrawals.data ?? []).filter((r:any)=>norm(r.status)==='pending')
       setHold(activeWithdrawals.filter((r:any)=>r.currency==='OMR').reduce((n:number,r:any)=>n+Number(r.amount||0),0))
@@ -167,6 +175,18 @@ function AccountPage() {
     }catch(e){setError(e instanceof Error?e.message:'Could not change password.')}finally{setBusy(false)}
   }
 
+  useEffect(() => { let active = true; async function loadRates() {
+    try { const response = await fetch('https://open.er-api.com/v6/latest/OMR', { cache: 'no-store' }); if (!response.ok) throw new Error('Live exchange rates are temporarily unavailable.');
+      const payload = await response.json() as { result?: string; base_code?: string; time_last_update_utc?: string; rates?: Record<string, number> };
+      if (payload.result !== 'success' || payload.base_code !== 'OMR' || !payload.rates) throw new Error('Invalid exchange-rate response.');
+      const next: FxRates = { ...fallbackFxRates, OMR: 1 }; for (const code of currencies) { const rate = Number(payload.rates[code]); if (code !== 'OMR' && Number.isFinite(rate) && rate > 0) next[code] = rate; }
+      if (active) { setFxRates(next); setFxDate(payload.time_last_update_utc ? new Date(payload.time_last_update_utc).toLocaleString('en-GB') : new Date().toLocaleString('en-GB')); setFxError(''); }
+    } catch (cause) { if (active) setFxError(cause instanceof Error ? cause.message : 'Using reference rates.'); }
+  } void loadRates(); const timer = window.setInterval(() => { void loadRates(); }, 300000); window.addEventListener('focus', loadRates);
+  return () => { active = false; window.clearInterval(timer); window.removeEventListener('focus', loadRates); }; }, [])
+  async function changeCurrency(next: Currency) { setCurrency(next); setError(''); try { window.localStorage.setItem('msheireb-currency', next); } catch { /* optional */ } if (userId) { const { error: updateError } = await requireSupabase().from('profiles').update({ preferred_currency: next }).eq('id', userId); if (updateError) setError(updateError.message); } }
+  const displayMoney = (value: number) => money(convertCurrency(value, 'OMR', currency, fxRates), currency)
+
   async function signOut(){const {error:e}=await requireSupabase().auth.signOut();if(e)setError(e.message);else await navigate({to:'/login'})}
   const filtered=records.filter(r=>(filter==='All'||norm(r.type)===norm(filter)))
   const activeBank=banks.find(b=>b.id===bankId)
@@ -175,15 +195,16 @@ function AccountPage() {
     <WorkspaceSidebar mode="member"/>
     <header className="fixed inset-x-0 top-0 z-40 flex h-[62px] items-center justify-between border-b border-[#e8e4dc] bg-white px-5 pl-20 lg:left-64 lg:px-7">
       <div className="text-xs text-[#777]">Workspace <span className="mx-2">/</span><strong className="text-[#25231f]">Account</strong></div>
-      <div className="flex items-center gap-3"><span className="rounded-md border border-[#e6e1d8] bg-white px-3 py-2 text-xs font-semibold text-[#625638]">CURRENCY · OMR</span><div className="hidden rounded-lg border border-[#eee] px-3 py-2 text-xs sm:block">{name.split(' ')[0]} · User</div></div>
+      <div className="flex items-center gap-3"><label className="flex items-center gap-2 text-[10px] font-semibold tracking-widest text-[#888]">CURRENCY<select aria-label="Account display currency" className="rounded-md border border-[#e6e1d8] bg-white px-3 py-2 text-xs" value={currency} onChange={e=>void changeCurrency(e.target.value as Currency)}>{currencies.map(c=><option key={c} value={c}>{c}</option>)}</select></label><div className="hidden rounded-lg border border-[#eee] px-3 py-2 text-xs sm:block">{name.split(' ')[0]} · User</div></div>
     </header>
     <main className="pb-12 pt-[82px] lg:ml-64"><div className="mx-auto max-w-[1500px] px-4 sm:px-7">
       {loading?<div className="rounded-xl border bg-white p-8 text-center text-sm text-[#777]">Loading your account…</div>:!userId?<div className="rounded-xl border bg-white p-8">Please <Link to="/login" className="underline">sign in</Link> to view your account.</div>:<>
         <section className="grid gap-3 rounded-xl border border-[#e4dfd8] bg-white p-4 shadow-sm md:grid-cols-[1fr_1fr] md:p-5">
           <div className="flex items-center gap-4"><div className="grid h-20 w-20 shrink-0 place-items-center rounded-full border-4 border-[#faf7f3] bg-[#f5f1ef] text-3xl font-semibold">{name.slice(0,1).toUpperCase()}</div><div className="min-w-0"><div className="flex items-center gap-2"><h1 className="text-xl font-semibold">{name}</h1><span className="rounded-full bg-[#f1e9e7] px-2 py-1 text-[10px]">Active</span></div><p className="mt-2 text-xs text-[#85817b]">User ID · {userId.slice(0,6).toUpperCase()}</p><p className="text-xs text-[#85817b]">Mobile · {mobile || 'Not added'}</p></div></div>
-          <div className="grid grid-cols-2 gap-2"><Stat value={String(projects)} label="Projects"/><Stat value={money(trialBonus,'OMR')} label="Trial bonus"/><Stat value={money(todayRevenue,'OMR')} label="Today's revenue"/><Stat value={money(hold,'OMR')} label="On hold"/></div>
-          <div className="grid gap-2 sm:col-span-2 sm:grid-cols-2"><div className="flex items-center justify-between rounded-lg bg-[#201d1b] px-4 py-4 text-sm text-white"><span>Wallet balance</span><strong>{money(balance,'OMR')}</strong></div><div className="flex items-center justify-between rounded-lg bg-[#f6edd4] px-4 py-4 text-sm text-[#625638]"><span>Hold balance</span><strong>{money(hold,'OMR')}</strong></div></div>
-          <p className="text-xs text-[#85817b] sm:col-span-2">Total commission: <strong>{money(totalCommission,'OMR')}</strong></p>
+          <div className="grid grid-cols-2 gap-2"><Stat value={String(projects)} label="Projects"/><Stat value={displayMoney(trialBonus)} label="Trial bonus"/><Stat value={displayMoney(todayRevenue)} label="Today's revenue"/><Stat value={displayMoney(hold)} label="On hold"/></div>
+          <div className="grid gap-2 sm:col-span-2 sm:grid-cols-2"><div className="flex items-center justify-between rounded-lg bg-[#201d1b] px-4 py-4 text-sm text-white"><span>Wallet balance</span><strong>{displayMoney(balance)}</strong></div><div className="flex items-center justify-between rounded-lg bg-[#f6edd4] px-4 py-4 text-sm text-[#625638]"><span>Hold balance</span><strong>{money(hold,'OMR')}</strong></div></div>
+          <p className="text-xs text-[#85817b] sm:col-span-2">Total commission: <strong>{displayMoney(totalCommission)}</strong></p>
+          <p className="text-xs text-[#85817b] sm:col-span-2">{currency === "OMR" ? "OMR base currency." : "1 OMR = " + fxRates[currency].toFixed(6) + " " + currency} {fxDate ? "· Rate updated: " + fxDate : "· Reference rates in use"} · Auto-refresh every 5 minutes. {fxError}</p>
         </section>
         <div className="mt-4 grid items-start gap-4 lg:grid-cols-[263px_minmax(0,1fr)]">
           <nav className="overflow-hidden rounded-lg border border-[#e5e0da] bg-white">{menu.map(item=><button key={item.id} type="button" onClick={()=>{setSection(item.id);setError('');setNotice('')}} className={`flex w-full items-center justify-between border-b border-[#e8e4df] px-5 py-4 text-left text-sm last:border-0 ${section===item.id?'bg-[#f7f3f1] font-semibold text-[#28231f]':'text-[#444] hover:bg-[#fbfaf8]'}`}><span><span className="mr-4 text-base">{item.icon}</span>{item.label}</span><span className="text-[#aaa]">›</span></button>)}<button type="button" onClick={()=>void signOut()} className="w-full border-t border-[#e8e4df] px-5 py-5 text-left text-sm text-[#777]">↪　Log out</button></nav>
