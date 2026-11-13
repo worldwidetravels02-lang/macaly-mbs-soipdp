@@ -96,9 +96,9 @@ function AccountPage() {
       setProjects(investments.data?.length ?? 0)
       const commissionRows=(comm.data ?? []) as any[]
       const today=new Date().toISOString().slice(0,10)
-      setTotalCommission(commissionRows.filter(r=>r.currency==='AED' && ['credited','completed','approved','posted'].includes(norm(r.status))).reduce((n,r)=>n+Number(r.amount||0),0))
-      setTodayRevenue(commissionRows.filter(r=>r.currency==='AED' && String(r.created_at).slice(0,10)===today && ['credited','completed','approved','posted'].includes(norm(r.status))).reduce((n,r)=>n+Number(r.amount||0),0))
-      setTrialBonus(commissionRows.filter(r=>norm(r.commission_type).includes('trial') && r.currency==='AED').reduce((n,r)=>n+Number(r.amount||0),0))
+      setTotalCommission(commissionRows.filter(r=>r.currency==='OMR' && ['credited','completed','approved','posted'].includes(norm(r.status))).reduce((n,r)=>n+Number(r.amount||0),0))
+      setTodayRevenue(commissionRows.filter(r=>r.currency==='OMR' && String(r.created_at).slice(0,10)===today && ['credited','completed','approved','posted'].includes(norm(r.status))).reduce((n,r)=>n+Number(r.amount||0),0))
+      setTrialBonus(commissionRows.filter(r=>norm(r.commission_type).includes('trial') && r.currency==='OMR').reduce((n,r)=>n+Number(r.amount||0),0))
       const mapped:RecordRow[]=[]
       for(const r of (tx.data ?? []) as any[]) { const source=norm([r.transaction_type,r.description].join(' ')); const type=source.includes('welcome bonus')?'Welcome bonus':source.includes('trial bonus')?'Trial bonus':source.includes('trial reset')?'Trial reset':source.includes('refund')?'Refund':source.includes('commission')?'Commission':source.includes('deposit')||source.includes('topup')?'Cash in':source.includes('withdrawal')?'Cash out':source.includes('investment')||source.includes('property')?'Property':source.includes('activation')||source.includes('profit')?'Activation':'Adjustment'; mapped.push({id:r.id,type,description:r.description || r.transaction_type,amount:(r.direction==='debit'?-1:1)*Number(r.amount),currency:r.currency,status:r.status,created_at:r.created_at}) }
       for(const r of commissionRows) mapped.push({id:r.id,type:'Commission',description:r.description || r.commission_type || 'Commission',amount:Number(r.amount),currency:r.currency,status:r.status,created_at:r.created_at})
@@ -168,7 +168,7 @@ function AccountPage() {
   }
 
   async function signOut(){const {error:e}=await requireSupabase().auth.signOut();if(e)setError(e.message);else await navigate({to:'/login'})}
-  const filtered=records.filter(r=>(filter==='All'||norm(r.type)===norm(filter))&&true)
+  const filtered=records.filter(r=>(filter==='All'||norm(r.type)===norm(filter)))
   const activeBank=banks.find(b=>b.id===bankId)
 
   return <div className="dashboard-typography min-h-screen bg-[#faf9f7] text-[#25231f]">
@@ -182,7 +182,7 @@ function AccountPage() {
         <section className="grid gap-3 rounded-xl border border-[#e4dfd8] bg-white p-4 shadow-sm md:grid-cols-[1fr_1fr] md:p-5">
           <div className="flex items-center gap-4"><div className="grid h-20 w-20 shrink-0 place-items-center rounded-full border-4 border-[#faf7f3] bg-[#f5f1ef] text-3xl font-semibold">{name.slice(0,1).toUpperCase()}</div><div className="min-w-0"><div className="flex items-center gap-2"><h1 className="text-xl font-semibold">{name}</h1><span className="rounded-full bg-[#f1e9e7] px-2 py-1 text-[10px]">Active</span></div><p className="mt-2 text-xs text-[#85817b]">User ID · {userId.slice(0,6).toUpperCase()}</p><p className="text-xs text-[#85817b]">Mobile · {mobile || 'Not added'}</p></div></div>
           <div className="grid grid-cols-2 gap-2"><Stat value={String(projects)} label="Projects"/><Stat value={money(trialBonus,'OMR')} label="Trial bonus"/><Stat value={money(todayRevenue,'OMR')} label="Today's revenue"/><Stat value={money(hold,'OMR')} label="On hold"/></div>
-          <div className="grid gap-2 sm:col-span-2 sm:grid-cols-2"><div className="flex items-center justify-between rounded-lg bg-[#201d1b] px-4 py-4 text-sm text-white"><span>Wallet balance</span><strong>{money(balance,'OMR')}</strong></div><div className="flex items-center justify-between rounded-lg bg-[#f6edd4] px-4 py-4 text-sm text-[#625638]"><span>Hold balance</span><strong>{money(hold,'AED')}</strong></div></div>
+          <div className="grid gap-2 sm:col-span-2 sm:grid-cols-2"><div className="flex items-center justify-between rounded-lg bg-[#201d1b] px-4 py-4 text-sm text-white"><span>Wallet balance</span><strong>{money(balance,'OMR')}</strong></div><div className="flex items-center justify-between rounded-lg bg-[#f6edd4] px-4 py-4 text-sm text-[#625638]"><span>Hold balance</span><strong>{money(hold,'OMR')}</strong></div></div>
           <p className="text-xs text-[#85817b] sm:col-span-2">Total commission: <strong>{money(totalCommission,'OMR')}</strong></p>
         </section>
         <div className="mt-4 grid items-start gap-4 lg:grid-cols-[263px_minmax(0,1fr)]">
