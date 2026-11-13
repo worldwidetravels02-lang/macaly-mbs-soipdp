@@ -51,9 +51,8 @@ export const Route = createFileRoute('/dashboard')({
 function DashboardPage() {
   const [user, setUser] = useState<User | null>(null)
   const [name, setName] = useState('Member')
-  const [currency, setCurrency] = useState<Currency>('OMR')
+  const currency: Currency = 'OMR'
   const [fxRates, setFxRates] = useState<Record<Currency, number>>(fallbackFxRates)
-  const [fxUpdatedAt, setFxUpdatedAt] = useState('')
   const [balance, setBalance] = useState(0)
   const [holdBalance, setHoldBalance] = useState(0)
   const [investments, setInvestments] = useState<Investment[]>([])
@@ -80,7 +79,7 @@ function DashboardPage() {
       setUser(current)
       if (!current) return
       const [profile, wallet, pendingWithdrawals, projects, requests, ledger, notices, commissionRows, memberProfile, taskRows, planRows, accessRows] = await Promise.all([
-        client.from('profiles').select('full_name,preferred_currency').eq('id', current.id).maybeSingle(),
+        client.from('profiles').select('full_name').eq('id', current.id).maybeSingle(),
         client.from('wallet_balances').select('balance').eq('user_id', current.id).eq('currency', 'OMR').maybeSingle(),
         client.from('wallet_pending_withdrawals').select('pending_amount').eq('user_id', current.id).eq('currency', 'OMR').maybeSingle(),
         client.from('investments').select('id,amount,currency,status,created_at,reference,property_id').eq('user_id', current.id).order('created_at', { ascending: false }).limit(8),
@@ -95,11 +94,6 @@ function DashboardPage() {
       ])
       for (const result of [profile, wallet, pendingWithdrawals, projects, requests, ledger, notices, commissionRows, memberProfile, taskRows, planRows, accessRows]) if (result.error) throw result.error
       setName(profile.data?.full_name?.trim() || current.user_metadata?.full_name || current.email?.split('@')[0] || 'Member')
-      const preferred = profile.data?.preferred_currency
-      if (preferred && currencies.includes(preferred as Currency) && preferred !== currency) {
-        setCurrency(preferred as Currency)
-        return
-      }
       setBalance(Number(wallet.data?.balance ?? 0))
       setHoldBalance(Number(pendingWithdrawals.data?.pending_amount ?? 0))
       setInvestments((projects.data ?? []) as Investment[])
@@ -116,19 +110,7 @@ function DashboardPage() {
     } finally {
       setLoading(false)
     }
-  }, [currency])
-
-  // Keep the wallet currency selector in sync with the shared dashboard selector.
-  useEffect(() => {
-    const syncCurrency = (event: Event) => {
-      const nextCurrency = (event as CustomEvent<unknown>).detail
-      if (typeof nextCurrency === 'string' && currencies.includes(nextCurrency as Currency)) {
-        setCurrency(nextCurrency as Currency)
-      }
-    }
-    window.addEventListener('msheireb-currency-change', syncCurrency)
-    return () => window.removeEventListener('msheireb-currency-change', syncCurrency)
-  }, []) // msheireb-currency-sync-listener
+  }, [])
 
     useEffect(() => {
     let active = true
@@ -145,7 +127,6 @@ function DashboardPage() {
         }
         if (active) {
           setFxRates(next)
-          setFxUpdatedAt(payload.time_last_update_utc ? new Date(payload.time_last_update_utc).toLocaleString('en-GB') : new Date().toLocaleString('en-GB'))
         }
       } catch {
         // Keep the last good or fallback reference rates visible if the live service is offline.
@@ -233,9 +214,6 @@ function DashboardPage() {
 
       <header className="fixed inset-x-0 top-0 z-40 flex h-[72px] items-center justify-end border-b border-[#d4e2d7] bg-[#06452f]/98 px-4 pl-20 text-white shadow-lg backdrop-blur sm:px-6 sm:pl-20 lg:left-64 lg:px-7">
         <div className="flex items-center gap-3 sm:gap-5">
-          <label className="flex items-center gap-2 text-[10px] font-semibold tracking-widest text-white/60">CURRENCY
-            <select aria-label="Dashboard currency" title={fxUpdatedAt ? `Exchange rates updated ${fxUpdatedAt}` : "Using reference exchange rates"} value={currency} onChange={(event) => { const nextCurrency = event.target.value as Currency; setCurrency(nextCurrency); try { window.localStorage.setItem("msheireb-currency", nextCurrency) } catch { /* optional */ } window.dispatchEvent(new CustomEvent("msheireb-currency-change", { detail: nextCurrency })); if (user?.id) void requireSupabase().from("profiles").update({ preferred_currency: nextCurrency }).eq("id", user.id) }} className="rounded-lg border border-white/25 bg-[#0b3828] px-3 py-2 text-xs font-semibold text-white">{currencies.map((code) => <option key={code} value={code}>{code}</option>)}</select>
-          </label>
           <Link to="/account" className="flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"><span className="grid h-8 w-8 place-items-center rounded-lg bg-[#d8b56d] font-semibold text-[#123c2d]">{name.slice(0,1).toUpperCase()}</span><span className="hidden text-left sm:block"><strong className="block">{name.split(' ')[0]}</strong><span className="text-[10px] text-white/55">Member</span></span></Link>
         </div>
       </header>
