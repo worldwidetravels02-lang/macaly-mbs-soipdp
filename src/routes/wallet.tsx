@@ -563,7 +563,7 @@ function History({ title, rows, displayCurrency, rates }: { title: string; rows:
                 <p className="text-sm">Profit payout</p>
                 <p className="mt-1 text-xs text-ink-soft">{date(row.created_at)} · {row.status.replace(/_/g, ' ')}</p>
               </div>
-              <p className="display shrink-0 text-lg">{money(convertCurrency(row.amount, row.currency, displayCurrency, rates), displayCurrency)}</p>
+              <p className="display shrink-0 text-lg">{money(row.amount, row.currency)}</p>
             </li>
           ))}
         </ul>
