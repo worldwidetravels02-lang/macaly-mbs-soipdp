@@ -675,7 +675,7 @@ function AdminPage() {
 
   const run = async (work: () => Promise<unknown>, success: string) => {
     setBusy(true); setError(''); setNotice('')
-    try { await work(); setNotice(success); await load() }
+    try { await work(); await load(); setError(''); setNotice(success) }
     catch (cause) { setError(errorMessage(cause, 'The action could not be completed.')) }
     finally { setBusy(false) }
   }
