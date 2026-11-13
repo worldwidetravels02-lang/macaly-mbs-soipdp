@@ -645,3 +645,16 @@ body * {
   font-weight: 700 !important;
   letter-spacing: 0.09em;
 }
+
+
+/* Keep the admin property save action visibly animated. */
+.property-save-button {
+  min-height: 46px;
+  box-shadow: 0 8px 22px hsl(var(--brass) / .2);
+}
+.property-save-button.cta-sheen::after {
+  animation-duration: 2.8s;
+}
+.property-save-button:disabled::after {
+  animation-play-state: paused;
+}
