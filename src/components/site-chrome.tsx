@@ -95,7 +95,7 @@ export function SiteHeader({ overlay = false, hideMenuButton = false }: { overla
         document.documentElement.lang = savedLanguage.toLowerCase()
         document.documentElement.dir = savedLanguage === 'AR' ? 'rtl' : 'ltr'
       }
-      if (['OMR', 'AED', 'SAR', 'KWD', 'BHD', 'QAR', 'PKR', 'BDT'].includes(savedCurrency ?? '')) {
+      if (['OMR', 'AED', 'SAR', 'KWD', 'BHD', 'QAR'].includes(savedCurrency ?? '')) {
         setCurrency(savedCurrency!)
       }
     } catch {
@@ -112,10 +112,13 @@ export function SiteHeader({ overlay = false, hideMenuButton = false }: { overla
   }
 
   const changeCurrency = (value: string) => {
-    if (!['OMR', 'AED', 'SAR', 'KWD', 'BHD', 'QAR', 'PKR', 'BDT'].includes(value)) return
+    if (!['OMR', 'AED', 'SAR', 'KWD', 'BHD', 'QAR'].includes(value)) return
     setCurrency(value)
     try { window.localStorage.setItem('msheireb-currency', value) } catch { /* optional */ }
     window.dispatchEvent(new CustomEvent('msheireb-currency-change', { detail: value }))
+    void requireSupabase().auth.getUser().then(({ data }) => {
+      if (data.user) return requireSupabase().from('profiles').update({ preferred_currency: value }).eq('id', data.user.id)
+    }).catch((error) => console.error('Could not save currency preference:', error))
   }
 
   useEffect(() => {
@@ -164,7 +167,7 @@ export function SiteHeader({ overlay = false, hideMenuButton = false }: { overla
           </select>
           <label className="sr-only" htmlFor="site-currency">{translateSiteLabel('Currency', language)}</label>
           <select id="site-currency" aria-label="Currency" value={currency} onChange={(event) => changeCurrency(event.target.value)} className="eyebrow cursor-pointer border border-current/25 bg-transparent px-2 py-2 text-[0.52rem]">
-            {['OMR', 'AED', 'SAR', 'KWD', 'BHD', 'QAR', 'PKR', 'BDT'].map((code) => <option key={code} value={code}>{code}</option>)}
+            {['OMR', 'AED', 'SAR', 'KWD', 'BHD', 'QAR'].map((code) => <option key={code} value={code}>{code}</option>)}
           </select>
           {isAuthenticated ? (
             <Link
@@ -253,7 +256,7 @@ export function SiteHeader({ overlay = false, hideMenuButton = false }: { overla
             <label className="flex flex-1 flex-col gap-2">
               <span className="eyebrow text-[0.5rem] text-brass">{translateSiteLabel('Currency', language)}</span>
               <select aria-label="Currency" value={currency} onChange={(event) => changeCurrency(event.target.value)} className="border border-border bg-background px-3 py-3 text-sm">
-                {['OMR', 'AED', 'SAR', 'KWD', 'BHD', 'QAR', 'PKR', 'BDT'].map((code) => <option key={code} value={code}>{code}</option>)}
+                {['OMR', 'AED', 'SAR', 'KWD', 'BHD', 'QAR'].map((code) => <option key={code} value={code}>{code}</option>)}
               </select>
             </label>
           </div>
