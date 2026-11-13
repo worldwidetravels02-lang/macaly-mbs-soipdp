@@ -119,10 +119,13 @@ function WalletPage() {
           throw new Error(`Wallet could not load ${table}: ${detail}`)
         }
       }
-      const savedCurrency = profileResult.data?.preferred_currency
-      if (savedCurrency && currencies.includes(savedCurrency as Currency) && savedCurrency !== currency) {
-        setCurrency(savedCurrency as Currency)
-        return
+      let savedCurrency: string | null = null
+      try { savedCurrency = window.localStorage.getItem('msheireb-currency') } catch { /* optional */ }
+      const preferredCurrency = savedCurrency && currencies.includes(savedCurrency as Currency)
+        ? savedCurrency
+        : profileResult.data?.preferred_currency
+      if (preferredCurrency && currencies.includes(preferredCurrency as Currency) && preferredCurrency !== currency) {
+        setCurrency(preferredCurrency as Currency)
       }
       setBalance(Number(balanceResult.data?.balance ?? 0))
       setTransactions((transactionResult.data ?? []) as WalletRow[])
