@@ -27,7 +27,6 @@ function AccountPage() {
   const [name,setName] = useState('Member')
   const [mobile,setMobile] = useState('')
   const [email,setEmail] = useState('')
-  const [currency,setCurrency] = useState<Currency>('OMR')
   const [section,setSection] = useState<Section>('records')
   const [records,setRecords] = useState<RecordRow[]>([])
   const [banks,setBanks] = useState<BankAccount[]>([])
@@ -88,7 +87,6 @@ function AccountPage() {
       if(codeResult.error) throw new Error('Apply the account security migration first: '+codeResult.error.message)
       setName(profile.data?.full_name || auth.user.user_metadata?.full_name || auth.user.email?.split('@')[0] || 'Member')
       setMobile(profile.data?.mobile || auth.user.user_metadata?.mobile || '')
-      if(profile.data?.preferred_currency && currencies.includes(profile.data.preferred_currency as Currency)) setCurrency(profile.data.preferred_currency as Currency)
       setBalance(Number(wallet.data?.balance ?? 0))
       const activeWithdrawals=(withdrawals.data ?? []).filter((r:any)=>norm(r.status)==='pending')
       setHold(activeWithdrawals.filter((r:any)=>r.currency==='OMR').reduce((n:number,r:any)=>n+Number(r.amount||0),0))
@@ -170,7 +168,6 @@ function AccountPage() {
   }
 
   async function signOut(){const {error:e}=await requireSupabase().auth.signOut();if(e)setError(e.message);else await navigate({to:'/login'})}
-  async function changeCurrency(next:Currency){setCurrency(next);if(userId){const {error:e}=await requireSupabase().from('profiles').update({preferred_currency:next}).eq('id',userId);if(e)setError(e.message)}}
   const filtered=records.filter(r=>(filter==='All'||norm(r.type)===norm(filter))&&true)
   const activeBank=banks.find(b=>b.id===bankId)
 
@@ -178,7 +175,7 @@ function AccountPage() {
     <WorkspaceSidebar mode="member"/>
     <header className="fixed inset-x-0 top-0 z-40 flex h-[62px] items-center justify-between border-b border-[#e8e4dc] bg-white px-5 pl-20 lg:left-64 lg:px-7">
       <div className="text-xs text-[#777]">Workspace <span className="mx-2">/</span><strong className="text-[#25231f]">Account</strong></div>
-      <div className="flex items-center gap-3"><label className="flex items-center gap-2 text-[10px] font-semibold tracking-widest text-[#888]">CURRENCY<select aria-label="Currency" className="rounded-md border border-[#e6e1d8] bg-white px-3 py-2 text-xs" value={currency} onChange={e=>void changeCurrency(e.target.value as Currency)}>{currencies.map(c=><option key={c}>{c}</option>)}</select></label><div className="hidden rounded-lg border border-[#eee] px-3 py-2 text-xs sm:block">{name.split(' ')[0]} · User</div></div>
+      <div className="flex items-center gap-3"><span className="rounded-md border border-[#e6e1d8] bg-white px-3 py-2 text-xs font-semibold text-[#625638]">CURRENCY · OMR</span><div className="hidden rounded-lg border border-[#eee] px-3 py-2 text-xs sm:block">{name.split(' ')[0]} · User</div></div>
     </header>
     <main className="pb-12 pt-[82px] lg:ml-64"><div className="mx-auto max-w-[1500px] px-4 sm:px-7">
       {loading?<div className="rounded-xl border bg-white p-8 text-center text-sm text-[#777]">Loading your account…</div>:!userId?<div className="rounded-xl border bg-white p-8">Please <Link to="/login" className="underline">sign in</Link> to view your account.</div>:<>
