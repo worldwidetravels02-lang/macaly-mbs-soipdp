@@ -94,7 +94,12 @@ function AccountPage() {
       if(codeResult.error) throw new Error('Apply the account security migration first: '+codeResult.error.message)
       setName(profile.data?.full_name || auth.user.user_metadata?.full_name || auth.user.email?.split('@')[0] || 'Member')
       setMobile(profile.data?.mobile || auth.user.user_metadata?.mobile || '')
-      if (profile.data?.preferred_currency && currencies.includes(profile.data.preferred_currency as Currency)) setCurrency(profile.data.preferred_currency as Currency)
+      let savedCurrency: string | null = null
+      try { savedCurrency = window.localStorage.getItem('msheireb-currency') } catch { /* optional */ }
+      const preferredCurrency = savedCurrency && currencies.includes(savedCurrency as Currency)
+        ? savedCurrency
+        : profile.data?.preferred_currency
+      if (preferredCurrency && currencies.includes(preferredCurrency as Currency)) setCurrency(preferredCurrency as Currency)
       setBalance(Number(wallet.data?.balance ?? 0))
       const activeWithdrawals=(withdrawals.data ?? []).filter((r:any)=>norm(r.status)==='pending')
       setHold(activeWithdrawals.filter((r:any)=>r.currency==='OMR').reduce((n:number,r:any)=>n+Number(r.amount||0),0))
@@ -184,7 +189,18 @@ function AccountPage() {
     } catch (cause) { if (active) setFxError(cause instanceof Error ? cause.message : 'Using reference rates.'); }
   } void loadRates(); const timer = window.setInterval(() => { void loadRates(); }, 300000); window.addEventListener('focus', loadRates);
   return () => { active = false; window.clearInterval(timer); window.removeEventListener('focus', loadRates); }; }, [])
-  async function changeCurrency(next: Currency) { setCurrency(next); setError(''); try { window.localStorage.setItem('msheireb-currency', next); } catch { /* optional */ } if (userId) { const { error: updateError } = await requireSupabase().from('profiles').update({ preferred_currency: next }).eq('id', userId); if (updateError) setError(updateError.message); } }
+  async function changeCurrency(next: Currency) {
+    setCurrency(next)
+    setError('')
+    try {
+      window.localStorage.setItem('msheireb-currency', next)
+      window.dispatchEvent(new CustomEvent('msheireb-currency-change', { detail: next }))
+    } catch { /* optional */ }
+    if (userId) {
+      const { error: updateError } = await requireSupabase().from('profiles').update({ preferred_currency: next }).eq('id', userId)
+      if (updateError) setError('Currency display changed on this page, but could not save your preference: ' + updateError.message)
+    }
+  }
   const displayMoney = (value: number) => money(convertCurrency(value, 'OMR', currency, fxRates), currency)
 
   async function signOut(){const {error:e}=await requireSupabase().auth.signOut();if(e)setError(e.message);else await navigate({to:'/login'})}
