@@ -8,7 +8,7 @@ import { canonicalUrl } from '../lib/canonical-url'
 import siteMetadata from '../metadata.json'
 
 const meta = siteMetadata['/dashboard']
-const currencies = ['OMR', 'AED', 'SAR', 'KWD', 'BHD', 'QAR', 'PKR', 'BDT'] as const
+const currencies = ['OMR', 'AED', 'SAR', 'KWD', 'BHD', 'QAR'] as const
 const normalizeInvestmentStatus = (value: unknown) => String(value ?? '').trim().toLowerCase().replace(/[\s-]+/g, '_')
 type Currency = (typeof currencies)[number]
 type Investment = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; reference: string | null; property_id: string | null }
@@ -18,7 +18,7 @@ type Commission = { id: string; amount: number | string; currency: Currency; com
 type MemberTask = { id: string; title: string; detail: string | null; target_level: number | null; status: string; created_at: string; reviewed_at?: string | null; review_note?: string | null }
 type MembershipPlan = { id: string; level: number; name: string; minimum_amount: number | string; profit_percent: number | string; commission_percent: number | string; active: boolean }
 type CustomerLevelAccess = { user_id: string; level_name: string; is_unlocked: boolean }
-const fallbackFxRates: Record<Currency, number> = { OMR: 1, AED: 9.55, SAR: 9.7549, KWD: 0.7978, BHD: 0.9805, QAR: 9.4836, PKR: 729, BDT: 313.1 }
+const fallbackFxRates: Record<Currency, number> = { OMR: 1, AED: 9.55, SAR: 9.7549, KWD: 0.7978, BHD: 0.9805, QAR: 9.4836 }
 function convertDisplayCurrency(value: number | string, from: Currency, to: Currency, rates: Record<Currency, number>) {
   const amount = Number(value)
   if (!Number.isFinite(amount)) return 0
