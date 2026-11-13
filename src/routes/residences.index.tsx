@@ -54,7 +54,7 @@ function ResidencesPage() {
   const [currentUserName, setCurrentUserName] = useState('Member')
   const [currentProjectIndex, setCurrentProjectIndex] = useState(0)
   const [projectSearch, setProjectSearch] = useState('')
-  const [projectFilter, setProjectFilter] = useState<'all' | 'available' | 'ordered'>('all')
+  const [projectFilter, setProjectFilter] = useState<'all' | 'available' | 'ordered'>('available')
   const [projectSort, setProjectSort] = useState<'admin' | 'name' | 'price'>('admin')
   const [loadingProjects, setLoadingProjects] = useState(false)
   const [busyProject, setBusyProject] = useState('')
@@ -173,7 +173,7 @@ function ResidencesPage() {
         window.setTimeout(() => {
           setSuccessPopup(false)
           setNotice('')
-          setCurrentProjectIndex((current) => current + 1 < projectCards.length ? current + 1 : 0)
+          setCurrentProjectIndex(0)
         }, 2600)
       } else {
         setNotice('Your project order request has been sent to the administrator for review.')
@@ -181,7 +181,7 @@ function ResidencesPage() {
         window.setTimeout(() => {
           setSuccessPopup(false)
           setNotice('')
-          setCurrentProjectIndex((current) => current + 1 < projectCards.length ? current + 1 : 0)
+          setCurrentProjectIndex(0)
         }, 1800)
       }
     } catch (cause) {
@@ -299,7 +299,7 @@ function ResidencesPage() {
                         const image = project?.cover_image_url || SAMPLE_IMAGES[cardIndex % SAMPLE_IMAGES.length]
                         return <article key={project?.id || index} className="group flex h-full flex-col overflow-hidden rounded-2xl border border-[#d8b66b] bg-white shadow-lg shadow-[#071b38]/10">
                           <div className="relative overflow-hidden"><img src={image} alt={project?.name || `Sample project ${cardIndex + 1}`} loading="lazy" className="aspect-[16/9] w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]" /><span className="eyebrow absolute left-3 top-3 rounded-md border border-[#f1d28d] bg-[#071b38]/90 px-3 py-1.5 text-[0.48rem] text-[#f1d28d]">Project {String(index + 1).padStart(2, '0')}</span></div>
-                          <div className="flex flex-1 flex-col p-5 sm:p-6"><h3 className="display text-2xl text-[#071b38]">{project?.name || `Sample Project ${String(cardIndex + 1).padStart(2, '0')}`}</h3><p className="mt-2 text-xs text-ink-soft">{project?.location || 'Dubai, UAE'}</p><p className="mt-3 text-sm text-ink-soft">{project?.price_label || 'Sample — price to be set by admin'}</p>{project?.price_amount ? <p className="mt-1 text-sm font-medium">Base price: AED {Number(project.price_amount).toLocaleString('en', { maximumFractionDigits: 2 })}</p> : null}<p className="mt-2 line-clamp-2 text-xs text-ink-soft">{project?.description || 'Sample project card. The administrator can replace the image and all project details.'}</p>{project?.price_amount && project.price_amount > 0 ? <div className="mt-4 grid gap-3 border-t border-border pt-3"><div className="flex items-center justify-between"><span className="eyebrow text-[0.5rem] text-ink-soft">Percentage</span><strong className="text-sm">{project.order_percentages?.[0] ?? 0}%</strong></div><div className="flex items-center justify-between text-xs text-ink-soft"><span>Order amount</span><strong className="text-foreground">AED {Number(project.price_amount).toLocaleString('en', { maximumFractionDigits: 2 })}</strong></div><div className="flex items-center justify-between text-xs text-ink-soft"><span>Commission</span><strong className="text-foreground">AED {(Number(project.price_amount) * Number(project.order_percentages?.[0] ?? 0) / 100).toLocaleString('en', { maximumFractionDigits: 2 })}</strong></div><button type="button" disabled={busyProject === project.id || !project.order_percentages?.length} onClick={() => void requestProject(project)} className="eyebrow w-full rounded-lg border border-[#d8b66b] bg-[#071b38] px-4 py-3 text-[0.6rem] font-semibold tracking-widest text-[#f1d28d] transition hover:bg-[#10294b] disabled:cursor-not-allowed disabled:opacity-40">{busyProject === project.id ? 'Sending…' : 'Order project'}</button></div> : <p className="mt-5 border border-dashed border-border p-3 text-xs text-ink-soft">Awaiting admin price and order settings</p>}</div>
+                          <div className="flex flex-1 flex-col p-5 sm:p-6"><h3 className="display text-2xl text-[#071b38]">{project?.name || `Sample Project ${String(cardIndex + 1).padStart(2, '0')}`}</h3><p className="mt-2 text-xs text-ink-soft">{project?.location || 'Dubai, UAE'}</p><p className="mt-3 text-sm text-ink-soft">{project?.price_label || 'Sample — price to be set by admin'}</p>{project?.price_amount ? <p className="mt-1 text-sm font-medium">Base price: AED {Number(project.price_amount).toLocaleString('en', { maximumFractionDigits: 2 })}</p> : null}<p className="mt-2 line-clamp-2 text-xs text-ink-soft">{project?.description || 'Sample project card. The administrator can replace the image and all project details.'}</p>{project?.price_amount && project.price_amount > 0 ? <div className="mt-4 grid gap-3 border-t border-border pt-3"><div className="flex items-center justify-between"><span className="eyebrow text-[0.5rem] text-ink-soft">Percentage</span><strong className="text-sm">{project.order_percentages?.[0] ?? 0}%</strong></div><div className="flex items-center justify-between text-xs text-ink-soft"><span>Order amount</span><strong className="text-foreground">AED {Number(project.price_amount).toLocaleString('en', { maximumFractionDigits: 2 })}</strong></div><div className="flex items-center justify-between text-xs text-ink-soft"><span>Commission</span><strong className="text-foreground">AED {(Number(project.price_amount) * Number(project.order_percentages?.[0] ?? 0) / 100).toLocaleString('en', { maximumFractionDigits: 2 })}</strong></div><button type="button" disabled={busyProject === project.id || !project.order_percentages?.length || requests.some((request) => request.user_id === currentUserId && request.property_id === project.id && !['rejected', 'cancelled'].includes(String(request.status).toLowerCase()))} onClick={() => void requestProject(project)} className="eyebrow w-full rounded-lg border border-[#d8b66b] bg-[#071b38] px-4 py-3 text-[0.6rem] font-semibold tracking-widest text-[#f1d28d] transition hover:bg-[#10294b] disabled:cursor-not-allowed disabled:opacity-40">{busyProject === project.id ? 'Sending…' : requests.some((request) => request.user_id === currentUserId && request.property_id === project.id && !['rejected', 'cancelled'].includes(String(request.status).toLowerCase())) ? 'Already ordered' : 'Order project'}</button></div> : <p className="mt-5 border border-dashed border-border p-3 text-xs text-ink-soft">Awaiting admin price and order settings</p>}</div>
                         </article>
                       })}
                       {projectCards.length === 0 ? <p className="border border-border bg-card p-6 text-sm text-ink-soft sm:col-span-2 xl:col-span-4">No properties match these filters. Try another search or choose All properties.</p> : null}
