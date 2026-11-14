@@ -33,6 +33,8 @@ type PromotionRow = {
   description: string | null
   active: boolean
 }
+type BadgeRow = { id: string; level: 'Senior' | 'Master' | 'Expert'; badge_number: number; title: string; icon: string; is_locked: boolean }
+type BadgeAssignmentRow = { id: string; badge_id: string; property_id: string; position: number }
 type WalletRequestRow = {
   id: string
   user_id: string
@@ -68,7 +70,10 @@ function AdminPage() {
   const [enquiries, setEnquiries] = useState<EnquiryRow[]>([])
   const [promotions, setPromotions] = useState<PromotionRow[]>([])
   const [walletRequests, setWalletRequests] = useState<WalletRequestRow[]>([])
-  const [section, setSection] = useState<'overview' | 'properties' | 'enquiries' | 'promotions' | 'wallet'>('overview')
+  const [badges, setBadges] = useState<BadgeRow[]>([])
+  const [badgeAssignments, setBadgeAssignments] = useState<BadgeAssignmentRow[]>([])
+  const [selectedBadgeId, setSelectedBadgeId] = useState('')
+  const [section, setSection] = useState<'overview' | 'properties' | 'enquiries' | 'promotions' | 'wallet' | 'badges'>('overview')
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -105,18 +110,23 @@ function AdminPage() {
       return
     }
     setIsAdmin(true)
-    const [propertyResult, enquiryResult, promotionResult, walletResult] = await Promise.all([
+    const [propertyResult, enquiryResult, promotionResult, walletResult, badgeResult, assignmentResult] = await Promise.all([
       supabase.from('properties').select('id,slug,name,location,description,price_label,cover_image_url,status').order('created_at', { ascending: false }),
       supabase.from('enquiries').select('id,full_name,email,mobile,message,source,status,created_at').order('created_at', { ascending: false }).limit(100),
       supabase.from('promotions').select('id,title,description,active').order('created_at', { ascending: false }),
       supabase.from('wallet_requests').select('id,user_id,request_type,amount,note,status,created_at').order('created_at', { ascending: false }).limit(100),
+      supabase.from('project_badges').select('id,level,badge_number,title,icon,is_locked').order('level').order('badge_number'),
+      supabase.from('project_badge_properties').select('id,badge_id,property_id,position').order('position'),
     ])
-    const firstError = propertyResult.error ?? enquiryResult.error ?? promotionResult.error ?? walletResult.error
+    const firstError = propertyResult.error ?? enquiryResult.error ?? promotionResult.error ?? walletResult.error ?? badgeResult.error ?? assignmentResult.error
     if (firstError) setError(firstError.message)
     setProperties(propertyResult.data ?? [])
     setEnquiries(enquiryResult.data ?? [])
     setPromotions(promotionResult.data ?? [])
     setWalletRequests((walletResult.data ?? []) as WalletRequestRow[])
+    setBadges((badgeResult.data ?? []) as BadgeRow[])
+    setBadgeAssignments((assignmentResult.data ?? []) as BadgeAssignmentRow[])
+    if (!selectedBadgeId && badgeResult.data?.length) setSelectedBadgeId(badgeResult.data[0].id)
     setChecking(false)
   }, [])
 
@@ -217,6 +227,41 @@ function AdminPage() {
     setBusy(false)
   }
 
+  const toggleBadgeLock = async (badge: BadgeRow) => {
+    if (!supabase || !isAdmin) return
+    const count = badgeAssignments.filter(item => item.badge_id === badge.id).length
+    if (badge.is_locked && count !== 20) { setError('Assign exactly 20 properties before unlocking this badge.'); return }
+    setBusy(true); setError(null); setNotice(null)
+    const { error: updateError } = await supabase.from('project_badges').update({ is_locked: !badge.is_locked }).eq('id', badge.id)
+    if (updateError) setError(updateError.message)
+    else { setNotice(badge.is_locked ? 'Badge unlocked.' : 'Badge locked.'); await loadAdminData() }
+    setBusy(false)
+  }
+
+  const assignBadgeProperty = async (propertyId: string) => {
+    if (!supabase || !isAdmin || !selectedBadgeId) return
+    const badge = badges.find(item => item.id === selectedBadgeId)
+    if (!badge) return
+    const inBadge = badgeAssignments.filter(item => item.badge_id === badge.id)
+    if (inBadge.length >= 20) { setError('This badge already has 20 properties.'); return }
+    const duplicateInLevel = badgeAssignments.some(item => item.property_id === propertyId && badges.find(b => b.id === item.badge_id)?.level === badge.level)
+    if (duplicateInLevel) { setError('This property is already assigned to another badge in this level.'); return }
+    setBusy(true); setError(null); setNotice(null)
+    const { error: insertError } = await supabase.from('project_badge_properties').insert({ badge_id: badge.id, property_id: propertyId, position: inBadge.length + 1 })
+    if (insertError) setError(insertError.message)
+    else { setNotice('Property assigned to ' + badge.level + ' ' + badge.title + '.'); await loadAdminData() }
+    setBusy(false)
+  }
+
+  const removeBadgeProperty = async (assignment: BadgeAssignmentRow) => {
+    if (!supabase || !isAdmin) return
+    setBusy(true); setError(null); setNotice(null)
+    const { error: deleteError } = await supabase.from('project_badge_properties').delete().eq('id', assignment.id)
+    if (deleteError) setError(deleteError.message)
+    else { setNotice('Property removed from badge.'); await loadAdminData() }
+    setBusy(false)
+  }
+
   const savePromotion = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!supabase || !isAdmin) return
@@ -259,8 +304,9 @@ function AdminPage() {
           ) : (
             <>
               <nav className="mt-8 flex flex-wrap gap-2">
-                {(['overview','properties','enquiries','promotions','wallet'] as const).map(item => <button key={item} onClick={() => setSection(item)} className={section===item ? 'eyebrow bg-primary px-4 py-3 text-primary-foreground' : 'eyebrow border border-border px-4 py-3'}>{item}</button>)}
+                {(['overview','properties','enquiries','promotions','wallet','badges'] as const).map(item => <button key={item} onClick={() => setSection(item)} className={section===item ? 'eyebrow bg-primary px-4 py-3 text-primary-foreground' : 'eyebrow border border-border px-4 py-3'}>{item}</button>)}
               </nav>
+              {section === 'badges' ? <section className="mt-8"><h2 className="display text-2xl">Senior · Master · Expert badges</h2><p className="mt-2 text-sm text-ink-soft">Each badge contains 20 properties. Junior Trial is not included here.</p><div className="mt-5 flex flex-wrap gap-2">{badges.map(badge => <button key={badge.id} type="button" onClick={() => setSelectedBadgeId(badge.id)} className={selectedBadgeId===badge.id ? 'border border-primary bg-primary px-4 py-3 text-sm text-primary-foreground' : 'border border-border px-4 py-3 text-sm'}>{badge.level} · {badge.title}</button>)}</div>{(() => { const badge = badges.find(item => item.id === selectedBadgeId); if (!badge) return <p className="mt-6 text-sm text-ink-soft">Badge definitions are not available. Apply the badge database migration before using this section.</p>; const assigned = badgeAssignments.filter(item => item.badge_id === badge.id).sort((a,b)=>a.position-b.position); const assignedIds = new Set(badgeAssignments.filter(item => badges.find(b=>b.id===item.badge_id)?.level===badge.level).map(item=>item.property_id)); const available = properties.filter(item=>item.status==='published' && !assignedIds.has(item.id)); return <div className="mt-6 grid gap-6 lg:grid-cols-2"><div className="border border-border bg-card p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="eyebrow text-brass">{badge.level}</p><h3 className="display mt-1 text-2xl">{badge.title}</h3><p className="mt-1 text-sm text-ink-soft">{badge.icon} icon · {assigned.length}/20 properties</p></div><button type="button" disabled={busy || (badge.is_locked && assigned.length!==20)} onClick={()=>void toggleBadgeLock(badge)} className="eyebrow border border-border px-4 py-3 disabled:opacity-40">{badge.is_locked ? 'Unlock badge' : 'Lock badge'}</button></div><div className="mt-5"><label className="text-sm">Add a published property<select disabled={busy || available.length===0} defaultValue="" onChange={e=>{if(e.target.value) void assignBadgeProperty(e.target.value); e.target.value=''}} className="mt-2 w-full border border-input bg-background px-3 py-3"><option value="">{available.length ? 'Choose property…' : 'No available properties'}</option>{available.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label><p className="mt-2 text-xs text-ink-soft">A property can only appear once within each level. Badges cannot be unlocked until all 20 positions are assigned.</p></div></div><div><h3 className="display text-xl">Assigned properties</h3><div className="mt-3 divide-y divide-border border-y border-border">{assigned.map((item,index)=>{const property=properties.find(p=>p.id===item.property_id);return <article key={item.id} className="flex items-center justify-between gap-3 py-3"><div><p className="text-xs text-ink-soft">Property {index+1}</p><p className="text-sm font-medium">{property?.name ?? 'Property not found'}</p></div><button type="button" disabled={busy || !badge.is_locked} onClick={()=>void removeBadgeProperty(item)} className="border border-border px-3 py-2 text-xs disabled:opacity-40">Remove</button></article>})}{!assigned.length?<p className="py-5 text-sm text-ink-soft">No properties assigned yet.</p>:null}</div></div></div> })()}</section> : null}
               {section === 'overview' ? <div className="mt-8 grid gap-4 sm:grid-cols-3">{[{label:'Properties',value:properties.length},{label:'Enquiries',value:enquiries.length},{label:'Promotions',value:promotions.length}].map(item => <div key={item.label} className="border border-border bg-card p-6"><p className="eyebrow text-ink-soft">{item.label}</p><p className="display mt-3 text-4xl">{item.value}</p></div>)}</div> : null}
               {section === 'properties' ? <section className="mt-8 grid gap-8 lg:grid-cols-2"><form onSubmit={saveProperty} className="grid content-start gap-3 border border-border bg-card p-6"><h2 className="display text-2xl">{editingPropertyId ? 'Edit property' : 'Add property'}</h2>{([['slug','URL slug'],['name','Property name'],['location','Location'],['price_label','Price label'],['cover_image_url','Cover image URL']] as const).map(([name,label])=><label key={name} className="text-sm">{label}<input required={name!=='cover_image_url'} value={propertyForm[name]} onChange={e=>setPropertyForm(p=>({...p,[name]:e.target.value}))} className="mt-1 w-full border border-input bg-background px-3 py-2" /></label>)}<label className="text-sm">Description<textarea value={propertyForm.description} onChange={e=>setPropertyForm(p=>({...p,description:e.target.value}))} className="mt-1 w-full border border-input bg-background px-3 py-2" rows={3}/></label><label className="text-sm">Visibility<select value={propertyForm.status} onChange={e=>setPropertyForm(p=>({...p,status:e.target.value}))} className="mt-1 w-full border border-input bg-background px-3 py-2"><option value="draft">Draft</option><option value="published">Published</option><option value="archived">Archived</option></select></label><button disabled={busy} className="eyebrow bg-primary px-5 py-3 text-primary-foreground">{busy ? 'Saving…' : editingPropertyId ? 'Update property' : 'Save property'}</button>{editingPropertyId ? <button type="button" onClick={()=>{setEditingPropertyId(null);setPropertyForm({slug:'',name:'',location:'Dubai, UAE',description:'',price_label:'',cover_image_url:'',status:'published'});setNotice(null)}} className="eyebrow border border-border px-5 py-3">Cancel edit</button> : null}</form><div><h2 className="display text-2xl">Current properties</h2><div className="mt-4 divide-y divide-border border-y border-border">{properties.map(p=><article key={p.id} className="py-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="font-medium">{p.name}</p><p className="mt-1 text-xs text-ink-soft">{p.location} · {p.price_label}</p></div><div className="flex items-center gap-2"><select aria-label={'Visibility for '+p.name} value={p.status} onChange={e=>void updatePropertyStatus(p.id,e.target.value)} className="border border-input bg-background px-2 py-2 text-xs"><option value="draft">Draft</option><option value="published">Published</option><option value="archived">Archived</option></select><button type="button" onClick={()=>editProperty(p)} className="eyebrow border border-border px-3 py-2 text-xs">Edit</button></div></div></article>)}</div></div></section> : null}
               {section === 'enquiries' ? <section className="mt-8"><h2 className="display text-2xl">Customer enquiries</h2><div className="mt-4 divide-y divide-border border-y border-border">{enquiries.map(item=><article key={item.id} className="grid gap-3 py-5 sm:grid-cols-[1fr_auto]"><div><p className="font-medium">{item.full_name}</p><p className="mt-1 text-sm text-ink-soft">{item.mobile} · {item.email ?? 'No email'}</p><p className="mt-2 text-sm">{item.message}</p><p className="mt-2 text-xs text-ink-soft">{item.source} · {new Date(item.created_at).toLocaleString()}</p></div><select value={item.status} onChange={e=>void updateEnquiry(item.id,e.target.value)} className="h-fit border border-input bg-background px-3 py-2 text-sm"><option value="new">New</option><option value="contacted">Contacted</option><option value="qualified">Qualified</option><option value="closed">Closed</option></select></article>)}</div></section> : null}
