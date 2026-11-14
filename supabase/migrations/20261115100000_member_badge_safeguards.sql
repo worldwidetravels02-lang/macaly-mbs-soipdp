@@ -13,14 +13,13 @@ declare
   target_badge_id uuid;
   target_property_id uuid;
   target_level text;
+  target_locked boolean;
   current_count integer;
 begin
   target_badge_id := coalesce(new.badge_id, old.badge_id);
   target_property_id := coalesce(new.property_id, old.property_id);
 
-  perform pg_advisory_xact_lock(hashtext('badge-level-assignment-' || target_badge_id::text));
-
-  select level, is_locked into target_level, current_count
+  select level, is_locked into target_level, target_locked
   from public.project_badges
   where id = target_badge_id;
 
@@ -28,7 +27,9 @@ begin
     raise exception 'Badge does not exist';
   end if;
 
-  if current_count = 0 then
+  perform pg_advisory_xact_lock(hashtext('badge-level-assignment-' || target_level));
+
+  if target_locked = false then
     raise exception 'Lock the badge before changing its property assignments';
   end if;
 
