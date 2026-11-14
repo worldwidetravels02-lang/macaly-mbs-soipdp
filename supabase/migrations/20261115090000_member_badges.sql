@@ -77,7 +77,18 @@ with check (public.is_msheireb_admin());
 drop policy if exists "Members read badge property assignments" on public.project_badge_properties;
 create policy "Members read badge property assignments"
 on public.project_badge_properties for select to authenticated
-using (true);
+using (
+  public.is_msheireb_admin()
+  or exists (
+    select 1
+    from public.project_badges b
+    join public.member_badge_progress mp on mp.badge_id = b.id
+    where b.id = project_badge_properties.badge_id
+      and b.is_locked = false
+      and mp.user_id = (select auth.uid())
+      and mp.status in ('unlocked','completed')
+  )
+);
 
 drop policy if exists "Admins manage badge property assignments" on public.project_badge_properties;
 create policy "Admins manage badge property assignments"
@@ -92,28 +103,28 @@ using (user_id = (select auth.uid()) or public.is_msheireb_admin());
 
 drop policy if exists "Members request next badge unlock" on public.member_badge_progress;
 create policy "Members request next badge unlock"
-on public.member_badge_progress for insert to authenticated
-with check (
+on public.member_badge_progress for update to authenticated
+using (
   user_id = (select auth.uid())
-  and status = 'support_requested'
+  and status = 'locked'
   and exists (
     select 1
     from public.project_badges b
-    where b.id = badge_id
+    join public.member_badge_progress previous
+      on previous.user_id = (select auth.uid())
+    join public.project_badges prior
+      on prior.id = previous.badge_id
+     and prior.level = b.level
+     and prior.badge_number = b.badge_number - 1
+    where b.id = member_badge_progress.badge_id
       and b.is_locked = true
       and b.badge_number > 1
-      and exists (
-        select 1
-        from public.member_badge_progress previous
-        where previous.user_id = (select auth.uid())
-          and previous.status = 'completed'
-          and previous.badge_id in (
-            select prior.id from public.project_badges prior
-            where prior.level = b.level
-              and prior.badge_number = b.badge_number - 1
-          )
-      )
+      and previous.status = 'completed'
   )
+)
+with check (
+  user_id = (select auth.uid())
+  and status = 'support_requested'
 );
 
 drop policy if exists "Admins manage member badge progress" on public.member_badge_progress;
