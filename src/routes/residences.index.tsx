@@ -59,6 +59,7 @@ function ResidencesPage() {
   const [busyProject, setBusyProject] = useState('')
   const [notice, setNotice] = useState('')
   const [successPopup, setSuccessPopup] = useState(false)
+  const [completedLevel, setCompletedLevel] = useState('')
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -89,18 +90,20 @@ function ResidencesPage() {
     setLoadingProjects(true)
     ;(async () => {
       const client = requireSupabase()
-      const [propertyResult, requestResult, userResult, accessResult] = await Promise.all([
+      const [propertyResult, userResult, accessResult] = await Promise.all([
         client.from('properties').select('id,slug,name,location,description,price_label,price_amount,order_percentages,cover_image_url,project_level,sort_order').eq('status', 'published').not('project_level', 'is', null).order('sort_order', { ascending: true }),
-        client.from('investment_requests').select('user_id,property_id,status').order('created_at', { ascending: false }),
         client.auth.getUser(),
         client.from('customer_project_level_access').select('user_id,level_name,is_unlocked'),
       ])
       if (propertyResult.error) throw propertyResult.error
       if (userResult.error) throw userResult.error
-      if (requestResult.error) throw requestResult.error
       if (accessResult.error) throw accessResult.error
       if (!userResult.data.user) throw new Error('Please sign in to view the project catalogue.')
-      const walletResult = await client.from('wallet_balances').select('balance').eq('user_id', userResult.data.user.id).eq('currency', 'OMR').maybeSingle()
+      const [requestResult, walletResult] = await Promise.all([
+        client.from('investment_requests').select('user_id,property_id,status').eq('user_id', userResult.data.user.id).order('created_at', { ascending: false }),
+        client.from('wallet_balances').select('balance').eq('user_id', userResult.data.user.id).eq('currency', 'OMR').maybeSingle(),
+      ])
+      if (requestResult.error) throw requestResult.error
       if (walletResult.error) throw walletResult.error
       if (!active) return
       setProjects((propertyResult.data ?? []) as Project[])
@@ -181,14 +184,15 @@ function ResidencesPage() {
         .filter((request) => request.user_id === auth.user.id && request.property_id && !['rejected', 'cancelled'].includes(String(request.status).toLowerCase()))
         .filter((request) => projects.some((item) => item.id === request.property_id && item.project_level === selectedLevel))
         .map((request) => request.property_id))
-      const nextLevel = LEVELS[LEVELS.indexOf(selectedLevel as typeof LEVELS[number]) + 1]
-      if (orderedPropertyIds.size >= 20 && nextLevel) {
-        setNotice(`Congratulations! You have completed 20 different properties in ${selectedLevel}. The administrator has been notified. ${nextLevel} will unlock after admin approval.`)
+      setCurrentProjectIndex(Math.min(orderedPropertyIds.size, 20))
+      if (orderedPropertyIds.size >= 20) {
+        setCompletedLevel(selectedLevel)
+        setNotice(`🎉 Congratulations! You have successfully completed all 20 properties in ${selectedLevel}. The administrator has been notified. The next level will unlock after admin approval.`)
         setSuccessPopup(true)
         window.setTimeout(() => {
           setSuccessPopup(false)
           setNotice('')
-        }, 2600)
+        }, 6500)
       } else {
         setNotice('Your project order request has been sent to the administrator for review.')
         setSuccessPopup(true)
@@ -221,7 +225,7 @@ function ResidencesPage() {
           <Link to="/account" className="flex items-center gap-2 rounded-xl border border-[#c9a45c]/50 bg-[#10294b] px-2 py-1.5 text-xs text-white"><span className="grid h-8 w-8 place-items-center rounded-lg bg-[#d8b66b] font-semibold text-[#071b38]">{currentUserName.slice(0,1).toUpperCase()}</span><span className="hidden text-left sm:block"><strong className="block">{currentUserName.split(" ")[0]}</strong><span className="text-[10px] text-[#888]">User</span></span></Link>
         </div>
       </header>
-      {successPopup ? <div role="status" aria-live="polite" className="fixed inset-0 z-[100] flex items-center justify-center bg-[#071b38]/65 px-5 backdrop-blur-sm"><div className="w-full max-w-sm rounded-2xl border border-[#d8b66b] bg-white p-8 text-center shadow-2xl animate-[orderPop_.35s_ease-out]"><div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full bg-[#e8f5ec] text-3xl font-bold text-[#23834b]">✓</div><h2 className="display text-2xl text-[#071b38]">{notice.startsWith('Congratulations!') ? 'Congratulations!' : 'Order successful'}</h2><p className="mt-2 text-sm text-[#666]">{notice || 'Your request has been sent for admin review.'}</p><p className="mt-4 text-xs tracking-wide text-[#9a793b]">{notice.startsWith('Congratulations!') ? 'Waiting for administrator approval…' : 'Opening the next property…'}</p></div><style>{'@keyframes orderPop { 0% { opacity: 0; transform: scale(.82) translateY(12px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }'}</style></div> : null}
+      {successPopup ? <div role="status" aria-live="polite" className="fixed inset-0 z-[100] flex items-center justify-center bg-[#071b38]/65 px-5 backdrop-blur-sm"><div className={`w-full ${notice.includes('successfully completed all 20') ? 'max-w-2xl p-10 sm:p-14' : 'max-w-sm p-8'} rounded-2xl border-2 border-[#d8b66b] bg-white text-center shadow-2xl animate-[orderPop_.45s_ease-out]`}><div className={`mx-auto mb-5 grid ${notice.includes('successfully completed all 20') ? 'h-24 w-24 text-6xl' : 'h-16 w-16 text-3xl'} place-items-center rounded-full bg-[#e8f5ec] font-bold text-[#23834b]`}>{notice.includes('successfully completed all 20') ? '🎉' : '✓'}</div><h2 className={`display ${notice.includes('successfully completed all 20') ? 'text-4xl sm:text-5xl' : 'text-2xl'} text-[#071b38]`}>{notice.includes('successfully completed all 20') ? `${selectedLevel} Completed!` : 'Order successful'}</h2><p className="mt-4 text-base leading-7 text-[#666]">{notice || 'Your request has been sent for admin review.'}</p><p className="mt-5 text-sm font-semibold tracking-wide text-[#9a793b]">{notice.includes('successfully completed all 20') ? '20 / 20 PROPERTIES SUCCESSFULLY ORDERED' : 'Opening the next property…'}</p><div className="mt-6 flex justify-center gap-3 text-2xl" aria-hidden="true">🎊 ✨ 🏆 ✨ 🎊</div></div><style>{'@keyframes orderPop { 0% { opacity: 0; transform: scale(.82) translateY(12px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }'}</style></div> : null}
       
       <main id="main" className="pb-20 pt-[86px] lg:ml-64">
         <div className="mx-auto w-full max-w-[1500px] px-5 sm:px-7">
@@ -291,6 +295,7 @@ function ResidencesPage() {
                   {loadingProjects ? <p className="mt-8 text-sm text-ink-soft">Loading projects…</p> : (
                     <>
                     <div className="mx-auto mt-8 w-full max-w-3xl">
+                      {currentProjectIndex >= 20 ? <div className="rounded-2xl border-2 border-[#d8b66b] bg-[#071b38] px-6 py-12 text-center text-white shadow-xl"><div className="text-6xl">🏆</div><h3 className="display mt-5 text-3xl text-[#f1d28d]">{selectedLevel} Successfully Completed</h3><p className="mt-3 text-sm text-white/80">All 20 properties have been ordered. Your completion is waiting for administrator review.</p><p className="mt-5 text-xs font-semibold tracking-widest text-[#f1d28d]">20 / 20 COMPLETE</p></div> : null}
                       {projectCards.slice(currentProjectIndex, currentProjectIndex + 1).map((project, index) => {
                         const cardIndex = currentProjectIndex + index
                         const image = project?.cover_image_url || SAMPLE_IMAGES[cardIndex % SAMPLE_IMAGES.length]
