@@ -134,6 +134,7 @@ function DashboardPage() {
             <Link to="/dashboard" className="flex items-center gap-4 rounded-xl bg-[#f3f1ed] px-4 py-3.5 text-sm font-semibold text-[#171b2a]"><span>⌂</span> Dashboard</Link>
             <Link to="/residences" className="flex items-center gap-4 rounded-xl px-4 py-3.5 text-sm text-[#777b7d] hover:bg-[#f7f7f5]"><span>▦</span> Projects</Link>
             <Link to="/wallet" className="flex items-center gap-4 rounded-xl px-4 py-3.5 text-sm text-[#777b7d] hover:bg-[#f7f7f5]"><span>◷</span> Orders & wallet</Link>
+            <Link to="/member-badges" className="flex items-center gap-4 rounded-xl px-4 py-3.5 text-sm text-[#777b7d] hover:bg-[#f7f7f5]"><span>♛</span> My badges</Link>
             <Link to="/account" className="flex items-center gap-4 rounded-xl px-4 py-3.5 text-sm text-[#777b7d] hover:bg-[#f7f7f5]"><span>♙</span> Account</Link>
             <Link to="/support" className="flex items-center gap-4 rounded-xl px-4 py-3.5 text-sm text-[#777b7d] hover:bg-[#f7f7f5]"><span>♧</span> Support</Link>
           </nav>
