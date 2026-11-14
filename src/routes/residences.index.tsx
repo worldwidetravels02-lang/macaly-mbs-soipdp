@@ -120,6 +120,15 @@ function ResidencesPage() {
     return rows
   }, [levelProjects, projectSort])
   const projectCards: (Project | null)[] = Array.from({ length: 20 }, (_, index) => visibleProjects[index] ?? null)
+  useEffect(() => {
+    if (!currentUserId) return
+    const orderedPropertyIds = new Set(requests
+      .filter((request) => request.user_id === currentUserId && request.property_id && !['rejected', 'cancelled'].includes(String(request.status).toLowerCase()))
+      .filter((request) => levelProjects.some((project) => project.id === request.property_id))
+      .map((request) => request.property_id))
+    setCurrentProjectIndex(Math.min(orderedPropertyIds.size, 20))
+  }, [currentUserId, requests, levelProjects])
+
   async function requestProject(project: Project) {
     const selection = { quantity: 1, percentage: Number(project.order_percentages?.[0] ?? 0) }
     const basePrice = Number(project.price_amount || 0)
@@ -164,7 +173,6 @@ function ResidencesPage() {
         window.setTimeout(() => {
           setSuccessPopup(false)
           setNotice('')
-          setCurrentProjectIndex(0)
         }, 2600)
       } else {
         setNotice('Your project order request has been sent to the administrator for review.')
@@ -172,7 +180,6 @@ function ResidencesPage() {
         window.setTimeout(() => {
           setSuccessPopup(false)
           setNotice('')
-          setCurrentProjectIndex((current) => Math.min(current + 1, 19))
         }, 1800)
       }
     } catch (cause) {
