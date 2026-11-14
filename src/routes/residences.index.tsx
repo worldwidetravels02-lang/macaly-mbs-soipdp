@@ -262,19 +262,12 @@ function ResidencesPage() {
               {search.level ? <>
               <div id="project-group-details" className="mt-6 scroll-mt-24 flex flex-wrap items-end justify-between gap-4">
                 <div><p className="eyebrow text-brass">Selected group</p><h2 className="display mt-2 text-3xl">{selectedLevel === "Junior Trial" ? "Junior (Trial)" : selectedLevel}</h2></div>
-                <p className="text-xs text-ink-soft">Properties displayed in admin order</p>
+
               </div>
               {!currentLevelUnlocked ? <p className="mt-6 border border-border p-5 text-sm text-ink-soft">This level is locked. Contact the administrator to request access.</p> : (
                 <>
                   {loadingProjects ? <p className="mt-8 text-sm text-ink-soft">Loading projects…</p> : (
                     <>
-                    <div className="mt-7 flex justify-end">
-                      <select value={projectSort} onChange={(event) => setProjectSort(event.target.value as typeof projectSort)} aria-label="Sort properties" className="border border-border bg-card px-4 py-3 text-sm">
-                        <option value="admin">Admin order</option>
-                        <option value="name">Name</option>
-                        <option value="price">Price: low to high</option>
-                      </select>
-                    </div>
                     <div className="mx-auto mt-8 w-full max-w-3xl">
                       {projectCards.slice(currentProjectIndex, currentProjectIndex + 1).map((project, index) => {
                         const cardIndex = currentProjectIndex + index
