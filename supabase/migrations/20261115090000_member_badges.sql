@@ -152,6 +152,47 @@ on public.member_project_orders for all to authenticated
 using (public.is_msheireb_admin())
 with check (public.is_msheireb_admin());
 
+-- Mark a badge complete automatically when the member has completed all
+-- 20 assigned property orders. This keeps progression consistent in Supabase.
+create or replace function public.sync_member_badge_completion()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $
+declare
+  assigned_count integer;
+  completed_count integer;
+begin
+  if new.status = 'completed' and old.status is distinct from 'completed' then
+    select count(*) into assigned_count
+    from public.project_badge_properties
+    where badge_id = new.badge_id;
+
+    select count(*) into completed_count
+    from public.member_project_orders
+    where user_id = new.user_id
+      and badge_id = new.badge_id
+      and status = 'completed';
+
+    if assigned_count = 20 and completed_count = 20 then
+      update public.member_badge_progress
+      set status = 'completed',
+          completed_at = now(),
+          updated_at = now()
+      where user_id = new.user_id
+        and badge_id = new.badge_id;
+    end if;
+  end if;
+  return new;
+end;
+$;
+
+drop trigger if exists member_badge_completion_sync on public.member_project_orders;
+create trigger member_badge_completion_sync
+after update of status on public.member_project_orders
+for each row execute function public.sync_member_badge_completion();
+
 -- Seed the nine badge definitions once. Junior Trial is deliberately excluded.
 insert into public.project_badges(level, badge_number, title, icon)
 values
