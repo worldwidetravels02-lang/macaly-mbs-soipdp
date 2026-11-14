@@ -246,7 +246,7 @@ function AdminPage() {
     if (!supabase || !isAdmin || !selectedCustomerId) return
     const levelBadges = badges.filter(item => item.level === selectedLevel).sort((a,b)=>a.badge_number-b.badge_number)
     if (levelBadges.length !== 3) { setError('The three badge definitions for this level are missing. Apply the badge migration first.'); return }
-    if (memberProgress.some(item => item.user_id === selectedCustomerId && levelBadges.some(b => b.id === item.badge_id))) { setError('This customer already has badge progress for this level.'); return }
+    if (memberProgress.some(item => item.user_id === selectedCustomerId)) { setError('This customer already has an assigned badge level.'); return }
     if (levelBadges[0].is_locked) { setError('Unlock Badge 1 in the badge catalogue before activating this customer level.'); return }
     setBusy(true); setError(null); setNotice(null)
     const { error: insertError } = await supabase.from('member_badge_progress').insert(levelBadges.map((badge,index)=>({user_id:selectedCustomerId,badge_id:badge.id,status:index===0?'unlocked':'locked',unlocked_at:index===0?new Date().toISOString():null})))
