@@ -89,19 +89,19 @@ function ResidencesPage() {
     setLoadingProjects(true)
     ;(async () => {
       const client = requireSupabase()
-      const [propertyResult, requestResult, userResult, accessResult, walletResult] = await Promise.all([
+      const [propertyResult, requestResult, userResult, accessResult] = await Promise.all([
         client.from('properties').select('id,slug,name,location,description,price_label,price_amount,order_percentages,cover_image_url,project_level,sort_order').eq('status', 'published').not('project_level', 'is', null).order('sort_order', { ascending: true }),
         client.from('investment_requests').select('user_id,property_id,status').order('created_at', { ascending: false }),
         client.auth.getUser(),
         client.from('customer_project_level_access').select('user_id,level_name,is_unlocked'),
-        client.from('wallet_balances').select('balance').eq('currency', 'OMR').maybeSingle(),
       ])
       if (propertyResult.error) throw propertyResult.error
       if (userResult.error) throw userResult.error
       if (requestResult.error) throw requestResult.error
       if (accessResult.error) throw accessResult.error
-      if (walletResult.error) throw walletResult.error
       if (!userResult.data.user) throw new Error('Please sign in to view the project catalogue.')
+      const walletResult = await client.from('wallet_balances').select('balance').eq('user_id', userResult.data.user.id).eq('currency', 'OMR').maybeSingle()
+      if (walletResult.error) throw walletResult.error
       if (!active) return
       setProjects((propertyResult.data ?? []) as Project[])
       setRequests((requestResult.data ?? []) as ProjectRequest[])
