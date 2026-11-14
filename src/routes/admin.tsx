@@ -700,6 +700,8 @@ function AdminPage() {
         if (saveError) throw saveError
         if (!updated?.id) throw new Error('No project was updated. Check that your admin account has permission to edit properties, then refresh the admin panel.')
       } else {
+        const existingLevelProjects = (rows.properties ?? []).filter((item) => text(item.project_level || 'Junior Trial') === payload.project_level)
+        if (existingLevelProjects.length >= 20) throw new Error(`${payload.project_level} already has 20 projects. Edit an existing project instead.`)
         const { error: saveError } = await client.from('properties').insert(payload)
         if (saveError) throw saveError
       }
