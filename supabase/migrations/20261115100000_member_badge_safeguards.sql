@@ -11,13 +11,11 @@ set search_path = public
 as $$
 declare
   target_badge_id uuid;
-  target_property_id uuid;
   target_level text;
   target_locked boolean;
   current_count integer;
 begin
   target_badge_id := coalesce(new.badge_id, old.badge_id);
-  target_property_id := coalesce(new.property_id, old.property_id);
 
   select level, is_locked into target_level, target_locked
   from public.project_badges
@@ -49,6 +47,7 @@ begin
       where other_badge.level = target_level
         and bp.property_id = new.property_id
         and bp.badge_id <> new.badge_id
+        and (tg_op <> 'UPDATE' or bp.id <> new.id)
     ) then
       raise exception 'This property is already assigned to another badge in this level';
     end if;
