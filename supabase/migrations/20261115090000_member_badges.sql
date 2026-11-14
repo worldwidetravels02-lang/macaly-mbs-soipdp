@@ -159,7 +159,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = public
-as $
+as $$
 declare
   assigned_count integer;
   completed_count integer;
@@ -186,7 +186,7 @@ begin
   end if;
   return new;
 end;
-$;
+$$;
 
 drop trigger if exists member_badge_completion_sync on public.member_project_orders;
 create trigger member_badge_completion_sync
