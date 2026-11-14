@@ -53,8 +53,6 @@ function ResidencesPage() {
   const [currency, setCurrency] = useState('AED')
   const [currentUserName, setCurrentUserName] = useState('Member')
   const [currentProjectIndex, setCurrentProjectIndex] = useState(0)
-  const [projectSearch, setProjectSearch] = useState('')
-  const [projectFilter, setProjectFilter] = useState<'all' | 'available' | 'ordered'>('available')
   const [projectSort, setProjectSort] = useState<'admin' | 'name' | 'price'>('admin')
   const [loadingProjects, setLoadingProjects] = useState(false)
   const [busyProject, setBusyProject] = useState('')
@@ -116,19 +114,12 @@ function ResidencesPage() {
   const currentLevelUnlocked = customerLevelAccess.find((item) => item.user_id === currentUserId && item.level_name === selectedLevel)?.is_unlocked ?? selectedLevel === 'Junior Trial'
   const levelProjects = useMemo(() => projects.filter((project) => project.project_level === selectedLevel), [projects, selectedLevel])
   const visibleProjects = useMemo(() => {
-    const query = projectSearch.trim().toLowerCase()
-    const rows = levelProjects.filter((project) => {
-      const matchesSearch = !query || [project.name, project.location ?? '', project.description ?? ''].some((value) => value.toLowerCase().includes(query))
-      const hasOrder = requests.some((request) => request.property_id === project.id && !['rejected', 'cancelled'].includes(String(request.status).toLowerCase()))
-      return matchesSearch && (projectFilter === 'all' || (projectFilter === 'ordered' ? hasOrder : !hasOrder))
-    })
+    const rows = [...levelProjects]
     if (projectSort === 'name') rows.sort((a, b) => a.name.localeCompare(b.name))
     if (projectSort === 'price') rows.sort((a, b) => Number(a.price_amount ?? 0) - Number(b.price_amount ?? 0))
     return rows
-  }, [levelProjects, projectSearch, projectFilter, projectSort, requests])
-  const projectCards: (Project | null)[] = projectSearch.trim() || projectFilter !== 'all'
-    ? visibleProjects
-    : Array.from({ length: 20 }, (_, index) => visibleProjects[index] ?? null)
+  }, [levelProjects, projectSort])
+  const projectCards: (Project | null)[] = Array.from({ length: 20 }, (_, index) => visibleProjects[index] ?? null)
   async function requestProject(project: Project) {
     const selection = { quantity: 1, percentage: Number(project.order_percentages?.[0] ?? 0) }
     const basePrice = Number(project.price_amount || 0)
@@ -277,16 +268,7 @@ function ResidencesPage() {
                 <>
                   {loadingProjects ? <p className="mt-8 text-sm text-ink-soft">Loading projects…</p> : (
                     <>
-                    <div className="mt-7 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto]">
-                      <label className="flex items-center gap-3 border border-border bg-card px-4 py-3">
-                        <span className="eyebrow text-[0.5rem] text-ink-soft">Search</span>
-                        <input value={projectSearch} onChange={(event) => setProjectSearch(event.target.value)} type="search" placeholder="Search properties" className="min-w-0 flex-1 bg-transparent text-sm outline-none" />
-                      </label>
-                      <select value={projectFilter} onChange={(event) => setProjectFilter(event.target.value as typeof projectFilter)} aria-label="Filter properties" className="border border-border bg-card px-4 py-3 text-sm">
-                        <option value="all">All properties</option>
-                        <option value="available">Not ordered</option>
-                        <option value="ordered">Ordered</option>
-                      </select>
+                    <div className="mt-7 flex justify-end">
                       <select value={projectSort} onChange={(event) => setProjectSort(event.target.value as typeof projectSort)} aria-label="Sort properties" className="border border-border bg-card px-4 py-3 text-sm">
                         <option value="admin">Admin order</option>
                         <option value="name">Name</option>
@@ -302,9 +284,8 @@ function ResidencesPage() {
                           <div className="flex flex-1 flex-col p-5 sm:p-6"><h3 className="display text-2xl text-[#071b38]">{project?.name || `Sample Project ${String(cardIndex + 1).padStart(2, '0')}`}</h3><p className="mt-2 text-xs text-ink-soft">{project?.location || 'Dubai, UAE'}</p><p className="mt-3 text-sm text-ink-soft">{project?.price_label || 'Sample — price to be set by admin'}</p>{project?.price_amount ? <p className="mt-1 text-sm font-medium">Base price: AED {Number(project.price_amount).toLocaleString('en', { maximumFractionDigits: 2 })}</p> : null}<p className="mt-2 line-clamp-2 text-xs text-ink-soft">{project?.description || 'Sample project card. The administrator can replace the image and all project details.'}</p>{project?.price_amount && project.price_amount > 0 ? <div className="mt-4 grid gap-3 border-t border-border pt-3"><div className="flex items-center justify-between"><span className="eyebrow text-[0.5rem] text-ink-soft">Percentage</span><strong className="text-sm">{project.order_percentages?.[0] ?? 0}%</strong></div><div className="flex items-center justify-between text-xs text-ink-soft"><span>Order amount</span><strong className="text-foreground">AED {Number(project.price_amount).toLocaleString('en', { maximumFractionDigits: 2 })}</strong></div><div className="flex items-center justify-between text-xs text-ink-soft"><span>Commission</span><strong className="text-foreground">AED {(Number(project.price_amount) * Number(project.order_percentages?.[0] ?? 0) / 100).toLocaleString('en', { maximumFractionDigits: 2 })}</strong></div><button type="button" disabled={busyProject === project.id || !project.order_percentages?.length || requests.some((request) => request.user_id === currentUserId && request.property_id === project.id && !['rejected', 'cancelled'].includes(String(request.status).toLowerCase()))} onClick={() => void requestProject(project)} className="eyebrow w-full rounded-lg border border-[#d8b66b] bg-[#071b38] px-4 py-3 text-[0.6rem] font-semibold tracking-widest text-[#f1d28d] transition hover:bg-[#10294b] disabled:cursor-not-allowed disabled:opacity-40">{busyProject === project.id ? 'Sending…' : requests.some((request) => request.user_id === currentUserId && request.property_id === project.id && !['rejected', 'cancelled'].includes(String(request.status).toLowerCase())) ? 'Already ordered' : 'Order project'}</button></div> : <p className="mt-5 border border-dashed border-border p-3 text-xs text-ink-soft">Awaiting admin price and order settings</p>}</div>
                         </article>
                       })}
-                      {projectCards.length === 0 ? <p className="border border-border bg-card p-6 text-sm text-ink-soft sm:col-span-2 xl:col-span-4">No properties match these filters. Try another search or choose All properties.</p> : null}
+                      {projectCards.length === 0 ? <p className="border border-border bg-card p-6 text-sm text-ink-soft sm:col-span-2 xl:col-span-4">No properties are available in this group yet.</p> : null}
                     </div>
-                    <div className="mx-auto mt-5 max-w-3xl text-center text-xs text-ink-soft">Property {Math.min(currentProjectIndex + 1, projectCards.length)} of {projectCards.length}</div>
                     </>
                   )}
                 </>
