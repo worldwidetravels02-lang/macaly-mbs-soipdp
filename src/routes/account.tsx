@@ -27,6 +27,7 @@ export const Route = createFileRoute('/account')({ component: AccountPage })
 function AccountPage() {
   const navigate = useNavigate()
   const [userId,setUserId] = useState('')
+  const [memberCode,setMemberCode] = useState<number | null>(null)
   const [name,setName] = useState('Member')
   const [mobile,setMobile] = useState('')
   const [email,setEmail] = useState('')
@@ -73,7 +74,7 @@ function AccountPage() {
       const id=auth.user.id
       setUserId(id); setEmail(auth.user.email ?? '')
       const [profile, wallet, tx, comm, topups, withdrawals, investments, bankRows, codeResult] = await Promise.all([
-        db.from('profiles').select('full_name,mobile,preferred_currency').eq('id',id).maybeSingle(),
+        db.from('profiles').select('full_name,mobile,preferred_currency,member_code').eq('id',id).maybeSingle(),
         db.from('wallet_balances').select('balance').eq('user_id',id).eq('currency','OMR').maybeSingle(),
         db.from('wallet_transactions').select('id,transaction_type,direction,amount,currency,status,description,created_at').eq('user_id',id).order('created_at',{ascending:false}).limit(300),
         db.from('commission_records').select('id,amount,currency,status,created_at,commission_type,description').eq('user_id',id).order('created_at',{ascending:false}).limit(300),
@@ -94,6 +95,7 @@ function AccountPage() {
       if(codeResult.error) throw new Error('Apply the account security migration first: '+codeResult.error.message)
       setName(profile.data?.full_name || auth.user.user_metadata?.full_name || auth.user.email?.split('@')[0] || 'Member')
       setMobile(profile.data?.mobile || auth.user.user_metadata?.mobile || '')
+      setMemberCode(profile.data?.member_code == null ? null : Number(profile.data.member_code))
       let savedCurrency: string | null = null
       try { savedCurrency = window.localStorage.getItem('msheireb-currency') } catch { /* optional */ }
       const preferredCurrency = savedCurrency && currencies.includes(savedCurrency as Currency)
@@ -217,7 +219,7 @@ function AccountPage() {
       {loading?<div className="rounded-xl border bg-white p-8 text-center text-sm text-[#777]">Loading your account…</div>:!userId?<div className="rounded-xl border bg-white p-8">Please <Link to="/login" className="underline">sign in</Link> to view your account.</div>:<>
         <section className="grid gap-3 rounded-xl border border-[#e4dfd8] bg-white p-4 shadow-sm md:grid-cols-[1fr_1fr] md:p-5">
           <div className="flex items-center gap-4"><div className="grid h-20 w-20 shrink-0 place-items-center rounded-full border-4 border-[#faf7f3] bg-[#f5f1ef] text-3xl font-semibold">{name.slice(0,1).toUpperCase()}</div><div className="min-w-0"><div className="flex items-center gap-2"><h1 className="text-xl font-semibold">{name}</h1><span className="rounded-full bg-[#f1e9e7] px-2 py-1 text-[10px]">Active</span></div><p className="text-xs text-[#85817b]">Mobile · {mobile || 'Not added'}</p>
-              <p className="text-xs text-[#85817b]">User ID · {userId}</p></div></div>
+              <p className="text-xs text-[#85817b]">Member ID · {memberCode == null ? '—' : String(memberCode).padStart(4, '0')}</p></div></div>
           <div className="grid grid-cols-2 gap-2"><Stat value={String(projects)} label="Projects"/><Stat value={displayMoney(trialBonus)} label="Trial bonus"/><Stat value={displayMoney(todayRevenue)} label="Today's revenue"/><Stat value={displayMoney(hold)} label="On hold"/></div>
           <div className="grid gap-2 sm:col-span-2 sm:grid-cols-2"><div className="flex items-center justify-between rounded-lg bg-[#201d1b] px-4 py-4 text-sm text-white"><span>Wallet balance</span><strong>{displayMoney(balance)}</strong></div><div className="flex items-center justify-between rounded-lg bg-[#f6edd4] px-4 py-4 text-sm text-[#625638]"><span>Hold balance</span><strong>{displayMoney(hold)}</strong></div></div>
           <p className="text-xs text-[#85817b] sm:col-span-2">Total commission: <strong>{displayMoney(totalCommission)}</strong></p>
