@@ -191,6 +191,8 @@ begin
     raise exception 'Only approved investment requests can be funded';
   end if;
   perform 1 from auth.users where id = v_request.user_id for update;
+  -- Serialize funding with withdrawals, wallet holds and new project-order reservations.
+  perform pg_advisory_xact_lock(hashtextextended(v_request.user_id::text || ':OMR', 0));
 
   if v_request.plan_code = 'project_order' then
     if v_request.currency <> 'OMR' then
@@ -478,6 +480,8 @@ begin
     raise exception 'Sign in required' using errcode = '42501';
   end if;
   perform 1 from auth.users where id = v_user_id for update;
+  -- Share the same per-customer OMR lock as withdrawals and admin wallet holds.
+  perform pg_advisory_xact_lock(hashtextextended(v_user_id::text || ':OMR', 0));
 
   select * into v_property
   from public.properties
