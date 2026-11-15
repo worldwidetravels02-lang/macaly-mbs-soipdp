@@ -74,7 +74,14 @@ function AccountPage() {
       if(!auth.user){setUserId('');return}
       const id=auth.user.id
       setUserId(id); setEmail(auth.user.email ?? '')
-      const [profile, wallet, tx, comm, topups, withdrawals, investments, bankRows, codeResult, holdRows, trialBonusRows] = await Promise.all([
+      const omanDateParts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Muscat', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date())
+      const omanYear = Number(omanDateParts.find(p => p.type === 'year')?.value)
+      const omanMonth = Number(omanDateParts.find(p => p.type === 'month')?.value)
+      const omanDay = Number(omanDateParts.find(p => p.type === 'day')?.value)
+      // Oman is UTC+4. Query the exact local day so the daily total is not limited by the 300-row history page.
+      const omanDayStart = new Date(Date.UTC(omanYear, omanMonth - 1, omanDay) - 4 * 60 * 60 * 1000).toISOString()
+      const omanNextDayStart = new Date(Date.UTC(omanYear, omanMonth - 1, omanDay + 1) - 4 * 60 * 60 * 1000).toISOString()
+      const [profile, wallet, tx, comm, topups, withdrawals, investments, bankRows, codeResult, holdRows, trialBonusRows, todayCommissionCredits] = await Promise.all([
         db.from('profiles').select('full_name,mobile,preferred_currency,member_code').eq('id',id).maybeSingle(),
         db.from('wallet_balances').select('balance').eq('user_id',id).eq('currency','OMR').maybeSingle(),
         db.from('wallet_transactions').select('id,transaction_type,direction,amount,currency,status,description,created_at').eq('user_id',id).order('created_at',{ascending:false}).limit(300),
@@ -86,6 +93,7 @@ function AccountPage() {
         db.rpc('member_has_withdrawal_password'),
         db.from('wallet_holds').select('amount,released_amount,currency,status').eq('user_id',id).eq('status','active'),
         db.from('trial_bonus_transactions').select('id,direction,amount,currency,description,created_at').eq('user_id',id).order('created_at',{ascending:false}).limit(300),
+        db.from('wallet_transactions').select('amount').eq('user_id',id).eq('transaction_type','commission').eq('direction','credit').eq('status','posted').eq('currency','OMR').gte('created_at',omanDayStart).lt('created_at',omanNextDayStart),
       ])
       if(profile.error) throw profile.error
       if(wallet.error) throw wallet.error
@@ -116,11 +124,11 @@ function AccountPage() {
       setHasWithdrawalCode(Boolean(codeResult.data))
       setProjects(investments.data?.length ?? 0)
       const commissionRows=(comm.data ?? []) as any[]
-      const omanDateParts=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Muscat',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date())
-      const omanToday=`${omanDateParts.find(p=>p.type==='year')?.value}-${omanDateParts.find(p=>p.type==='month')?.value}-${omanDateParts.find(p=>p.type==='day')?.value}`
       const creditedCommissions=commissionRows.filter(r=>r.currency==='OMR' && norm(r.status)==='credited')
       setTotalCommission(creditedCommissions.reduce((n,r)=>n+Number(r.amount||0),0))
-      setTodayRevenue(creditedCommissions.filter(r=>new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Muscat',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(r.created_at)).split('/').reverse().join('-')===omanToday).reduce((n,r)=>n+Number(r.amount||0),0))
+      if (todayCommissionCredits.error) throw todayCommissionCredits.error
+      // Today’s Revenue reflects commission money actually posted to the wallet today, not when a pending commission was first created.
+      setTodayRevenue((todayCommissionCredits.data ?? []).reduce((n:number,r:any)=>n+Number(r.amount||0),0))
       const trialBonusEntries=(trialBonusRows.data ?? []) as any[]
       setTrialBonus(trialBonusEntries.filter(r=>r.currency==='OMR').reduce((n,r)=>n+(r.direction==='credit'?1:-1)*Number(r.amount||0),0))
       const mapped:RecordRow[]=[]
