@@ -15,11 +15,19 @@ type Row = any
 type Section = 'overview' | 'properties' | 'enquiries' | 'users' | 'promotions' | 'finance' | 'investments' | 'commissions' | 'verifications' | 'tasks' | 'payments' | 'content' | 'team' | 'support' | 'settings' | 'transactions'
 const SECTIONS: { id: Section; label: string }[] = [
   { id: 'overview', label: 'Dashboard' },
-  { id: 'investments', label: 'Investment Requests' },
-  { id: 'users', label: 'Users' },
   { id: 'properties', label: 'Projects' },
+  { id: 'enquiries', label: 'Enquiries' },
+  { id: 'users', label: 'Users' },
+  { id: 'promotions', label: 'Promotions' },
   { id: 'finance', label: 'Cashout' },
+  { id: 'investments', label: 'Investment Requests' },
+  { id: 'commissions', label: 'Commissions' },
+  { id: 'verifications', label: 'Verifications' },
+  { id: 'tasks', label: 'Tasks' },
+  { id: 'payments', label: 'Payment Instructions' },
   { id: 'transactions', label: 'Transactions' },
+  { id: 'content', label: 'Website Content' },
+  { id: 'team', label: 'Team & Access' },
   { id: 'support', label: 'Support' },
   { id: 'settings', label: 'Settings' },
 ]
