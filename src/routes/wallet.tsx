@@ -61,6 +61,7 @@ function WalletPage() {
   const [fxDate, setFxDate] = useState('')
   const [fxError, setFxError] = useState('')
   const [balance, setBalance] = useState(0)
+  const [activeHolds, setActiveHolds] = useState(0)
   const [transactions, setTransactions] = useState<WalletRow[]>([])
   const [transactionLimit, setTransactionLimit] = useState(30)
   const [transactionFilter, setTransactionFilter] = useState<'all' | 'credit' | 'debit'>('all')
@@ -93,7 +94,7 @@ function WalletPage() {
         return
       }
       setUserId(authData.user.id)
-      const [profileResult, balanceResult, transactionResult, profitResult, commissionResult, topupResult, withdrawalResult, notificationResult] = await Promise.all([
+      const [profileResult, balanceResult, transactionResult, profitResult, commissionResult, topupResult, withdrawalResult, notificationResult, holdResult] = await Promise.all([
         client.from('profiles').select('preferred_currency').eq('id', authData.user.id).maybeSingle(),
         client.from('wallet_balances').select('balance').eq('user_id', authData.user.id).eq('currency', 'OMR').maybeSingle(),
         client.from('wallet_transactions').select('id,amount,currency,status,created_at,description,transaction_type,direction').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(transactionLimit),
@@ -102,6 +103,7 @@ function WalletPage() {
         client.from('topup_requests').select('id,amount,currency,status,created_at,admin_note').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(30),
         client.from('withdrawal_requests').select('id,amount,currency,status,created_at,admin_note,payout_method,payout_details').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(30),
         client.from('notifications').select('id,title,body,read_at,created_at').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(20),
+        client.from('wallet_holds').select('amount,released_amount,currency,status').eq('user_id', authData.user.id).eq('currency', 'OMR').eq('status', 'active'),
       ])
       const checks = [
         ['profiles', profileResult],
@@ -112,6 +114,7 @@ function WalletPage() {
         ['topup_requests', topupResult],
         ['withdrawal_requests', withdrawalResult],
         ['notifications', notificationResult],
+        ['wallet_holds', holdResult],
       ] as const
       for (const [table, result] of checks) {
         if (result.error) {
@@ -128,6 +131,7 @@ function WalletPage() {
         setCurrency(preferredCurrency as Currency)
       }
       setBalance(Number(balanceResult.data?.balance ?? 0))
+      setActiveHolds((holdResult.data ?? []).reduce((total, row) => total + Math.max(0, Number(row.amount) - Number(row.released_amount)), 0))
       setTransactions((transactionResult.data ?? []) as WalletRow[])
       setProfits((profitResult.data ?? []) as ProfitRow[])
       setCommissions((commissionResult.data ?? []) as CommissionRow[])
@@ -208,8 +212,8 @@ function WalletPage() {
       const reservedWithdrawals = withdrawals
         .filter((row) => row.currency === 'OMR' && ['pending', 'submitted', 'under_review', 'approved', 'processing', 'in_progress'].includes(normalizeStatus(row.status)))
         .reduce((total, row) => total + (Number(row.amount) || 0), 0)
-      if (amount + reservedWithdrawals > balance) {
-        setError(`Your request plus ${money(convertCurrency(reservedWithdrawals, 'OMR', currency, fxRates), currency)} in pending or approved withdrawals would exceed your available posted balance.`)
+      if (amount + reservedWithdrawals + activeHolds > balance) {
+        setError(`Your request plus ${money(convertCurrency(reservedWithdrawals, 'OMR', currency, fxRates), currency)} in active withdrawals and ${money(convertCurrency(activeHolds, 'OMR', currency, fxRates), currency)} on hold would exceed your available posted balance.`)
         return
       }
     }
@@ -230,8 +234,12 @@ function WalletPage() {
         const latestReserved = (latestWithdrawals ?? [])
           .filter((row) => activeStatuses.includes(String(row.status ?? '').toLowerCase().replace(/-/g, '_')))
           .reduce((total, row) => total + (Number(row.amount) || 0), 0)
-        if (amount + latestReserved > balance) {
-          throw new Error(`Your available balance has changed. Existing active withdrawals reserve ${money(convertCurrency(latestReserved, 'OMR', currency, fxRates), currency)}. Refresh your wallet and try again.`)
+        const { data: latestHolds, error: latestHoldError } = await client
+          .from('wallet_holds').select('amount,released_amount').eq('user_id', authData.user.id).eq('currency', 'OMR').eq('status', 'active')
+        if (latestHoldError) throw latestHoldError
+        const latestHeld = (latestHolds ?? []).reduce((total, row) => total + Math.max(0, Number(row.amount) - Number(row.released_amount)), 0)
+        if (amount + latestReserved + latestHeld > balance) {
+          throw new Error(`Your available balance has changed. Active withdrawals reserve ${money(convertCurrency(latestReserved, 'OMR', currency, fxRates), currency)} and wallet holds reserve ${money(convertCurrency(latestHeld, 'OMR', currency, fxRates), currency)}. Refresh your wallet and try again.`)
         }
       }
       const table = kind === 'deposit' ? 'topup_requests' : 'withdrawal_requests'
@@ -288,7 +296,7 @@ function WalletPage() {
   const reservedWithdrawalAmount = withdrawals
     .filter((row) => row.currency === 'OMR' && ['pending', 'submitted', 'under_review', 'approved', 'processing', 'in_progress'].includes(normalizeStatus(row.status)))
     .reduce((total, row) => total + (Number(row.amount) || 0), 0)
-  const withdrawableAmount = Math.max(0, balance - reservedWithdrawalAmount)
+  const withdrawableAmount = Math.max(0, balance - reservedWithdrawalAmount - activeHolds)
   const displayMoney = (value: number | string, source: Currency) => money(convertCurrency(value, source, currency, fxRates), currency)
 
   const currencyTransactions = transactions
@@ -351,7 +359,7 @@ function WalletPage() {
                 <p className="mt-1 text-xs text-ink-soft">{currency === 'OMR' ? 'OMR is the wallet base currency.' : fxRates[currency] ? `1 OMR = ${fxRates[currency].toFixed(6)} ${currency}` : 'Exchange rate unavailable.'} {fxDate ? `Rate updated: ${fxDate}` : 'Reference rates in use.'} · Auto-refresh every 5 minutes.</p>
                 {fxError ? <p role="status" className="mt-1 text-xs text-amber-700">{fxError} Reference rates are being used until live rates return.</p> : null}
                 <p className="mt-2 text-xs text-ink-soft">Calculated from posted ledger entries only.</p>
-                <p className="mt-2 text-xs text-ink-soft">Reserved in pending, approved or processing withdrawals: {money(convertCurrency(reservedWithdrawalAmount, 'OMR', currency, fxRates), currency)}. New requests are checked against this amount.</p>
+                <p className="mt-2 text-xs text-ink-soft">Reserved in pending, approved or processing withdrawals: {money(convertCurrency(reservedWithdrawalAmount, 'OMR', currency, fxRates), currency)}. Active wallet holds: {money(convertCurrency(activeHolds, 'OMR', currency, fxRates), currency)}. Both are deducted before new withdrawal requests.</p>
               </div>
               <div className="border border-border bg-card p-6">
                 <p className="eyebrow text-[0.5rem] text-ink-soft">Credited profit total</p>
