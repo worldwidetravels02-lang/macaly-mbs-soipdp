@@ -22,6 +22,7 @@ type Project = {
   order_percentages: number[]
   cover_image_url: string | null
   project_level: string
+  set_number: number
   sort_order: number
 }
 type ProjectRequest = { user_id: string; property_id: string | null; status: string }
@@ -44,6 +45,8 @@ function ResidencesPage() {
   const [signedIn, setSignedIn] = useState(false)
   const [projects, setProjects] = useState<Project[]>([])
   const [customerLevelAccess, setCustomerLevelAccess] = useState<{ user_id: string; level_name: string; is_unlocked: boolean }[]>([])
+  const [customerSetAccess, setCustomerSetAccess] = useState<{ user_id: string; level_name: string; set_number: number; is_unlocked: boolean }[]>([])
+  const [selectedSet, setSelectedSet] = useState(1)
   const [currentUserId, setCurrentUserId] = useState('')
   const [requests, setRequests] = useState<ProjectRequest[]>([])
   const [selectedLevel, setSelectedLevel] = useState<string>(search.level ?? 'Junior Trial')
@@ -67,6 +70,7 @@ function ResidencesPage() {
     if (search.level && LEVELS.includes(search.level as typeof LEVELS[number])) {
       setSelectedLevel(search.level)
       setCurrentProjectIndex(0)
+      setSelectedSet(1)
     }
   }, [search.level])
 
@@ -91,14 +95,16 @@ function ResidencesPage() {
     setLoadingProjects(true)
     ;(async () => {
       const client = requireSupabase()
-      const [propertyResult, userResult, accessResult] = await Promise.all([
-        client.from('properties').select('id,slug,name,location,description,price_label,price_amount,order_percentages,cover_image_url,project_level,sort_order').eq('status', 'published').not('project_level', 'is', null).order('sort_order', { ascending: true }),
+      const [propertyResult, userResult, accessResult, setAccessResult] = await Promise.all([
+        client.from('properties').select('id,slug,name,location,description,price_label,price_amount,order_percentages,cover_image_url,project_level,set_number,sort_order').eq('status', 'published').not('project_level', 'is', null).order('sort_order', { ascending: true }),
         client.auth.getUser(),
         client.from('customer_project_level_access').select('user_id,level_name,is_unlocked'),
+        client.from('customer_project_set_access').select('user_id,level_name,set_number,is_unlocked'),
       ])
       if (propertyResult.error) throw propertyResult.error
       if (userResult.error) throw userResult.error
       if (accessResult.error) throw accessResult.error
+      if (setAccessResult.error) throw setAccessResult.error
       if (!userResult.data.user) throw new Error('Please sign in to view the project catalogue.')
       const [requestResult, trialBonusResult] = await Promise.all([
         client.from('investment_requests').select('user_id,property_id,status').eq('user_id', userResult.data.user.id).order('created_at', { ascending: false }),
@@ -112,6 +118,7 @@ function ResidencesPage() {
       setCurrentUserId(userResult.data.user.id)
       setCurrentUserName(String(userResult.data.user.user_metadata?.full_name || userResult.data.user.email?.split('@')[0] || 'Member'))
       setCustomerLevelAccess((accessResult.data ?? []) as { user_id: string; level_name: string; is_unlocked: boolean }[])
+      setCustomerSetAccess((setAccessResult.data ?? []) as { user_id: string; level_name: string; set_number: number; is_unlocked: boolean }[])
       const trialBonusBalance = (trialBonusResult.data ?? []).filter((entry) => entry.currency === 'OMR').reduce((total, entry) => total + (entry.direction === 'credit' ? 1 : -1) * Number(entry.amount || 0), 0)
       if (!active) return
       setTrialBonusBalanceOmr(Math.max(0, trialBonusBalance))
@@ -121,8 +128,8 @@ function ResidencesPage() {
     return () => { active = false }
   }, [signedIn])
 
-  const currentLevelUnlocked = customerLevelAccess.find((item) => item.user_id === currentUserId && item.level_name === selectedLevel)?.is_unlocked ?? selectedLevel === 'Junior Trial'
-  const levelProjects = useMemo(() => projects.filter((project) => project.project_level === selectedLevel), [projects, selectedLevel])
+  const currentLevelUnlocked = (customerLevelAccess.find((item) => item.user_id === currentUserId && item.level_name === selectedLevel)?.is_unlocked ?? selectedLevel === 'Junior Trial') && (customerSetAccess.find((item) => item.user_id === currentUserId && item.level_name === selectedLevel && item.set_number === selectedSet)?.is_unlocked ?? selectedSet === 1)
+  const levelProjects = useMemo(() => projects.filter((project) => project.project_level === selectedLevel && Number(project.set_number) === selectedSet), [projects, selectedLevel, selectedSet])
   const visibleProjects = useMemo(() => {
     const rows = [...levelProjects]
     if (projectSort === 'name') rows.sort((a, b) => a.name.localeCompare(b.name))
@@ -144,8 +151,8 @@ function ResidencesPage() {
   }, [orderedPropertyIds])
 
   useEffect(() => {
-    if (fundedPropertyIds.size < 20 || completionShownRef.current === selectedLevel) return
-    completionShownRef.current = selectedLevel
+    if (fundedPropertyIds.size < 20 || completionShownRef.current === `${selectedLevel}:${selectedSet}`) return
+    completionShownRef.current = `${selectedLevel}:${selectedSet}`
     setCompletedLevel(selectedLevel)
     setNotice(`Congratulations 🎉 Successful complete the ${selectedLevel}!`)
     setSuccessPopup(true)
@@ -251,7 +258,7 @@ function ResidencesPage() {
                   const startingPrice = prices.length ? Math.min(...prices) : null
                   const percentages = levelProperties.flatMap((project) => project.order_percentages ?? []).filter((value) => Number.isFinite(Number(value)))
                   const commissionLabel = percentages.length ? `${Math.min(...percentages)}–${Math.max(...percentages)}%` : 'Set by admin'
-                  return <button key={level} type="button" disabled={!unlocked} onClick={() => { setSelectedLevel(level); setCurrentProjectIndex(0); void navigate({ to: '/residences/', search: { level } }) }} className="group relative flex min-h-[500px] flex-col overflow-hidden rounded-2xl border border-[#d8b66b] bg-white text-left shadow-lg shadow-[#071b38]/15 transition duration-300 hover:-translate-y-1 hover:shadow-2xl disabled:cursor-not-allowed disabled:hover:translate-y-0">
+                  return <button key={level} type="button" disabled={!unlocked} onClick={() => { setSelectedLevel(level); setSelectedSet(1); setCurrentProjectIndex(0); void navigate({ to: '/residences/', search: { level } }) }} className="group relative flex min-h-[500px] flex-col overflow-hidden rounded-2xl border border-[#d8b66b] bg-white text-left shadow-lg shadow-[#071b38]/15 transition duration-300 hover:-translate-y-1 hover:shadow-2xl disabled:cursor-not-allowed disabled:hover:translate-y-0">
                     <div className="relative h-[170px] w-full overflow-hidden">
                       <img src={levelImage} alt="" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
                       <span className="absolute left-3 top-3 rounded-full border border-[#f1d28d]/80 bg-[#071b38]/90 px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#f1d28d]">{count} {count === 1 ? 'property' : 'properties'}</span>
@@ -283,7 +290,14 @@ function ResidencesPage() {
                 <div><p className="eyebrow text-brass">Selected group</p><h2 className="display mt-2 text-3xl">{selectedLevel === "Junior Trial" ? "Junior (Trial)" : selectedLevel}</h2></div>
 
               </div>
-              {!currentLevelUnlocked ? <p className="mt-6 border border-border p-5 text-sm text-ink-soft">This level is locked. Contact the administrator to request access.</p> : (
+              <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3" aria-label="Project badges">{[1, 2, 3].map((setNumber) => {
+                const access = customerSetAccess.find((item) => item.user_id === currentUserId && item.level_name === selectedLevel && item.set_number === setNumber)
+                const unlocked = access?.is_unlocked ?? setNumber === 1
+                const setPropertyIds = new Set(projects.filter((project) => project.project_level === selectedLevel && Number(project.set_number) === setNumber).map((project) => project.id))
+                const completed = requests.filter((request) => request.user_id === currentUserId && request.property_id && setPropertyIds.has(request.property_id) && String(request.status).toLowerCase() === 'funded').length
+                return <button key={setNumber} type="button" disabled={!unlocked} onClick={() => { setSelectedSet(setNumber); setCurrentProjectIndex(0); setError(''); setNotice('') }} className={`rounded-xl border-2 p-4 text-left transition ${selectedSet === setNumber ? 'border-[#d8b66b] bg-[#071b38] text-white' : 'border-[#d8b66b]/50 bg-white text-[#071b38]'} ${!unlocked ? 'cursor-not-allowed opacity-50' : 'hover:border-[#d8b66b]'}`}><span className="flex items-center justify-between"><strong className="display text-lg">Badge {setNumber}</strong><span>{unlocked ? '🏅' : '🔒'}</span></span><span className={`mt-2 block text-xs ${selectedSet === setNumber ? 'text-white/75' : 'text-ink-soft'}`}>{completed} / 20 properties funded</span><span className={`mt-1 block text-[10px] font-semibold uppercase tracking-widest ${selectedSet === setNumber ? 'text-[#f1d28d]' : 'text-[#9a793b]'}`}>{unlocked ? 'Unlocked' : 'Locked by administrator'}</span></button>
+              })}</div>
+              {!currentLevelUnlocked ? <p className="mt-6 border border-border p-5 text-sm text-ink-soft">This badge is locked. The administrator must unlock it before you can continue.</p> : (
                 <>
                   {loadingProjects ? <p className="mt-8 text-sm text-ink-soft">Loading projects…</p> : (
                     <>
