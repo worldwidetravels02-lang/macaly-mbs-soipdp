@@ -149,8 +149,9 @@ function AdminPage() {
     void loadAdminData()
     if (!supabase) return
     const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      // Keep the displayed session in sync. Do not run Supabase queries inside
+      // this callback; doing so can block auth state processing.
       setSession(nextSession)
-      void loadAdminData()
     })
     return () => data.subscription.unsubscribe()
   }, [loadAdminData])
@@ -160,12 +161,17 @@ function AdminPage() {
     if (!supabase) return
     const form = new FormData(event.currentTarget)
     setBusy(true); setError(null)
-    const { error: signInError } = await supabase.auth.signInWithPassword({
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
       email: String(form.get('email') ?? '').trim(),
       password: String(form.get('password') ?? ''),
     })
-    if (signInError) setError(signInError.message)
-    else await loadAdminData()
+    if (signInError) {
+      setError(signInError.message)
+    } else {
+      // Show the authenticated session immediately, then load admin membership/data.
+      setSession(signInData.session)
+      await loadAdminData()
+    }
     setBusy(false)
   }
 
