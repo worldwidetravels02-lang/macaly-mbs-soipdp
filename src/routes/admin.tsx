@@ -12,10 +12,11 @@ import siteMetadata from '../metadata.json'
 // Admin data spans several Supabase tables whose generated client schema is not yet unified.
 // Keep these dynamically selected admin rows flexible until database.types.ts is generated.
 type Row = any
-type Section = 'overview' | 'properties' | 'enquiries' | 'users' | 'promotions' | 'finance' | 'investments' | 'commissions' | 'verifications' | 'tasks' | 'payments' | 'content' | 'team' | 'support' | 'settings' | 'transactions'
+type Section = 'overview' | 'properties' | 'badges' | 'enquiries' | 'users' | 'promotions' | 'finance' | 'investments' | 'commissions' | 'verifications' | 'tasks' | 'payments' | 'content' | 'team' | 'support' | 'settings' | 'transactions'
 const SECTIONS: { id: Section; label: string }[] = [
   { id: 'overview', label: 'Dashboard' },
   { id: 'properties', label: 'Projects' },
+  { id: 'badges', label: 'Badge Management' },
   { id: 'enquiries', label: 'Enquiries' },
   { id: 'users', label: 'Users' },
   { id: 'promotions', label: 'Promotions' },
@@ -72,6 +73,8 @@ function AdminPage() {
   const [currentOwnerPin, setCurrentOwnerPin] = useState('')
   const [checking, setChecking] = useState(true)
   const [section, setSection] = useState<Section>('overview')
+  const [selectedBadgeId, setSelectedBadgeId] = useState('')
+  const [badgeCustomerId, setBadgeCustomerId] = useState('')
   const [rows, setRows] = useState<Record<string, Row[]>>({})
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState('')
@@ -211,6 +214,10 @@ function AdminPage() {
         financialAudit: client.from('financial_audit_log').select('*').order('created_at', { ascending: false }).limit(200),
         walletTransactions: client.from('wallet_transactions').select('*').order('created_at', { ascending: false }).limit(200),
         walletHolds: client.from('wallet_holds').select('*').order('created_at', { ascending: false }).limit(200),
+        badges: client.from('project_badges').select('id,level,badge_number,title,icon,is_locked').order('level').order('badge_number'),
+        badgeAssignments: client.from('project_badge_properties').select('id,badge_id,property_id,position').order('position'),
+        badgeProgress: client.from('member_badge_progress').select('id,user_id,badge_id,status,support_requested_at,unlocked_at,completed_at'),
+        badgeOrders: client.from('member_project_orders').select('id,user_id,badge_id,property_id,status,ordered_at,completed_at').order('ordered_at', { ascending: false }).limit(300),
       }
       const names = Object.keys(queries)
       const results = await Promise.all(names.map((name) => queries[name]))
@@ -688,6 +695,71 @@ function AdminPage() {
     try { await work(); await load(); setError(''); setNotice(success) }
     catch (cause) { setError(errorMessage(cause, 'The action could not be completed.')) }
     finally { setBusy(false) }
+  }
+
+  const badgeAssignments = rows.badgeAssignments ?? []
+  const badgeProgress = rows.badgeProgress ?? []
+  const badgeOrders = rows.badgeOrders ?? []
+  const selectedBadge = (rows.badges ?? []).find((item) => text(item.id) === selectedBadgeId)
+  const assignBadgeProperty = async (propertyId: string) => {
+    if (!selectedBadge) return
+    await run(async () => {
+      const assigned = badgeAssignments.filter((item) => item.badge_id === selectedBadge.id)
+      if (!selectedBadge.is_locked) throw new Error('Lock this badge before changing its properties.')
+      if (assigned.length >= 20) throw new Error('This badge already contains 20 properties.')
+      if (badgeAssignments.some((item) => item.property_id === propertyId && (rows.badges ?? []).some((badge) => badge.id === item.badge_id && badge.level === selectedBadge.level))) throw new Error('This property is already assigned to another badge in this level.')
+      const { error: insertError } = await requireSupabase().from('project_badge_properties').insert({ badge_id: selectedBadge.id, property_id: propertyId, position: assigned.length + 1 })
+      if (insertError) throw insertError
+    }, 'Property assigned to badge.')
+  }
+  const removeBadgeProperty = async (assignmentId: string) => {
+    if (!selectedBadge?.is_locked) { setError('Lock this badge before removing properties.'); return }
+    await run(async () => {
+      const { error: deleteError } = await requireSupabase().from('project_badge_properties').delete().eq('id', assignmentId)
+      if (deleteError) throw deleteError
+    }, 'Property removed from badge.')
+  }
+  const toggleBadgeLock = async () => {
+    if (!selectedBadge) return
+    await run(async () => {
+      const count = badgeAssignments.filter((item) => item.badge_id === selectedBadge.id).length
+      if (selectedBadge.is_locked && count !== 20) throw new Error('Assign exactly 20 properties before unlocking this badge.')
+      const { error: updateError } = await requireSupabase().from('project_badges').update({ is_locked: !selectedBadge.is_locked, updated_at: new Date().toISOString() }).eq('id', selectedBadge.id)
+      if (updateError) throw updateError
+    }, selectedBadge.is_locked ? 'Badge unlocked.' : 'Badge locked.')
+  }
+  const activateCustomerBadgeLevel = async () => {
+    if (!badgeCustomerId || !selectedBadge) { setError('Choose a customer and a badge level first.'); return }
+    await run(async () => {
+      const levelBadges = (rows.badges ?? []).filter((item) => item.level === selectedBadge.level).sort((a, b) => Number(a.badge_number) - Number(b.badge_number))
+      if (levelBadges.length !== 3) throw new Error('The three badge definitions for this level are missing. Check that the badge migration is applied in Supabase.')
+      if (badgeProgress.some((item) => item.user_id === badgeCustomerId)) throw new Error('This customer already has a badge level assigned.')
+      if (levelBadges[0].is_locked) throw new Error('Unlock Badge 1 in the catalogue before activating this customer level.')
+      const { error: insertError } = await requireSupabase().from('member_badge_progress').insert(levelBadges.map((badge, index) => ({ user_id: badgeCustomerId, badge_id: badge.id, status: index === 0 ? 'unlocked' : 'locked', unlocked_at: index === 0 ? new Date().toISOString() : null })))
+      if (insertError) throw insertError
+    }, 'Badge level activated for customer.')
+  }
+  const approveCustomerBadgeUnlock = async (progressRow: Row) => {
+    const badge = (rows.badges ?? []).find((item) => item.id === progressRow.badge_id)
+    if (!badge || progressRow.status !== 'support_requested') { setError('This customer has no pending request for this badge.'); return }
+    await run(async () => {
+      if (badge.is_locked) throw new Error('Unlock this badge in the catalogue first.')
+      if (Number(badge.badge_number) > 1) {
+        const previous = (rows.badges ?? []).find((item) => item.level === badge.level && Number(item.badge_number) === Number(badge.badge_number) - 1)
+        const previousProgress = previous && badgeProgress.find((item) => item.user_id === progressRow.user_id && item.badge_id === previous.id)
+        if (!previousProgress || previousProgress.status !== 'completed') throw new Error('The customer must complete the previous badge first.')
+      }
+      const count = badgeAssignments.filter((item) => item.badge_id === badge.id).length
+      if (count !== 20) throw new Error('Assign exactly 20 properties before approving this badge.')
+      const { error: updateError } = await requireSupabase().from('member_badge_progress').update({ status: 'unlocked', unlocked_at: new Date().toISOString() }).eq('id', progressRow.id)
+      if (updateError) throw updateError
+    }, 'Next badge unlocked for customer.')
+  }
+  const completeCustomerBadgeOrder = async (orderId: string) => {
+    await run(async () => {
+      const { error: updateError } = await requireSupabase().from('member_project_orders').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', orderId)
+      if (updateError) throw updateError
+    }, 'Customer property order marked completed.')
   }
 
   const saveProperty = async (event: FormEvent<HTMLFormElement>) => {
@@ -1170,6 +1242,43 @@ function AdminPage() {
               </div></form>
               <div className="border border-border bg-card"><div className="grid gap-4 border-b border-border px-5 py-4"><div><h2 className="display text-xl">Property catalogue</h2><p className="mt-1 text-xs text-ink-soft">{propertyCatalogueLevel} · Showing {filteredProperties.length} of 20 project slots</p></div><div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{['Junior Trial','Senior','Master','Expert'].map((levelName) => { const count = (rows.properties ?? []).filter((item) => text(item.project_level).trim().toLowerCase() === levelName.toLowerCase()).length; return <button key={levelName} type="button" onClick={() => setPropertyCatalogueLevel(levelName)} className={propertyCatalogueLevel === levelName ? buttonClass + ' w-full' : softButton + ' w-full'}>{levelName}<span className="ml-1 opacity-75">({count}/20)</span></button> })}</div><div className="grid gap-2 sm:grid-cols-[1fr_auto]"><input aria-label="Search properties" className={inputClass} value={propertySearch} onChange={(event) => setPropertySearch(event.target.value)} placeholder="Name, location, slug or price" /><div className="flex gap-2"><select aria-label="Filter property status" className={inputClass} value={propertyStatusFilter} onChange={(event) => setPropertyStatusFilter(event.target.value)}><option value="all">All statuses</option><option value="published">Published</option><option value="draft">Draft</option></select><button type="button" className={softButton} onClick={() => { setPropertySearch(""); setPropertyStatusFilter("all") }}>Clear</button></div></div><div className="divide-y divide-border">{filteredProperties.map((item) => <div key={item.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"><div><b className="text-sm">{text(item.name)}</b><p className="mt-1 text-xs text-ink-soft">{text(item.location)} · {text(item.price_label)} · {item.price_amount ? money(item.price_amount, 'OMR') : 'No numeric price'} · {text(item.project_level) || 'Unassigned'} · Order {text(item.sort_order || 0)}</p><p className="mt-1 text-[0.65rem] text-ink-soft">Order buttons: {(Array.isArray(item.order_percentages) ? item.order_percentages : [10,25,50,75,100]).join('% · ')}%</p><p className="mt-1 text-[0.65rem] text-ink-soft">{text(item.slug)}</p></div><div className="flex flex-wrap gap-2"><span className="eyebrow self-center text-[0.48rem] text-brass">{text(item.status)}</span><button disabled={busy} className={softButton} onClick={() => { setEditingPropertyId(text(item.id)); setOrderPercentagesInput((Array.isArray(item.order_percentages) && item.order_percentages.length ? item.order_percentages : [10,25,50,75,100]).join(', ')); setPropertyDraft({ name: text(item.name), slug: text(item.slug), location: text(item.location), description: text(item.description), price_label: text(item.price_label), price_amount: item.price_amount == null ? '' : text(item.price_amount), order_percentages: Array.isArray(item.order_percentages) ? item.order_percentages.map(Number) : [10,25,50,75,100], cover_image_url: text(item.cover_image_url), project_level: text(item.project_level) || 'Junior Trial', sort_order: text(item.sort_order) || '0', status: text(item.status) }); setError(''); setNotice('Project loaded into the editor. Scroll to the project form to make your changes.'); document.getElementById('property-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}>Edit</button><button disabled={busy} type="button" className={softButton} onClick={() => { setEditingPropertyId(text(item.id)); setOrderPercentagesInput((Array.isArray(item.order_percentages) && item.order_percentages.length ? item.order_percentages : [10,25,50,75,100]).join(', ')); setPropertyDraft({ name: text(item.name), slug: text(item.slug), location: text(item.location), description: text(item.description), price_label: text(item.price_label), price_amount: item.price_amount == null ? '' : text(item.price_amount), order_percentages: Array.isArray(item.order_percentages) ? item.order_percentages.map(Number) : [10,25,50,75,100], cover_image_url: text(item.cover_image_url), project_level: text(item.project_level) || 'Junior Trial', sort_order: text(item.sort_order) || '0', status: text(item.status) }); setError(''); setNotice('Set the confirmed price and customer percentage options, then save.'); document.getElementById('property-editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}>Set price</button>{item.status !== 'published' ? <button disabled={busy} onClick={() => updateStatus('properties', text(item.id), { status: 'published', updated_at: new Date().toISOString() }, 'Property published.')} className={softButton}>Publish</button> : <button disabled={busy} onClick={() => updateStatus('properties', text(item.id), { status: 'draft', updated_at: new Date().toISOString() }, 'Property moved to draft.')} className={softButton}>Unpublish</button>}</div></div>)}{!filteredProperties.length ? <p className="p-6 text-sm text-ink-soft">{(rows.properties ?? []).length ? 'No properties match these filters.' : 'No properties yet.'}</p> : null}</div></div></div>
               </section>
+            </section> : null}
+
+            {section === 'badges' ? <section className="grid gap-6">
+              <div><h1 className="display text-2xl">Badge management</h1><p className="mt-2 text-sm text-ink-soft">Manage Senior, Master and Expert badges. Each badge is controlled as one complete set of 20 properties. Junior Trial is managed separately.</p></div>
+              {!(rows.badges ?? []).length ? <div className="border border-brass/40 bg-card p-5 text-sm">No badge definitions were returned. Confirm the badge migrations are installed in Supabase and refresh this page.</div> : <>
+                <section className="grid gap-4 border border-border bg-card p-5">
+                  <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+                    <label className="grid gap-2 text-xs text-ink-soft">Select badge
+                      <select className={inputClass} value={selectedBadgeId} onChange={(event) => setSelectedBadgeId(event.target.value)}>
+                        {(rows.badges ?? []).map((badge) => <option key={badge.id} value={badge.id}>{badge.level} · Badge {badge.badge_number}</option>)}
+                      </select>
+                    </label>
+                    {selectedBadge ? <button type="button" disabled={busy} onClick={() => void toggleBadgeLock()} className={buttonClass}>{selectedBadge.is_locked ? 'Unlock complete badge' : 'Lock badge for editing'}</button> : null}
+                  </div>
+                  {selectedBadge ? <><div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4"><div><h2 className="display text-xl">{selectedBadge.level} · {selectedBadge.title}</h2><p className="mt-1 text-xs text-ink-soft">{badgeAssignments.filter((item) => item.badge_id === selectedBadge.id).length} / 20 properties assigned</p></div><span className="border border-border px-3 py-2 text-xs">{selectedBadge.is_locked ? 'Locked' : 'Unlocked'}</span></div>
+                    <div className="grid gap-2">{badgeAssignments.filter((item) => item.badge_id === selectedBadge.id).sort((a,b) => Number(a.position)-Number(b.position)).map((assignment) => { const property=(rows.properties ?? []).find((item) => item.id === assignment.property_id); return <div key={assignment.id} className="flex flex-wrap items-center justify-between gap-3 border-t border-border py-3"><div><p className="text-sm font-medium">{text(property?.name) || 'Property not found'}</p><p className="text-xs text-ink-soft">Position {assignment.position} · {text(property?.location)}</p></div><button type="button" disabled={busy || !selectedBadge.is_locked} onClick={() => void removeBadgeProperty(text(assignment.id))} className={softButton}>Remove</button></div> })}</div>
+                    <label className="grid gap-2 border-t border-border pt-4 text-xs text-ink-soft">Add property to this badge (only while locked)
+                      <select className={inputClass} defaultValue="" disabled={busy || !selectedBadge.is_locked || badgeAssignments.filter((item) => item.badge_id === selectedBadge.id).length >= 20} onChange={(event) => { const value=event.target.value; if(value) void assignBadgeProperty(value); event.currentTarget.value='' }}>
+                        <option value="">Choose an unassigned {selectedBadge.level} property</option>
+                        {(rows.properties ?? []).filter((property) => text(property.project_level).toLowerCase() === text(selectedBadge.level).toLowerCase() && !badgeAssignments.some((assignment) => assignment.property_id === property.id && (rows.badges ?? []).some((badge) => badge.id === assignment.badge_id && badge.level === selectedBadge.level))).map((property) => <option key={property.id} value={property.id}>{text(property.name)} · {text(property.location)}</option>)}
+                      </select>
+                    </label>
+                    <p className="text-xs text-ink-soft">A badge can be unlocked only when exactly 20 properties are assigned. Lock the badge before editing its property list.</p>
+                  </> : null}
+                </section>
+                <section className="grid gap-4 border border-border bg-card p-5"><div><h2 className="display text-xl">Activate a customer level</h2><p className="mt-1 text-xs text-ink-soft">Choose a customer and a badge from the required level. The customer receives three progress records, with Badge 1 available first.</p></div>
+                  <label className="grid gap-2 text-xs text-ink-soft">Customer<select className={inputClass} value={badgeCustomerId} onChange={(event) => setBadgeCustomerId(event.target.value)}><option value="">Choose customer</option>{(rows.users ?? []).map((customer) => <option key={customer.id} value={customer.id}>{text(customer.full_name) || text(customer.mobile) || customerNumber(customer.id)} · {text(customer.mobile)}</option>)}</select></label>
+                  <p className="text-xs text-ink-soft">Selected badge determines the level: {selectedBadge?.level || 'Choose a badge above'}.</p>
+                  <button type="button" disabled={busy || !badgeCustomerId || !selectedBadge} onClick={() => void activateCustomerBadgeLevel()} className={buttonClass}>Activate customer level</button>
+                </section>
+                <section className="grid gap-4 border border-border bg-card p-5"><div><h2 className="display text-xl">Customer badge requests and progress</h2><p className="mt-1 text-xs text-ink-soft">Review support unlock requests and complete property orders after verification.</p></div>
+                  <div className="overflow-x-auto"><table className="w-full min-w-[42rem] text-left text-xs"><thead><tr className="border-b border-border text-ink-soft"><th className="px-3 py-3">Customer</th><th className="px-3 py-3">Badge</th><th className="px-3 py-3">Status</th><th className="px-3 py-3">Action</th></tr></thead><tbody>{badgeProgress.map((progress) => { const badge=(rows.badges ?? []).find((item) => item.id === progress.badge_id); return <tr key={progress.id} className="border-b border-border"><td className="px-3 py-3">{customerLabel(progress.user_id)}</td><td className="px-3 py-3">{text(badge?.level)} · Badge {text(badge?.badge_number)}</td><td className="px-3 py-3">{text(progress.status).replaceAll('_',' ')}</td><td className="px-3 py-3">{progress.status === 'support_requested' ? <button type="button" disabled={busy} onClick={() => void approveCustomerBadgeUnlock(progress)} className={softButton}>Approve unlock</button> : '—'}</td></tr> })}</tbody></table>{!badgeProgress.length ? <p className="py-5 text-sm text-ink-soft">No customer badge progress yet.</p> : null}</div>
+                </section>
+                <section className="grid gap-4 border border-border bg-card p-5"><div><h2 className="display text-xl">Property orders</h2><p className="mt-1 text-xs text-ink-soft">Mark an order completed only after the customer's property order has been verified. This automatically updates badge progress when all 20 are complete.</p></div>
+                  <div className="overflow-x-auto"><table className="w-full min-w-[48rem] text-left text-xs"><thead><tr className="border-b border-border text-ink-soft"><th className="px-3 py-3">Customer</th><th className="px-3 py-3">Property</th><th className="px-3 py-3">Badge</th><th className="px-3 py-3">Status</th><th className="px-3 py-3">Action</th></tr></thead><tbody>{badgeOrders.map((order) => { const badge=(rows.badges ?? []).find((item) => item.id === order.badge_id); const property=(rows.properties ?? []).find((item) => item.id === order.property_id); return <tr key={order.id} className="border-b border-border"><td className="px-3 py-3">{customerLabel(order.user_id)}</td><td className="px-3 py-3">{text(property?.name) || 'Property'}</td><td className="px-3 py-3">{text(badge?.level)} · Badge {text(badge?.badge_number)}</td><td className="px-3 py-3">{text(order.status)}</td><td className="px-3 py-3">{order.status === 'ordered' ? <button type="button" disabled={busy} onClick={() => void completeCustomerBadgeOrder(text(order.id))} className={softButton}>Mark completed</button> : '—'}</td></tr> })}</tbody></table>{!badgeOrders.length ? <p className="py-5 text-sm text-ink-soft">No property orders yet.</p> : null}</div>
+                </section>
+              </>}
             </section> : null}
 
             {section === 'enquiries' ? <section className="grid gap-4"><div className="grid gap-3 border border-border bg-card p-4 sm:grid-cols-2 xl:grid-cols-4"><input aria-label="Search enquiries" className={inputClass} value={enquirySearch} onChange={(event) => setEnquirySearch(event.target.value)} placeholder="Name, phone, email, property or message" /><select aria-label="Filter enquiry status" className={inputClass} value={enquiryStatus} onChange={(event) => setEnquiryStatus(event.target.value)}><option value="all">All statuses</option><option value="new">New</option><option value="contacted">Contacted</option><option value="closed">Closed</option></select><input aria-label="Enquiries from date" type="date" className={inputClass} value={enquiryFromDate} onChange={(event) => setEnquiryFromDate(event.target.value)} /><input aria-label="Enquiries to date" type="date" min={enquiryFromDate || undefined} className={inputClass} value={enquiryToDate} onChange={(event) => setEnquiryToDate(event.target.value)} /><div className="flex flex-wrap items-center justify-between gap-2 sm:col-span-2 xl:col-span-4"><p className="text-xs text-ink-soft">Showing {filteredEnquiries.length} of {(rows.enquiries ?? []).length} enquiries · New: {(rows.enquiries ?? []).filter((item) => ['new','submitted','pending'].includes(normalizeAdminStatus(item.status || 'new'))).length} · Contacted: {(rows.enquiries ?? []).filter((item) => ['contacted','in_progress','follow_up'].includes(normalizeAdminStatus(item.status))).length} · Closed: {(rows.enquiries ?? []).filter((item) => ['closed','resolved','complete','completed'].includes(normalizeAdminStatus(item.status))).length}</p><button type="button" className={softButton} onClick={() => { setEnquirySearch(''); setEnquiryStatus('all'); setEnquiryFromDate(''); setEnquiryToDate(''); setSelectedEnquiryId('') }}>Clear filters</button></div></div>{selectedEnquiry ? <section className="grid gap-4 border border-brass/40 bg-card p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="eyebrow text-[0.5rem] text-brass">Selected enquiry · {text(selectedEnquiry.status || 'new')}</p><h2 className="display mt-1 text-xl">{text(selectedEnquiry.full_name) || 'Customer enquiry'}</h2><p className="mt-1 text-xs text-ink-soft">{text(selectedEnquiry.property_name)} · Received {date(selectedEnquiry.created_at)}</p></div><button type="button" className={softButton} onClick={() => setSelectedEnquiryId('')}>Close details</button></div><div className="grid gap-3 sm:grid-cols-2"><div className="border border-border p-3"><p className="eyebrow text-[0.48rem] text-ink-soft">Phone</p><p className="mt-1 break-all text-sm">{text(selectedEnquiry.mobile) || 'Not provided'}</p></div><div className="border border-border p-3"><p className="eyebrow text-[0.48rem] text-ink-soft">Email</p><p className="mt-1 break-all text-sm">{text(selectedEnquiry.email) || 'Not provided'}</p></div></div><div><p className="eyebrow text-[0.48rem] text-ink-soft">Customer message</p><p className="mt-2 whitespace-pre-wrap text-sm leading-6">{text(selectedEnquiry.message) || 'No message provided.'}</p></div><div className="flex flex-wrap gap-2">{text(selectedEnquiry.mobile) ? <a className={softButton} href={'tel:' + text(selectedEnquiry.mobile).replace(/[^+\\d]/g, '')}>Call customer</a> : null}{text(selectedEnquiry.email) ? <a className={softButton} href={'mailto:' + text(selectedEnquiry.email) + '?subject=' + encodeURIComponent('Your enquiry to Msheireb Properties')}>Email customer</a> : null}{selectedEnquiry.status !== 'contacted' ? <button type="button" disabled={busy} className={softButton} onClick={() => updateStatus('enquiries', text(selectedEnquiry.id), { status: 'contacted' }, 'Enquiry marked contacted.')}>Mark contacted</button> : null}{selectedEnquiry.status !== 'closed' ? <button type="button" disabled={busy} className={softButton} onClick={() => updateStatus('enquiries', text(selectedEnquiry.id), { status: 'closed' }, 'Enquiry closed.')}>Close enquiry</button> : null}</div><p className="text-[0.65rem] text-ink-soft">Follow-up actions open your phone or email app. Enquiry status is saved; private follow-up notes are not stored.</p></section> : null}<DataTable title="Customer enquiries" rows={filteredEnquiries} columns={['full_name','mobile','email','property_name','message','status','created_at']} render={(item) => { const phone = text(item.mobile).replace(/[^+\\d]/g, ''); const email = text(item.email); const subject = encodeURIComponent('Your enquiry to Msheireb Properties'); const body = encodeURIComponent('Hello ' + (text(item.full_name) || 'there') + ',\\n\\nThank you for your enquiry about ' + (text(item.property_name) || 'our properties') + '. Our team would be happy to assist you.\\n\\nMsheireb Properties'); return <div className="flex flex-wrap items-center gap-2"><span className="text-xs text-ink-soft">{text(item.status || 'new')}</span><button type="button" className={softButton} onClick={() => setSelectedEnquiryId(text(item.id))}>View details</button>{phone ? <a className={softButton} href={'tel:' + phone}>Call customer</a> : null}{email ? <a className={softButton} href={'mailto:' + email + '?subject=' + subject + '&body=' + body}>Email follow-up</a> : null}<button className={softButton} disabled={busy || item.status === 'contacted'} onClick={() => updateStatus('enquiries', text(item.id), { status: 'contacted' }, 'Enquiry marked contacted.')}>Mark contacted</button><button className={softButton} disabled={busy || item.status === 'closed'} onClick={() => updateStatus('enquiries', text(item.id), { status: 'closed' }, 'Enquiry closed.')}>Close</button></div> }} /></section> : null}
