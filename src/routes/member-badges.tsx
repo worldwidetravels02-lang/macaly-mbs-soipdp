@@ -62,6 +62,7 @@ function MemberBadgesPage() {
   useEffect(() => { void load() }, [load])
 
   const selectBadge = async (row: Progress | undefined) => {
+    setAchievementDismissed(false)
     if (!row) { setSelectedBadgeId(''); setAssignments([]); return }
     setSelectedBadgeId(row.badge_id)
     if (!supabase || row.project_badges.is_locked || !['unlocked','completed'].includes(row.status)) {
