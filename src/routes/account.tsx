@@ -114,9 +114,11 @@ function AccountPage() {
       setHasWithdrawalCode(Boolean(codeResult.data))
       setProjects(investments.data?.length ?? 0)
       const commissionRows=(comm.data ?? []) as any[]
-      const today=new Date().toISOString().slice(0,10)
-      setTotalCommission(commissionRows.filter(r=>r.currency==='OMR' && ['credited','completed','approved','posted'].includes(norm(r.status))).reduce((n,r)=>n+Number(r.amount||0),0))
-      setTodayRevenue(commissionRows.filter(r=>r.currency==='OMR' && String(r.created_at).slice(0,10)===today && ['credited','completed','approved','posted'].includes(norm(r.status))).reduce((n,r)=>n+Number(r.amount||0),0))
+      const omanDateParts=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Muscat',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date())
+      const omanToday=`${omanDateParts.find(p=>p.type==='year')?.value}-${omanDateParts.find(p=>p.type==='month')?.value}-${omanDateParts.find(p=>p.type==='day')?.value}`
+      const creditedCommissions=commissionRows.filter(r=>r.currency==='OMR' && norm(r.status)==='credited')
+      setTotalCommission(creditedCommissions.reduce((n,r)=>n+Number(r.amount||0),0))
+      setTodayRevenue(creditedCommissions.filter(r=>new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Muscat',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(r.created_at)).split('/').reverse().join('-')===omanToday).reduce((n,r)=>n+Number(r.amount||0),0))
       setTrialBonus(commissionRows.filter(r=>norm(r.commission_type).includes('trial') && r.currency==='OMR').reduce((n,r)=>n+Number(r.amount||0),0))
       const mapped:RecordRow[]=[]
       for(const r of (tx.data ?? []) as any[]) { const source=norm([r.transaction_type,r.description].join(' ')); const type=source.includes('welcome bonus')?'Welcome bonus':source.includes('trial bonus')?'Trial bonus':source.includes('trial reset')?'Trial reset':source.includes('refund')?'Refund':source.includes('commission')?'Commission':source.includes('deposit')||source.includes('topup')?'Cash in':source.includes('withdrawal')?'Cash out':source.includes('investment')||source.includes('property')?'Property':source.includes('activation')||source.includes('profit')?'Activation':'Adjustment'; mapped.push({id:r.id,type,description:r.description || r.transaction_type,amount:(r.direction==='debit'?-1:1)*Number(r.amount),currency:r.currency,status:r.status,created_at:r.created_at}) }
