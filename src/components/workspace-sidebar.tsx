@@ -12,6 +12,7 @@ const memberItems = [
   ['dashboard','Dashboard','/dashboard'],
   ['projects','Projects','/residences'],
   ['orders','Orders','/orders'],
+  ['badges','My Badges','/member-badges'],
   ['account','Account','/account'],
   ['support','Support','/support'],
 ] as const
