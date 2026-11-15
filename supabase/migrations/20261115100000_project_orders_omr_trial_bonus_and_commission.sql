@@ -471,6 +471,7 @@ declare
   v_holds numeric(20,2) := 0;
   v_reserved numeric(20,2) := 0;
   v_pending_orders numeric(20,2) := 0;
+  v_set_order_count integer := 0;
   v_request_id uuid;
 begin
   if v_user_id is null then
@@ -532,6 +533,21 @@ begin
       and status not in ('rejected','cancelled')
   ) then
     raise exception 'You already submitted an order for this property';
+  end if;
+
+  -- Each customer can submit at most 20 active/funded properties in one badge.
+  select count(distinct ir.property_id)::integer
+    into v_set_order_count
+  from public.investment_requests ir
+  join public.properties p on p.id = ir.property_id
+  where ir.user_id = v_user_id
+    and ir.plan_code = 'project_order'
+    and ir.status in ('pending','approved','funded')
+    and p.project_level = v_property.project_level
+    and p.set_number = v_property.set_number;
+
+  if v_set_order_count >= 20 then
+    raise exception 'This badge already has 20 submitted properties';
   end if;
 
   if v_property.project_level = 'Junior Trial' then
