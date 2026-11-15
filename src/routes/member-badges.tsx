@@ -101,7 +101,7 @@ function MemberBadgesPage() {
     if (!supabase || !activeProgress || activeProgress.status !== 'unlocked' || activeBadge?.is_locked) return
     setBusy(true); setError(null); setNotice(null)
     const { data: auth } = await supabase.auth.getUser()
-    if (!auth.user) { void navigate({ to: '/login' }); return }
+    if (!auth.user) { setBusy(false); void navigate({ to: '/login' }); return }
     const { error: insertError } = await supabase.from('member_project_orders').insert({
       user_id: auth.user.id, badge_id: selectedBadgeId, property_id: assignment.property_id, status: 'ordered',
     })
