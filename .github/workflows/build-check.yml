@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - migration/supabase-auth
+      - recovery/combined-msheireb-site
   pull_request:
     branches:
       - migration/supabase-auth
