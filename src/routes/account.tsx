@@ -85,7 +85,7 @@ function AccountPage() {
         db.from('profiles').select('full_name,mobile,preferred_currency,member_code').eq('id',id).maybeSingle(),
         db.from('wallet_balances').select('balance').eq('user_id',id).eq('currency','OMR').maybeSingle(),
         db.from('wallet_transactions').select('id,transaction_type,direction,amount,currency,status,description,created_at').eq('user_id',id).order('created_at',{ascending:false}).limit(300),
-        db.from('commission_records').select('id,amount,currency,status,created_at,commission_type,description').eq('user_id',id).order('created_at',{ascending:false}).limit(300),
+        db.from('commission_records').select('id,amount,currency,status,created_at,commission_type,description,wallet_transaction_id').eq('user_id',id).order('created_at',{ascending:false}).limit(300),
         db.from('topup_requests').select('id,amount,currency,status,created_at').eq('user_id',id).order('created_at',{ascending:false}).limit(200),
         db.from('withdrawal_requests').select('id,amount,currency,status,created_at,payout_details').eq('user_id',id).order('created_at',{ascending:false}).limit(200),
         db.from('investment_requests').select('id,amount,currency,status,created_at,property_name,plan_code').eq('user_id',id).order('created_at',{ascending:false}).limit(200),
@@ -133,7 +133,7 @@ function AccountPage() {
       setTrialBonus(trialBonusEntries.filter(r=>r.currency==='OMR').reduce((n,r)=>n+(r.direction==='credit'?1:-1)*Number(r.amount||0),0))
       const mapped:RecordRow[]=[]
       for(const r of (tx.data ?? []) as any[]) { const source=norm([r.transaction_type,r.description].join(' ')); const type=source.includes('welcome bonus')?'Welcome bonus':source.includes('trial bonus')?'Trial bonus':source.includes('trial reset')?'Trial reset':source.includes('refund')?'Refund':source.includes('commission')?'Commission':source.includes('deposit')||source.includes('topup')?'Cash in':source.includes('withdrawal')?'Cash out':source.includes('investment')||source.includes('property')?'Property':source.includes('activation')||source.includes('profit')?'Activation':'Adjustment'; mapped.push({id:r.id,type,description:r.description || r.transaction_type,amount:(r.direction==='debit'?-1:1)*Number(r.amount),currency:r.currency,status:r.status,created_at:r.created_at}) }
-      for(const r of commissionRows) mapped.push({id:r.id,type:'Commission',description:r.description || r.commission_type || 'Commission',amount:Number(r.amount),currency:r.currency,status:r.status,created_at:r.created_at})
+      for(const r of commissionRows) { if(norm(r.status)==='credited' && r.wallet_transaction_id) continue; mapped.push({id:r.id,type:'Commission',description:r.description || r.commission_type || 'Commission',amount:Number(r.amount),currency:r.currency,status:r.status,created_at:r.created_at}) }
       for(const r of trialBonusEntries) mapped.push({id:r.id,type:'Trial bonus',description:r.description || 'Trial Bonus',amount:(r.direction==='debit'?-1:1)*Number(r.amount),currency:r.currency,status:'posted',created_at:r.created_at})
       for(const r of (topups.data ?? []) as any[]) mapped.push({id:r.id,type:'Cash in',description:'Deposit request',amount:Number(r.amount),currency:r.currency,status:r.status,created_at:r.created_at})
       for(const r of (withdrawals.data ?? []) as any[]) if(['pending','rejected','cancelled'].includes(norm(r.status))) mapped.push({id:r.id,type:'Cash out',description:'Withdrawal request',amount:0,currency:r.currency,status:r.status,created_at:r.created_at})
