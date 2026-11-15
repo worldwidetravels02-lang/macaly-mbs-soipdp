@@ -205,6 +205,7 @@ function AdminPage() {
         notifications: client.from('notifications').select('*').order('created_at', { ascending: false }).limit(100),
         financialAudit: client.from('financial_audit_log').select('*').order('created_at', { ascending: false }).limit(200),
         walletTransactions: client.from('wallet_transactions').select('*').order('created_at', { ascending: false }).limit(200),
+        todayCommissionRevenue: client.rpc('admin_today_commission_revenue'),
         walletHolds: client.from('wallet_holds').select('*').order('created_at', { ascending: false }).limit(200),
         trialBonusTransactions: client.from('trial_bonus_transactions').select('*').order('created_at', { ascending: false }).limit(200),
       }
@@ -1152,6 +1153,9 @@ function AdminPage() {
               <div className="mb-5"><h1 className="display text-2xl">Dashboard</h1><p className="mt-1 text-sm text-ink-soft">A simple overview of your projects, customers and pending actions.</p></div>
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {[
+                  ['Today’s Revenue', (rows.todayCommissionRevenue ?? []).length
+                    ? (rows.todayCommissionRevenue ?? []).map((item) => money(item.total_amount, text(item.currency) || 'OMR')).join(' · ')
+                    : money(0, 'OMR')],
                   ['Published projects', stats.properties],
                   ['Customers', stats.customers],
                   ['Pending cashouts', stats.pending],
