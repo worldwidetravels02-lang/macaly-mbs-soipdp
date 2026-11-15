@@ -334,3 +334,92 @@ revoke all on function public.admin_review_investment_request(uuid,text,text) fr
 revoke all on function public.admin_fund_investment_request(uuid) from public, anon;
 grant execute on function public.admin_review_investment_request(uuid,text,text) to authenticated;
 grant execute on function public.admin_fund_investment_request(uuid) to authenticated;
+
+
+-- Badge completion is based only on successfully funded orders in that specific set.
+-- The next badge or level remains locked until an administrator unlocks it.
+create or replace function public.notify_admin_project_badge_completion()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_level text;
+  v_set_number smallint;
+  v_count integer;
+  v_next_label text;
+  v_customer_name text;
+  v_message text;
+begin
+  if new.plan_code <> 'project_order'
+     or new.status <> 'funded'
+     or old.status = 'funded'
+     or new.user_id is null
+     or new.property_id is null then
+    return new;
+  end if;
+
+  select p.project_level, p.set_number
+    into v_level, v_set_number
+    from public.properties p
+    where p.id = new.property_id;
+
+  if v_level is null or v_set_number is null then
+    return new;
+  end if;
+
+  select count(distinct ir.property_id)::integer
+    into v_count
+    from public.investment_requests ir
+    join public.properties p on p.id = ir.property_id
+    where ir.user_id = new.user_id
+      and ir.plan_code = 'project_order'
+      and ir.status = 'funded'
+      and p.project_level = v_level
+      and p.set_number = v_set_number;
+
+  if v_count <> 20 then
+    return new;
+  end if;
+
+  v_next_label := case
+    when v_set_number < 3 then v_level || ' · Badge ' || (v_set_number + 1)::text
+    when v_level = 'Junior Trial' then 'Senior · Badge 1'
+    when v_level = 'Senior' then 'Master · Badge 1'
+    when v_level = 'Master' then 'Expert · Badge 1'
+    else 'All project badges completed'
+  end;
+
+  select coalesce(nullif(trim(pr.full_name), ''), au.email, 'Customer')
+    into v_customer_name
+    from auth.users au
+    left join public.profiles pr on pr.id = au.id
+    where au.id = new.user_id;
+
+  v_message := v_customer_name || ' has successfully funded all 20 properties in ' ||
+    v_level || ' · Badge ' || v_set_number::text ||
+    '. Please review the customer and unlock ' || v_next_label ||
+    ' from the Users → Badge Management section.';
+
+  insert into public.notifications (user_id, title, body)
+  select am.user_id, 'Customer completed a project badge', v_message
+  from public.admin_members am
+  where not exists (
+    select 1 from public.notifications n
+    where n.user_id = am.user_id
+      and n.title = 'Customer completed a project badge'
+      and n.body = v_message
+  );
+
+  return new;
+end;
+$$;
+
+revoke all on function public.notify_admin_project_badge_completion() from public, anon, authenticated;
+drop trigger if exists notify_admin_project_level_completion on public.investment_requests;
+drop trigger if exists unlock_next_project_level_after_twenty_orders on public.investment_requests;
+drop trigger if exists notify_admin_project_badge_completion on public.investment_requests;
+create trigger notify_admin_project_badge_completion
+after update of status on public.investment_requests
+for each row execute function public.notify_admin_project_badge_completion();
