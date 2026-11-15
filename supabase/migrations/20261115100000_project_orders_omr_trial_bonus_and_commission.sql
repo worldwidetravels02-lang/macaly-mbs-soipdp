@@ -169,6 +169,7 @@ declare
   v_balance numeric(20,2);
   v_holds numeric(20,2) := 0;
   v_reserved numeric(20,2) := 0;
+  v_pending_orders numeric(20,2) := 0;
   v_transaction_id uuid;
   v_commission_transaction_id uuid;
   v_bonus_transaction_id uuid;
@@ -189,6 +190,7 @@ begin
   if v_request.status <> 'approved' then
     raise exception 'Only approved investment requests can be funded';
   end if;
+  perform 1 from auth.users where id = v_request.user_id for update;
 
   if v_request.plan_code = 'project_order' then
     if v_request.currency <> 'OMR' then
@@ -205,8 +207,14 @@ begin
         into v_balance
       from public.trial_bonus_transactions
       where user_id = v_request.user_id and currency = 'OMR';
-      if coalesce(v_balance, 0) < v_request.amount then
-        raise exception 'Customer does not have enough Trial Bonus in OMR';
+      select coalesce(sum(ir.amount), 0) into v_pending_orders
+      from public.investment_requests ir
+      join public.properties p on p.id = ir.property_id
+      where ir.user_id = v_request.user_id and ir.id <> v_request.id
+        and ir.plan_code = 'project_order' and ir.currency = 'OMR'
+        and ir.status in ('pending','approved') and p.project_level = 'Junior Trial';
+      if coalesce(v_balance, 0) - v_pending_orders < v_request.amount then
+        raise exception 'Customer does not have enough available Trial Bonus after other pending Junior Trial orders';
       end if;
       insert into public.trial_bonus_transactions(
         user_id, direction, amount, currency, reference_type, reference_id,
@@ -226,8 +234,14 @@ begin
       select coalesce(sum(amount), 0) into v_reserved
       from public.withdrawal_requests
       where user_id = v_request.user_id and currency = 'OMR' and status in ('pending','approved');
-      if coalesce(v_balance, 0) - v_holds - v_reserved < v_request.amount then
-        raise exception 'Customer does not have enough available OMR wallet balance after holds and pending withdrawals';
+      select coalesce(sum(ir.amount), 0) into v_pending_orders
+      from public.investment_requests ir
+      join public.properties p on p.id = ir.property_id
+      where ir.user_id = v_request.user_id and ir.id <> v_request.id
+        and ir.plan_code = 'project_order' and ir.currency = 'OMR'
+        and ir.status in ('pending','approved') and p.project_level <> 'Junior Trial';
+      if coalesce(v_balance, 0) - v_holds - v_reserved - v_pending_orders < v_request.amount then
+        raise exception 'Customer does not have enough available OMR wallet balance after holds, withdrawals and other pending project orders';
       end if;
       insert into public.wallet_transactions(
         user_id, transaction_type, direction, amount, currency, status,
@@ -423,3 +437,153 @@ drop trigger if exists notify_admin_project_badge_completion on public.investmen
 create trigger notify_admin_project_badge_completion
 after update of status on public.investment_requests
 for each row execute function public.notify_admin_project_badge_completion();
+
+
+-- Customer-side order submission is calculated and validated by Supabase.
+-- Direct client inserts for project_order are disabled; other investment plans retain
+-- their existing request policy.
+drop policy if exists "Members create investment requests" on public.investment_requests;
+create policy "Members create non-project investment requests"
+  on public.investment_requests for insert to authenticated
+  with check (
+    user_id = (select auth.uid())
+    and plan_code <> 'project_order'
+    and status = 'pending'
+    and reviewed_at is null
+    and reviewed_by is null
+    and funded_at is null
+  );
+
+create or replace function public.member_submit_project_order(p_property_id uuid)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_user_id uuid := (select auth.uid());
+  v_property public.properties%rowtype;
+  v_level_unlocked boolean;
+  v_set_unlocked boolean;
+  v_commission_percent numeric(8,4);
+  v_amount numeric(20,2);
+  v_available numeric(20,2);
+  v_holds numeric(20,2) := 0;
+  v_reserved numeric(20,2) := 0;
+  v_pending_orders numeric(20,2) := 0;
+  v_request_id uuid;
+begin
+  if v_user_id is null then
+    raise exception 'Sign in required' using errcode = '42501';
+  end if;
+  perform 1 from auth.users where id = v_user_id for update;
+
+  select * into v_property
+  from public.properties
+  where id = p_property_id and status = 'published'
+  for share;
+  if not found then raise exception 'This project is not currently available'; end if;
+  if v_property.project_level is null or v_property.set_number not between 1 and 3 then
+    raise exception 'This project is not assigned to a valid badge';
+  end if;
+  if v_property.price_amount is null or v_property.price_amount <= 0 then
+    raise exception 'The administrator has not set a confirmed OMR price for this project';
+  end if;
+  if coalesce(cardinality(v_property.order_percentages), 0) < 1 then
+    raise exception 'The administrator has not configured a commission percentage for this project';
+  end if;
+
+  select coalesce(v_property.order_percentages[1], 0)::numeric(8,4)
+    into v_commission_percent;
+  if v_commission_percent < 0 or v_commission_percent > 100 then
+    raise exception 'The configured project commission percentage is invalid';
+  end if;
+  v_amount := round(v_property.price_amount, 2);
+
+  if v_property.project_level <> 'Junior Trial' then
+    select coalesce(bool_or(is_unlocked), false) into v_level_unlocked
+    from public.customer_project_level_access
+    where user_id = v_user_id and level_name = v_property.project_level;
+    if not coalesce(v_level_unlocked, false) then
+      raise exception 'This project level has not been unlocked by the administrator';
+    end if;
+  else
+    select coalesce(bool_or(is_unlocked), true) into v_level_unlocked
+    from public.customer_project_level_access
+    where user_id = v_user_id and level_name = v_property.project_level;
+    if not coalesce(v_level_unlocked, true) then
+      raise exception 'Junior Trial is locked for this customer';
+    end if;
+  end if;
+
+  select coalesce(bool_or(is_unlocked), v_property.set_number = 1) into v_set_unlocked
+  from public.customer_project_set_access
+  where user_id = v_user_id
+    and level_name = v_property.project_level
+    and set_number = v_property.set_number;
+  if not coalesce(v_set_unlocked, v_property.set_number = 1) then
+    raise exception 'This badge has not been unlocked by the administrator';
+  end if;
+
+  if exists (
+    select 1 from public.investment_requests
+    where user_id = v_user_id and property_id = p_property_id
+      and plan_code = 'project_order'
+      and status not in ('rejected','cancelled')
+  ) then
+    raise exception 'You already submitted an order for this property';
+  end if;
+
+  if v_property.project_level = 'Junior Trial' then
+    select coalesce(sum(case when direction = 'credit' then amount else -amount end), 0)
+      into v_available
+    from public.trial_bonus_transactions
+    where user_id = v_user_id and currency = 'OMR';
+    select coalesce(sum(ir.amount), 0) into v_pending_orders
+    from public.investment_requests ir
+    join public.properties p on p.id = ir.property_id
+    where ir.user_id = v_user_id and ir.plan_code = 'project_order'
+      and ir.currency = 'OMR' and ir.status in ('pending','approved')
+      and p.project_level = 'Junior Trial';
+    if coalesce(v_available, 0) - v_pending_orders < v_amount then
+      raise exception 'Insufficient Trial Bonus balance for this OMR project order';
+    end if;
+  else
+    select coalesce(balance, 0) into v_available
+    from public.wallet_balances
+    where user_id = v_user_id and currency = 'OMR';
+    select coalesce(sum(greatest(0, amount - released_amount)), 0) into v_holds
+    from public.wallet_holds
+    where user_id = v_user_id and currency = 'OMR' and status = 'active';
+    select coalesce(sum(amount), 0) into v_reserved
+    from public.withdrawal_requests
+    where user_id = v_user_id and currency = 'OMR' and status in ('pending','approved');
+    select coalesce(sum(ir.amount), 0) into v_pending_orders
+    from public.investment_requests ir
+    join public.properties p on p.id = ir.property_id
+    where ir.user_id = v_user_id and ir.plan_code = 'project_order'
+      and ir.currency = 'OMR' and ir.status in ('pending','approved')
+      and p.project_level <> 'Junior Trial';
+    if coalesce(v_available, 0) - v_holds - v_reserved - v_pending_orders < v_amount then
+      raise exception 'Insufficient available OMR wallet balance after holds, withdrawals and other pending project orders';
+    end if;
+  end if;
+
+  insert into public.investment_requests(
+    user_id, property_id, property_name, plan_code, amount, currency,
+    commission_percent, expected_commission, note, status
+  ) values (
+    v_user_id, v_property.id, v_property.name, 'project_order', v_amount, 'OMR',
+    v_commission_percent, round(v_amount * v_commission_percent / 100, 2),
+    'Project order · Level: ' || v_property.project_level ||
+      ' · Badge: ' || v_property.set_number::text ||
+      ' · Commission: ' || v_commission_percent::text || '%',
+    'pending'
+  ) returning id into v_request_id;
+
+  return v_request_id;
+end;
+$$;
+
+revoke all on function public.member_submit_project_order(uuid) from public, anon;
+grant execute on function public.member_submit_project_order(uuid) to authenticated;
