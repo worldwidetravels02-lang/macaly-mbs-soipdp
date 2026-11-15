@@ -74,7 +74,7 @@ function AccountPage() {
       if(!auth.user){setUserId('');return}
       const id=auth.user.id
       setUserId(id); setEmail(auth.user.email ?? '')
-      const [profile, wallet, tx, comm, topups, withdrawals, investments, bankRows, codeResult, holdRows] = await Promise.all([
+      const [profile, wallet, tx, comm, topups, withdrawals, investments, bankRows, codeResult, holdRows, trialBonusRows] = await Promise.all([
         db.from('profiles').select('full_name,mobile,preferred_currency,member_code').eq('id',id).maybeSingle(),
         db.from('wallet_balances').select('balance').eq('user_id',id).eq('currency','OMR').maybeSingle(),
         db.from('wallet_transactions').select('id,transaction_type,direction,amount,currency,status,description,created_at').eq('user_id',id).order('created_at',{ascending:false}).limit(300),
@@ -85,6 +85,7 @@ function AccountPage() {
         db.from('member_bank_accounts').select('id,account_holder,bank_name,iban,account_number,mobile_number,created_at').eq('user_id',id).order('created_at',{ascending:false}),
         db.rpc('member_has_withdrawal_password'),
         db.from('wallet_holds').select('amount,released_amount,currency,status').eq('user_id',id).eq('status','active'),
+        db.from('trial_bonus_transactions').select('id,direction,amount,currency,description,created_at').eq('user_id',id).order('created_at',{ascending:false}).limit(300),
       ])
       if(profile.error) throw profile.error
       if(wallet.error) throw wallet.error
@@ -96,6 +97,7 @@ function AccountPage() {
       if(bankRows.error) throw bankRows.error
       if(codeResult.error) throw new Error('Apply the account security migration first: '+codeResult.error.message)
       if(holdRows.error) throw holdRows.error
+      if(trialBonusRows.error) throw trialBonusRows.error
       setName(profile.data?.full_name || auth.user.user_metadata?.full_name || auth.user.email?.split('@')[0] || 'Member')
       setMobile(profile.data?.mobile || auth.user.user_metadata?.mobile || '')
       setMemberCode(profile.data?.member_code == null ? null : Number(profile.data.member_code))
@@ -119,10 +121,12 @@ function AccountPage() {
       const creditedCommissions=commissionRows.filter(r=>r.currency==='OMR' && norm(r.status)==='credited')
       setTotalCommission(creditedCommissions.reduce((n,r)=>n+Number(r.amount||0),0))
       setTodayRevenue(creditedCommissions.filter(r=>new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Muscat',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(r.created_at)).split('/').reverse().join('-')===omanToday).reduce((n,r)=>n+Number(r.amount||0),0))
-      setTrialBonus(commissionRows.filter(r=>norm(r.commission_type).includes('trial') && r.currency==='OMR').reduce((n,r)=>n+Number(r.amount||0),0))
+      const trialBonusEntries=(trialBonusRows.data ?? []) as any[]
+      setTrialBonus(trialBonusEntries.filter(r=>r.currency==='OMR').reduce((n,r)=>n+(r.direction==='credit'?1:-1)*Number(r.amount||0),0))
       const mapped:RecordRow[]=[]
       for(const r of (tx.data ?? []) as any[]) { const source=norm([r.transaction_type,r.description].join(' ')); const type=source.includes('welcome bonus')?'Welcome bonus':source.includes('trial bonus')?'Trial bonus':source.includes('trial reset')?'Trial reset':source.includes('refund')?'Refund':source.includes('commission')?'Commission':source.includes('deposit')||source.includes('topup')?'Cash in':source.includes('withdrawal')?'Cash out':source.includes('investment')||source.includes('property')?'Property':source.includes('activation')||source.includes('profit')?'Activation':'Adjustment'; mapped.push({id:r.id,type,description:r.description || r.transaction_type,amount:(r.direction==='debit'?-1:1)*Number(r.amount),currency:r.currency,status:r.status,created_at:r.created_at}) }
       for(const r of commissionRows) mapped.push({id:r.id,type:'Commission',description:r.description || r.commission_type || 'Commission',amount:Number(r.amount),currency:r.currency,status:r.status,created_at:r.created_at})
+      for(const r of trialBonusEntries) mapped.push({id:r.id,type:'Trial bonus',description:r.description || 'Trial Bonus',amount:(r.direction==='debit'?-1:1)*Number(r.amount),currency:r.currency,status:'posted',created_at:r.created_at})
       for(const r of (topups.data ?? []) as any[]) mapped.push({id:r.id,type:'Cash in',description:'Deposit request',amount:Number(r.amount),currency:r.currency,status:r.status,created_at:r.created_at})
       for(const r of (withdrawals.data ?? []) as any[]) if(['pending','rejected','cancelled'].includes(norm(r.status))) mapped.push({id:r.id,type:'Cash out',description:'Withdrawal request',amount:0,currency:r.currency,status:r.status,created_at:r.created_at})
       for(const r of (investments.data ?? []) as any[]) mapped.push({id:r.id,type:'Property',description:(r.plan_code || 'Project')+' · '+r.property_name,amount:Number(r.amount),currency:r.currency,status:r.status,created_at:r.created_at})
