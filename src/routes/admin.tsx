@@ -81,7 +81,7 @@ function AdminPage() {
   const [selectedCustomerId, setSelectedCustomerId] = useState('')
   const [selectedLevel, setSelectedLevel] = useState<'Senior' | 'Master' | 'Expert'>('Senior')
   const [selectedBadgeId, setSelectedBadgeId] = useState('')
-  const [section, setSection] = useState<'overview' | 'properties' | 'enquiries' | 'promotions' | 'wallet' | 'badges'>('overview')
+  const [section, setSection] = useState<'overview' | 'properties' | 'enquiries' | 'promotions' | 'wallet' | 'badges' | 'support'>('overview')
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
