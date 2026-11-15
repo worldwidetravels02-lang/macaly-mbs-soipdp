@@ -60,6 +60,32 @@ function MemberBadgesPage() {
 
   useEffect(() => { void load() }, [load])
 
+  const selectBadge = async (row: Progress | undefined) => {
+    if (!row) { setSelectedBadgeId(''); setAssignments([]); return }
+    setSelectedBadgeId(row.badge_id)
+    if (!supabase || row.project_badges.is_locked || !['unlocked','completed'].includes(row.status)) {
+      setAssignments([])
+      return
+    }
+    const { data, error: assignmentError } = await supabase
+      .from('project_badge_properties')
+      .select('id,badge_id,property_id,position,properties(id,name,location,description,price_label,cover_image_url)')
+      .eq('badge_id', row.badge_id)
+      .order('position')
+    if (assignmentError) setError(assignmentError.message)
+    setAssignments((data ?? []) as unknown as Assignment[])
+  }
+
+  const chooseLevel = async (level: 'Senior' | 'Master' | 'Expert') => {
+    setSelectedLevel(level)
+    const levelRows = progress.filter(row => row.project_badges.level === level)
+    const chosen = levelRows.find(row => row.status === 'unlocked' && !row.project_badges.is_locked)
+      ?? levelRows.filter(row => row.status === 'completed').sort((a,b) => b.project_badges.badge_number-a.project_badges.badge_number)[0]
+      ?? levelRows.find(row => row.status === 'support_requested')
+      ?? levelRows.sort((a,b) => a.project_badges.badge_number-b.project_badges.badge_number)[0]
+    await selectBadge(chosen)
+  }
+
   const activeProgress = progress.find(row => row.badge_id === selectedBadgeId)
   const activeBadge = activeProgress?.project_badges
   const activeAssignments = assignments.filter(row => row.badge_id === selectedBadgeId).sort((a,b) => a.position-b.position)
@@ -108,8 +134,8 @@ function MemberBadgesPage() {
         {notice ? <p role="status" className="mt-6 border border-[#d9c99e] bg-[#fbf8ef] px-4 py-3 text-sm">{notice}</p> : null}
         {loading ? <p className="py-12 text-sm text-[#777]">Loading your badges…</p> : (
           <>
-            <div className="mt-7 flex flex-wrap gap-2">{(['Senior','Master','Expert'] as const).map(level => <button key={level} type="button" onClick={() => setSelectedLevel(level)} className={selectedLevel===level?'bg-[#101d32] px-5 py-3 text-sm text-white':'border border-[#e3dfd5] bg-white px-5 py-3 text-sm'}>{level}</button>)}</div>
-            <div className="mt-6 grid gap-3 sm:grid-cols-3">{[1,2,3].map(number => { const row=progress.find(item=>item.project_badges.level===selectedLevel && item.project_badges.badge_number===number); const badge=row?.project_badges; return <button key={number} type="button" disabled={!row} onClick={()=>{if(row){setSelectedBadgeId(row.badge_id);setAssignments([]); if(row.status==='unlocked'&&!row.project_badges.is_locked){void (async()=>{const {data}=await supabase!.from('project_badge_properties').select('id,badge_id,property_id,position,properties(id,name,location,description,price_label,cover_image_url)').eq('badge_id',row.badge_id).order('position');setAssignments((data??[]) as unknown as Assignment[])})()}}}} className={'border p-5 text-left '+(row?.badge_id===selectedBadgeId?'border-[#b89b59] bg-[#f8f4e9]':'border-[#e7e6e1] bg-white')+' disabled:opacity-50'}><span className="text-3xl text-[#b89b59]">{badgeIcon(badge?.icon??(number===1?'gem':number===2?'trophy':'crown'))}</span><span className="mt-3 block font-semibold">{'Badge '+number}</span><span className="mt-1 block text-xs capitalize text-[#777]">{row?.status.replace('_',' ')??'Not activated'}</span></button> })}</div>
+            <div className="mt-7 flex flex-wrap gap-2">{(['Senior','Master','Expert'] as const).map(level => <button key={level} type="button" onClick={() => void chooseLevel(level)} className={selectedLevel===level?'bg-[#101d32] px-5 py-3 text-sm text-white':'border border-[#e3dfd5] bg-white px-5 py-3 text-sm'}>{level}</button>)}</div>
+            <div className="mt-6 grid gap-3 sm:grid-cols-3">{[1,2,3].map(number => { const row=progress.find(item=>item.project_badges.level===selectedLevel && item.project_badges.badge_number===number); const badge=row?.project_badges; return <button key={number} type="button" disabled={!row} onClick={()=>void selectBadge(row)} className={'border p-5 text-left '+(row?.badge_id===selectedBadgeId?'border-[#b89b59] bg-[#f8f4e9]':'border-[#e7e6e1] bg-white')+' disabled:opacity-50'}><span className="text-3xl text-[#b89b59]">{badgeIcon(badge?.icon??(number===1?'gem':number===2?'trophy':'crown'))}</span><span className="mt-3 block font-semibold">{'Badge '+number}</span><span className="mt-1 block text-xs capitalize text-[#777]">{row?.status.replace('_',' ')??'Not activated'}</span></button> })}</div>
             {activeBadge && activeProgress ? (
               <section className="mt-8 border border-[#e7e6e1] bg-white p-6 sm:p-8">
                 <div className="flex flex-wrap items-center justify-between gap-4"><div><p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#a18a58]">{activeBadge.level}</p><h2 className="display mt-2 text-3xl">{activeBadge.title}</h2><p className="mt-2 text-sm text-[#777]">{completedCount} of 20 properties completed</p></div><div className="text-4xl text-[#b89b59]">{badgeIcon(activeBadge.icon)}</div></div>
