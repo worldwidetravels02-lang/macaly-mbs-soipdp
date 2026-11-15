@@ -170,6 +170,7 @@ declare
   v_holds numeric(20,2) := 0;
   v_reserved numeric(20,2) := 0;
   v_transaction_id uuid;
+  v_commission_transaction_id uuid;
   v_bonus_transaction_id uuid;
   v_investment_id uuid;
   v_commission_amount numeric(20,2);
@@ -292,10 +293,10 @@ begin
         'project-order-commission-credit:' || v_request.id::text,
         'Project order commission: ' || v_request.property_name, (select auth.uid()),
         jsonb_build_object('investment_request_id', v_request.id, 'commission_percent', v_request.commission_percent)
-      ) returning id into v_transaction_id;
+      ) returning id into v_commission_transaction_id;
 
       update public.commission_records
-      set wallet_transaction_id = v_transaction_id
+      set wallet_transaction_id = v_commission_transaction_id
       where id = v_commission_id;
     else
       insert into public.commission_records(
