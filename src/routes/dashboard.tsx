@@ -26,7 +26,9 @@ type Property = {
   cover_image_url: string | null
 }
 
-type WalletSummary = { balance: number; hold_balance: number }\n\ntype Notice = {
+type WalletSummary = { balance: number; hold_balance: number }
+
+type Notice = {
   id: string
   title: string
   body: string
@@ -62,7 +64,9 @@ function DashboardPage() {
     preferred_currency: 'AED',
   })
   const [properties, setProperties] = useState<Property[]>([])
-  const [notifications, setNotifications] = useState<Notice[]>([])\n  const [wallet, setWallet] = useState<WalletSummary>({ balance: 0, hold_balance: 0 })\n  const [walletRequestCount, setWalletRequestCount] = useState(0)
+  const [notifications, setNotifications] = useState<Notice[]>([])
+  const [wallet, setWallet] = useState<WalletSummary>({ balance: 0, hold_balance: 0 })
+  const [walletRequestCount, setWalletRequestCount] = useState(0)
   const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -80,13 +84,17 @@ function DashboardPage() {
           supabase.auth.getUser(),
           supabase.from('properties').select('id,slug,name,location,description,price_label,cover_image_url').eq('status', 'published').order('created_at', { ascending: false }),
           supabase.from('profiles').select('full_name,mobile,preferred_language,preferred_currency').eq('id', id).maybeSingle(),
-          supabase.from('notifications').select('id,title,body,created_at,read_at').eq('user_id', id).order('created_at', { ascending: false }).limit(10),\n          supabase.from('member_wallets').select('balance,hold_balance').eq('user_id', id).maybeSingle(),\n          supabase.from('wallet_requests').select('id', { count: 'exact', head: true }).eq('user_id', id),
+          supabase.from('notifications').select('id,title,body,created_at,read_at').eq('user_id', id).order('created_at', { ascending: false }).limit(10),
+          supabase.from('member_wallets').select('balance,hold_balance').eq('user_id', id).maybeSingle(),
+          supabase.from('wallet_requests').select('id', { count: 'exact', head: true }).eq('user_id', id),
         ])
       if (!active) return
       setEmail(authData.user?.email ?? '')
       if (profileData) setProfile(profileData as Profile)
       setProperties((propertyData ?? []) as Property[])
       setNotifications((noticeData ?? []) as Notice[])
+      setWallet({ balance: Number(walletData?.balance ?? 0), hold_balance: Number(walletData?.hold_balance ?? 0) })
+      setWalletRequestCount(requestCount ?? 0)
       setLoading(false)
     }
 
