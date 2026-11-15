@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { requireSupabase } from '../lib/supabase-client'
 import { ListingsGate } from '../components/listings-gate'
 import { WorkspaceSidebar } from '../components/workspace-sidebar'
@@ -50,10 +50,11 @@ function ResidencesPage() {
   const [groupSearch, setGroupSearch] = useState('')
   const [groupFilter, setGroupFilter] = useState<'all' | 'trial'>('all')
   const [groupSort, setGroupSort] = useState<'oldest' | 'newest'>('oldest')
-  const [currency, setCurrency] = useState('AED')
+  const [currency, setCurrency] = useState('OMR')
   const [currentUserName, setCurrentUserName] = useState('Member')
   const [currentProjectIndex, setCurrentProjectIndex] = useState(0)
-  const [walletBalanceAed, setWalletBalanceAed] = useState(0)
+  const [trialBonusBalanceOmr, setTrialBonusBalanceOmr] = useState(0)
+  const completionShownRef = useRef('')
   const [projectSort, setProjectSort] = useState<'admin' | 'name' | 'price'>('admin')
   const [loadingProjects, setLoadingProjects] = useState(false)
   const [busyProject, setBusyProject] = useState('')
@@ -99,30 +100,21 @@ function ResidencesPage() {
       if (userResult.error) throw userResult.error
       if (accessResult.error) throw accessResult.error
       if (!userResult.data.user) throw new Error('Please sign in to view the project catalogue.')
-      const [requestResult, walletResult] = await Promise.all([
+      const [requestResult, trialBonusResult] = await Promise.all([
         client.from('investment_requests').select('user_id,property_id,status').eq('user_id', userResult.data.user.id).order('created_at', { ascending: false }),
-        client.from('wallet_balances').select('balance').eq('user_id', userResult.data.user.id).eq('currency', 'OMR').maybeSingle(),
+        client.from('trial_bonus_transactions').select('direction,amount,currency').eq('user_id', userResult.data.user.id),
       ])
       if (requestResult.error) throw requestResult.error
-      if (walletResult.error) throw walletResult.error
+      if (trialBonusResult.error) throw trialBonusResult.error
       if (!active) return
       setProjects((propertyResult.data ?? []) as Project[])
       setRequests((requestResult.data ?? []) as ProjectRequest[])
       setCurrentUserId(userResult.data.user.id)
       setCurrentUserName(String(userResult.data.user.user_metadata?.full_name || userResult.data.user.email?.split('@')[0] || 'Member'))
       setCustomerLevelAccess((accessResult.data ?? []) as { user_id: string; level_name: string; is_unlocked: boolean }[])
-      const walletOemBalance = Number(walletResult.data?.balance ?? 0)
-      let aedRate = 9.55
-      try {
-        const fxResponse = await fetch('https://open.er-api.com/v6/latest/OMR', { cache: 'no-store' })
-        if (fxResponse.ok) {
-          const fxPayload = await fxResponse.json() as { result?: string; base_code?: string; rates?: Record<string, number> }
-          const liveRate = Number(fxPayload.rates?.AED)
-          if (fxPayload.result === 'success' && fxPayload.base_code === 'OMR' && Number.isFinite(liveRate) && liveRate > 0) aedRate = liveRate
-        }
-      } catch { /* use the same reference rate as the wallet page */ }
+      const trialBonusBalance = (trialBonusResult.data ?? []).filter((entry) => entry.currency === 'OMR').reduce((total, entry) => total + (entry.direction === 'credit' ? 1 : -1) * Number(entry.amount || 0), 0)
       if (!active) return
-      setWalletBalanceAed(walletOemBalance * aedRate)
+      setTrialBonusBalanceOmr(Math.max(0, trialBonusBalance))
     })().catch((cause) => {
       if (active) setError(cause instanceof Error ? cause.message : 'Could not load the project catalogue.')
     }).finally(() => { if (active) setLoadingProjects(false) })
@@ -141,11 +133,25 @@ function ResidencesPage() {
     .filter((request) => request.user_id === currentUserId && request.property_id && !['rejected', 'cancelled'].includes(String(request.status).toLowerCase()))
     .filter((request) => levelProjects.some((project) => project.id === request.property_id))
     .map((request) => request.property_id)), [requests, currentUserId, levelProjects])
+  const fundedPropertyIds = useMemo(() => new Set(requests
+    .filter((request) => request.user_id === currentUserId && request.property_id && String(request.status).toLowerCase() === 'funded')
+    .filter((request) => levelProjects.some((project) => project.id === request.property_id))
+    .map((request) => request.property_id)), [requests, currentUserId, levelProjects])
   const remainingProjects = useMemo(() => visibleProjects.filter((project) => !orderedPropertyIds.has(project.id)), [visibleProjects, orderedPropertyIds])
   const projectCards: Project[] = remainingProjects
   useEffect(() => {
     setCurrentProjectIndex(Math.min(orderedPropertyIds.size, 20))
   }, [orderedPropertyIds])
+
+  useEffect(() => {
+    if (fundedPropertyIds.size < 20 || completionShownRef.current === selectedLevel) return
+    completionShownRef.current = selectedLevel
+    setCompletedLevel(selectedLevel)
+    setNotice(`Congratulations 🎉 Successful complete the ${selectedLevel}!`)
+    setSuccessPopup(true)
+    const timer = window.setTimeout(() => { setSuccessPopup(false); setNotice('') }, 6500)
+    return () => window.clearTimeout(timer)
+  }, [fundedPropertyIds, selectedLevel])
 
   async function requestProject(project: Project) {
     const selection = { quantity: 1, percentage: Number(project.order_percentages?.[0] ?? 0) }
@@ -172,10 +178,10 @@ function ResidencesPage() {
         property_name: project.name,
         plan_code: 'project_order',
         amount,
-        currency: 'AED',
+        currency: 'OMR',
         commission_percent: selection.percentage,
         expected_commission: commissionAmount,
-        note: `Project order · Level: ${project.project_level} · Percentage: ${selection.percentage}% · Base price: AED ${basePrice.toFixed(2)} · Order amount: AED ${amount.toFixed(2)} · Expected commission: AED ${commissionAmount.toFixed(2)}`,
+        note: `Project order · Level: ${project.project_level} · Percentage: ${selection.percentage}% · Base price: OMR ${basePrice.toFixed(2)} · Order amount: OMR ${amount.toFixed(2)} · Expected commission: OMR ${commissionAmount.toFixed(2)}`, 
       })
       if (insertError) throw insertError
       const updatedRequests = [...requests, { user_id: auth.user.id, property_id: project.id, status: 'pending' }]
@@ -185,22 +191,9 @@ function ResidencesPage() {
         .filter((request) => projects.some((item) => item.id === request.property_id && item.project_level === selectedLevel))
         .map((request) => request.property_id))
       setCurrentProjectIndex(Math.min(orderedPropertyIds.size, 20))
-      if (orderedPropertyIds.size >= 20) {
-        setCompletedLevel(selectedLevel)
-        setNotice(`🎉 Congratulations! You have successfully completed all 20 properties in ${selectedLevel}. The administrator has been notified. The next level will unlock after admin approval.`)
-        setSuccessPopup(true)
-        window.setTimeout(() => {
-          setSuccessPopup(false)
-          setNotice('')
-        }, 6500)
-      } else {
-        setNotice('Your project order request has been sent to the administrator for review.')
-        setSuccessPopup(true)
-        window.setTimeout(() => {
-          setSuccessPopup(false)
-          setNotice('')
-        }, 1800)
-      }
+      setNotice('Your project order request has been sent to the administrator for review. It counts toward completion only after the administrator funds it.')
+      setSuccessPopup(true)
+      window.setTimeout(() => { setSuccessPopup(false); setNotice('') }, 2200)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not submit your project order.')
     } finally { setBusyProject('') }
@@ -225,7 +218,7 @@ function ResidencesPage() {
           <Link to="/account" className="flex items-center gap-2 rounded-xl border border-[#c9a45c]/50 bg-[#10294b] px-2 py-1.5 text-xs text-white"><span className="grid h-8 w-8 place-items-center rounded-lg bg-[#d8b66b] font-semibold text-[#071b38]">{currentUserName.slice(0,1).toUpperCase()}</span><span className="hidden text-left sm:block"><strong className="block">{currentUserName.split(" ")[0]}</strong><span className="text-[10px] text-[#888]">User</span></span></Link>
         </div>
       </header>
-      {successPopup ? <div role="status" aria-live="polite" className="fixed inset-0 z-[100] flex items-center justify-center bg-[#071b38]/65 px-5 backdrop-blur-sm"><div className={`w-full ${notice.includes('successfully completed all 20') ? 'max-w-2xl p-10 sm:p-14' : 'max-w-sm p-8'} rounded-2xl border-2 border-[#d8b66b] bg-white text-center shadow-2xl animate-[orderPop_.45s_ease-out]`}><div className={`mx-auto mb-5 grid ${notice.includes('successfully completed all 20') ? 'h-24 w-24 text-6xl' : 'h-16 w-16 text-3xl'} place-items-center rounded-full bg-[#e8f5ec] font-bold text-[#23834b]`}>{notice.includes('successfully completed all 20') ? '🎉' : '✓'}</div><h2 className={`display ${notice.includes('successfully completed all 20') ? 'text-4xl sm:text-5xl' : 'text-2xl'} text-[#071b38]`}>{notice.includes('successfully completed all 20') ? `${selectedLevel} Completed!` : 'Order successful'}</h2><p className="mt-4 text-base leading-7 text-[#666]">{notice || 'Your request has been sent for admin review.'}</p><p className="mt-5 text-sm font-semibold tracking-wide text-[#9a793b]">{notice.includes('successfully completed all 20') ? '20 / 20 PROPERTIES SUCCESSFULLY ORDERED' : 'Opening the next property…'}</p><div className="mt-6 flex justify-center gap-3 text-2xl" aria-hidden="true">🎊 ✨ 🏆 ✨ 🎊</div></div><style>{'@keyframes orderPop { 0% { opacity: 0; transform: scale(.82) translateY(12px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }'}</style></div> : null}
+      {successPopup ? <div role="status" aria-live="polite" className="fixed inset-0 z-[100] flex items-center justify-center bg-[#071b38]/65 px-5 backdrop-blur-sm"><div className={`w-full ${notice.startsWith('Congratulations 🎉 Successful complete the') ? 'max-w-2xl p-10 sm:p-14' : 'max-w-sm p-8'} rounded-2xl border-2 border-[#d8b66b] bg-white text-center shadow-2xl animate-[orderPop_.45s_ease-out]`}><div className={`mx-auto mb-5 grid ${notice.includes('successfully completed all 20') ? 'h-24 w-24 text-6xl' : 'h-16 w-16 text-3xl'} place-items-center rounded-full bg-[#e8f5ec] font-bold text-[#23834b]`}>{notice.includes('successfully completed all 20') ? '🎉' : '✓'}</div><h2 className={`display ${notice.includes('successfully completed all 20') ? 'text-4xl sm:text-5xl' : 'text-2xl'} text-[#071b38]`}>{notice.startsWith('Congratulations 🎉 Successful complete the') ? `${selectedLevel} Completed!` : 'Order successful'}</h2><p className="mt-4 text-base leading-7 text-[#666]">{notice || 'Your request has been sent for admin review.'}</p><p className="mt-5 text-sm font-semibold tracking-wide text-[#9a793b]">{notice.startsWith('Congratulations 🎉 Successful complete the') ? '20 / 20 PROPERTIES SUCCESSFULLY FUNDED' : 'Opening the next property…'}</p><div className="mt-6 flex justify-center gap-3 text-2xl" aria-hidden="true">🎊 ✨ 🏆 ✨ 🎊</div></div><style>{'@keyframes orderPop { 0% { opacity: 0; transform: scale(.82) translateY(12px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }'}</style></div> : null}
       
       <main id="main" className="pb-20 pt-[86px] lg:ml-64">
         <div className="mx-auto w-full max-w-[1500px] px-5 sm:px-7">
@@ -270,7 +263,7 @@ function ResidencesPage() {
                     <div className="flex flex-1 flex-col p-5 text-[#071b38]">
                       <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-[#9a793b]">Msheireb Properties · Dubai</p>
                       <div className="mt-4 grid grid-cols-2 gap-3 border-y border-[#e6dfd1] py-3">
-                        <div><span className="block text-[9px] uppercase tracking-widest text-[#777]">Starting price</span><strong className="mt-1 block text-sm text-[#071b38]">{startingPrice !== null ? `AED ${startingPrice.toLocaleString('en', { maximumFractionDigits: 2 })}` : 'Set by admin'}</strong></div>
+                        <div><span className="block text-[9px] uppercase tracking-widest text-[#777]">Starting price</span><strong className="mt-1 block text-sm text-[#071b38]">{startingPrice !== null ? `OMR ${startingPrice.toLocaleString('en', { maximumFractionDigits: 2 })}` : 'Set by admin'}</strong></div>
                         <div><span className="block text-[9px] uppercase tracking-widest text-[#777]">Commission</span><strong className="mt-1 block text-sm text-[#071b38]">{commissionLabel}</strong></div>
                       </div>
                       <ul className="mt-4 space-y-2 text-xs text-[#333]">
@@ -295,13 +288,13 @@ function ResidencesPage() {
                   {loadingProjects ? <p className="mt-8 text-sm text-ink-soft">Loading projects…</p> : (
                     <>
                     <div className="mx-auto mt-8 w-full max-w-3xl">
-                      {currentProjectIndex >= 20 ? <div className="rounded-2xl border-2 border-[#d8b66b] bg-[#071b38] px-6 py-12 text-center text-white shadow-xl"><div className="text-6xl">🏆</div><h3 className="display mt-5 text-3xl text-[#f1d28d]">{selectedLevel} Successfully Completed</h3><p className="mt-3 text-sm text-white/80">All 20 properties have been ordered. Your completion is waiting for administrator review.</p><p className="mt-5 text-xs font-semibold tracking-widest text-[#f1d28d]">20 / 20 COMPLETE</p></div> : null}
+                      {currentProjectIndex >= 20 && fundedPropertyIds.size >= 20 ? <div className="rounded-2xl border-2 border-[#d8b66b] bg-[#071b38] px-6 py-12 text-center text-white shadow-xl"><div className="text-6xl">🏆</div><h3 className="display mt-5 text-3xl text-[#f1d28d]">{selectedLevel} Successfully Completed</h3><p className="mt-3 text-sm text-white/80">All 20 properties have been funded successfully. The next badge remains locked until administrator approval.</p><p className="mt-5 text-xs font-semibold tracking-widest text-[#f1d28d]">20 / 20 FUNDED</p></div> : currentProjectIndex >= 20 ? <div className="rounded-2xl border border-[#d8b66b] bg-white px-6 py-10 text-center shadow-lg"><h3 className="display text-2xl text-[#071b38]">20 orders submitted</h3><p className="mt-3 text-sm text-ink-soft">{fundedPropertyIds.size} / 20 properties funded. Completion and the celebration will appear only after all 20 orders are funded by the administrator.</p></div> : null}
                       {currentProjectIndex < 20 ? projectCards.slice(0, 1).map((project, index) => {
                         const cardIndex = currentProjectIndex + index
                         const image = project.cover_image_url || SAMPLE_IMAGES[cardIndex % SAMPLE_IMAGES.length]
                         return <article key={project?.id || index} className="group flex h-full flex-col overflow-hidden rounded-2xl border border-[#d8b66b] bg-white shadow-lg shadow-[#071b38]/10">
                           <div className="relative overflow-hidden"><img src={image} alt={project.name} loading="lazy" className="aspect-[16/9] w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]" /><span className="eyebrow absolute left-3 top-3 rounded-md border border-[#f1d28d] bg-[#071b38]/90 px-3 py-1.5 text-[0.48rem] text-[#f1d28d]">NO OF PROMOTION {cardIndex + 1}/20</span></div>
-                          <div className="flex flex-1 flex-col p-5 sm:p-6"><h3 className="display text-2xl text-[#071b38]">{project.name}</h3><p className="mt-2 text-xs text-ink-soft">{project.location || 'Dubai, UAE'}</p><p className="mt-3 text-sm text-ink-soft">{project.price_label || 'Price to be set by admin'}</p>{project?.price_amount ? <p className="mt-1 text-sm font-medium">Base price: AED {Number(project.price_amount).toLocaleString('en', { maximumFractionDigits: 2 })}</p> : null}<p className="mt-2 line-clamp-2 text-xs text-ink-soft">{project.description || ''}</p>{project.price_amount && project.price_amount > 0 ? <div className="mt-4 grid gap-3 border-t border-border pt-3"><div className="flex items-center justify-between"><span className="eyebrow text-[0.5rem] text-ink-soft">Percentage</span><strong className="text-sm">{project.order_percentages?.[0] ?? 0}%</strong></div><div className="flex items-center justify-between text-xs text-ink-soft"><span>Order amount</span><strong className="text-foreground">AED {Number(project.price_amount).toLocaleString('en', { maximumFractionDigits: 2 })}</strong></div><div className="flex items-center justify-between text-xs text-ink-soft"><span>Commission</span><strong className="text-foreground">AED {(Number(project.price_amount) * Number(project.order_percentages?.[0] ?? 0) / 100).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></div>{selectedLevel === 'Junior Trial' ? <div className="flex items-center justify-between border-t border-border pt-3 text-xs text-ink-soft"><span>Wallet balance</span><strong className="text-foreground">AED {walletBalanceAed.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></div> : null}<button type="button" disabled={busyProject === project.id || !project.order_percentages?.length || requests.some((request) => request.user_id === currentUserId && request.property_id === project.id && !['rejected', 'cancelled'].includes(String(request.status).toLowerCase()))} onClick={() => void requestProject(project)} className="eyebrow w-full rounded-lg border border-[#d8b66b] bg-[#071b38] px-4 py-3 text-[0.6rem] font-semibold tracking-widest text-[#f1d28d] transition hover:bg-[#10294b] disabled:cursor-not-allowed disabled:opacity-40">{busyProject === project.id ? 'Sending…' : requests.some((request) => request.user_id === currentUserId && request.property_id === project.id && !['rejected', 'cancelled'].includes(String(request.status).toLowerCase())) ? 'Already ordered' : 'Order project'}</button></div> : <p className="mt-5 border border-dashed border-border p-3 text-xs text-ink-soft">Awaiting admin price and order settings</p>}</div>
+                          <div className="flex flex-1 flex-col p-5 sm:p-6"><h3 className="display text-2xl text-[#071b38]">{project.name}</h3><p className="mt-2 text-xs text-ink-soft">{project.location || 'Dubai, UAE'}</p><p className="mt-3 text-sm text-ink-soft">{project.price_label || 'Price to be set by admin'}</p>{project?.price_amount ? <p className="mt-1 text-sm font-medium">Base price: OMR {Number(project.price_amount).toLocaleString('en', { maximumFractionDigits: 2 })}</p> : null}<p className="mt-2 line-clamp-2 text-xs text-ink-soft">{project.description || ''}</p>{project.price_amount && project.price_amount > 0 ? <div className="mt-4 grid gap-3 border-t border-border pt-3"><div className="flex items-center justify-between"><span className="eyebrow text-[0.5rem] text-ink-soft">Percentage</span><strong className="text-sm">{project.order_percentages?.[0] ?? 0}%</strong></div><div className="flex items-center justify-between text-xs text-ink-soft"><span>Order amount</span><strong className="text-foreground">OMR {Number(project.price_amount).toLocaleString('en', { maximumFractionDigits: 2 })}</strong></div><div className="flex items-center justify-between text-xs text-ink-soft"><span>Commission</span><strong className="text-foreground">OMR {(Number(project.price_amount) * Number(project.order_percentages?.[0] ?? 0) / 100).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></div>{selectedLevel === 'Junior Trial' ? <div className="flex items-center justify-between border-t border-border pt-3 text-xs text-ink-soft"><span>Trial Bonus balance</span><strong className="text-foreground">OMR {trialBonusBalanceOmr.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></div> : null}<button type="button" disabled={busyProject === project.id || !project.order_percentages?.length || requests.some((request) => request.user_id === currentUserId && request.property_id === project.id && !['rejected', 'cancelled'].includes(String(request.status).toLowerCase()))} onClick={() => void requestProject(project)} className="eyebrow w-full rounded-lg border border-[#d8b66b] bg-[#071b38] px-4 py-3 text-[0.6rem] font-semibold tracking-widest text-[#f1d28d] transition hover:bg-[#10294b] disabled:cursor-not-allowed disabled:opacity-40">{busyProject === project.id ? 'Sending…' : requests.some((request) => request.user_id === currentUserId && request.property_id === project.id && !['rejected', 'cancelled'].includes(String(request.status).toLowerCase())) ? 'Already ordered' : 'Order project'}</button></div> : <p className="mt-5 border border-dashed border-border p-3 text-xs text-ink-soft">Awaiting admin price and order settings</p>}</div>
                         </article>
                       }) : null}
                       {projectCards.length === 0 && currentProjectIndex < 20 ? <p className="border border-border bg-card p-6 text-sm text-ink-soft">No un-ordered properties are available in this group. Contact the administrator.</p> : null}
