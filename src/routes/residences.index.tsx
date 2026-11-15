@@ -164,7 +164,6 @@ function ResidencesPage() {
     const selection = { quantity: 1, percentage: Number(project.order_percentages?.[0] ?? 0) }
     const basePrice = Number(project.price_amount || 0)
     const amount = Math.round(basePrice * selection.quantity * 100) / 100
-    const commissionAmount = Math.round(amount * selection.percentage) / 100
     if (!basePrice || !Number.isFinite(basePrice) || basePrice <= 0 || !Number.isFinite(amount) || amount <= 0) {
       setError('This project is not ready for orders. Ask the administrator to set its confirmed numeric price first.')
       return
@@ -176,26 +175,13 @@ function ResidencesPage() {
     setBusyProject(project.id); setError(''); setNotice('')
     try {
       const client = requireSupabase()
-      const { data: auth, error: authError } = await client.auth.getUser()
-      if (authError) throw authError
-      if (!auth.user) throw new Error('Please sign in again before placing an order.')
-      const { error: insertError } = await client.from('investment_requests').insert({
-        user_id: auth.user.id,
-        property_id: project.id,
-        property_name: project.name,
-        plan_code: 'project_order',
-        amount,
-        currency: 'OMR',
-        commission_percent: selection.percentage,
-        expected_commission: commissionAmount,
-        note: `Project order · Level: ${project.project_level} · Percentage: ${selection.percentage}% · Base price: OMR ${basePrice.toFixed(2)} · Order amount: OMR ${amount.toFixed(2)} · Expected commission: OMR ${commissionAmount.toFixed(2)}`, 
-      })
-      if (insertError) throw insertError
-      const updatedRequests = [...requests, { user_id: auth.user.id, property_id: project.id, status: 'pending' }]
+      const { error: orderError } = await client.rpc('member_submit_project_order', { p_property_id: project.id })
+      if (orderError) throw orderError
+      const updatedRequests = [...requests, { user_id: currentUserId, property_id: project.id, status: 'pending' }]
       setRequests(updatedRequests)
       const orderedPropertyIds = new Set(updatedRequests
-        .filter((request) => request.user_id === auth.user.id && request.property_id && !['rejected', 'cancelled'].includes(String(request.status).toLowerCase()))
-        .filter((request) => projects.some((item) => item.id === request.property_id && item.project_level === selectedLevel))
+        .filter((request) => request.user_id === currentUserId && request.property_id && !['rejected', 'cancelled'].includes(String(request.status).toLowerCase()))
+        .filter((request) => projects.some((item) => item.id === request.property_id && item.project_level === selectedLevel && Number(item.set_number) === selectedSet))
         .map((request) => request.property_id))
       setCurrentProjectIndex(Math.min(orderedPropertyIds.size, 20))
       setNotice('Your project order request has been sent to the administrator for review. It counts toward completion only after the administrator funds it.')
