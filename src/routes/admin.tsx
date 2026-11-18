@@ -15,13 +15,20 @@ type Row = any
 type Section = 'overview' | 'properties' | 'enquiries' | 'users' | 'promotions' | 'finance' | 'investments' | 'commissions' | 'verifications' | 'tasks' | 'payments' | 'content' | 'team' | 'support' | 'settings' | 'transactions'
 const SECTIONS: { id: Section; label: string }[] = [
   { id: 'overview', label: 'Dashboard' },
-  { id: 'investments', label: 'Investment Requests' },
+  { id: 'properties', label: 'Projects & Badges' },
+  { id: 'enquiries', label: 'Enquiries' },
   { id: 'users', label: 'Users' },
-  { id: 'properties', label: 'Projects' },
+  { id: 'promotions', label: 'Promotions' },
   { id: 'finance', label: 'Cashout' },
+  { id: 'investments', label: 'Investment Requests' },
+  { id: 'commissions', label: 'Commissions' },
+  { id: 'verifications', label: 'Identity Verification' },
+  { id: 'tasks', label: 'Tasks' },
+  { id: 'payments', label: 'Payment Instructions' },
   { id: 'transactions', label: 'Transactions' },
+  { id: 'settings', label: 'Website Content & Settings' },
+  { id: 'team', label: 'Team & Access' },
   { id: 'support', label: 'Support' },
-  { id: 'settings', label: 'Settings' },
 ]
 const CURRENCIES = ['OMR', 'AED', 'SAR', 'KWD', 'BHD', 'QAR', 'PKR', 'BDT']
 const meta = siteMetadata['/admin']
