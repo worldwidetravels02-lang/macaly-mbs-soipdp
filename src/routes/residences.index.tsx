@@ -101,7 +101,7 @@ function ResidencesPage() {
         client.from('properties').select('id,slug,name,location,description,price_label,price_amount,order_percentages,cover_image_url,project_level,set_number,sort_order').eq('status', 'published').not('project_level', 'is', null).order('sort_order', { ascending: true }),
         client.auth.getUser(),
         client.from('customer_project_level_access').select('user_id,level_name,is_unlocked'),
-        client.from('customer_project_set_access').select('user_id,level_name,set_number,is_unlocked,progress_percent'),
+        client.from('customer_project_set_access').select('user_id,level_name,set_number,is_unlocked'),
       ])
       if (propertyResult.error) throw propertyResult.error
       if (userResult.error) throw userResult.error
