@@ -506,7 +506,7 @@ function AdminPage() {
       const status = normalizeAdminStatus(item.status || 'draft') || 'draft'
       const matchesStatus = propertyStatusFilter === 'all' || status === propertyStatusFilter
       return matchesLevel && matchesQuery && matchesStatus
-    }).sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0) || text(a.name).localeCompare(text(b.name)))
+    })
   }, [rows.properties, propertySearch, propertyStatusFilter, propertyCatalogueLevel, propertyCatalogueSet])
 
   const filteredEnquiries = useMemo(() => {
