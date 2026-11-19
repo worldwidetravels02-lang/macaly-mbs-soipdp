@@ -61,6 +61,7 @@ function ResidencesPage() {
   const [welcomeBonus, setWelcomeBonus] = useState<{ id: string; amount: number | string; currency: string; popup_seen_at: string | null } | null>(null)
   const [walletBalanceOmr, setWalletBalanceOmr] = useState(0)
   const [fortuneAssignments, setFortuneAssignments] = useState<any[]>([])
+  const [fortuneRewards, setFortuneRewards] = useState<any[]>([])
   const [fortuneReveal, setFortuneReveal] = useState<number | null>(null)
   const [fortuneBusy, setFortuneBusy] = useState(false)
   const completionShownRef = useRef('')
@@ -114,13 +115,14 @@ function ResidencesPage() {
       if (!userResult.data.user) throw new Error('Please sign in to view the project catalogue.')
       const { error: bonusEnsureError } = await client.rpc('ensure_member_trial_bonus')
       if (bonusEnsureError) console.warn('Welcome Trial Bonus is not available:', bonusEnsureError.message)
-      const [requestResult, walletResult, trialBonusResult, fortuneResult] = await Promise.all([
+      const [requestResult, walletResult, trialBonusResult, fortuneResult, fortuneRewardResult] = await Promise.all([
         client.from('investment_requests').select('user_id,property_id,status').eq('user_id', userResult.data.user.id).order('created_at', { ascending: false }),
         client.from('wallet_balances').select('balance').eq('user_id', userResult.data.user.id).eq('currency', 'OMR').maybeSingle(),
         // Trial Bonus is optional for catalogue rendering. A missing or unavailable
         // bonus table must not prevent the published property list from loading.
         client.from('trial_bonus_transactions').select('id,direction,amount,currency,popup_seen_at,reference_type').eq('user_id', userResult.data.user.id),
         client.from('fortune_box_assignments').select('id,level_name,badge_number,position,rewards,status').eq('user_id', userResult.data.user.id).eq('status', 'active'),
+        client.from('fortune_reward_transactions').select('id,amount,currency,description,created_at').eq('user_id', userResult.data.user.id).order('created_at', { ascending: false }).limit(30),
       ])
       if (requestResult.error) throw requestResult.error
       if (walletResult.error) throw walletResult.error
@@ -137,6 +139,7 @@ function ResidencesPage() {
       setWelcomeBonus(welcomeRow ? { id: welcomeRow.id, amount: welcomeRow.amount, currency: welcomeRow.currency, popup_seen_at: welcomeRow.popup_seen_at } : null)
       setWalletBalanceOmr(Number(walletResult.data?.balance ?? 0))
       if (!fortuneResult.error) setFortuneAssignments(fortuneResult.data ?? [])
+      if (!fortuneRewardResult.error) setFortuneRewards(fortuneRewardResult.data ?? [])
     })().catch((cause) => {
       if (active) setError(cause instanceof Error ? cause.message : 'Could not load the project catalogue.')
     }).finally(() => { if (active) setLoadingProjects(false) })
@@ -233,6 +236,7 @@ function ResidencesPage() {
       const reward = Array.isArray(data) ? data[0] : data
       setFortuneReveal(Number(reward?.amount ?? 0))
       setFortuneAssignments((current) => current.filter((item) => item.id !== activeFortuneAssignment.id))
+      setFortuneRewards((current) => [{ id: reward?.id, amount: reward?.amount, currency: 'OMR', description: 'Fortune Box reward credit', created_at: new Date().toISOString() }, ...current])
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not claim this reward.') }
     finally { setFortuneBusy(false) }
   }
@@ -331,6 +335,7 @@ function ResidencesPage() {
                 const completed = new Set(requests.filter((request) => request.user_id === currentUserId && request.property_id && setPropertyIds.has(request.property_id) && String(request.status).toLowerCase() === 'funded').map((request) => request.property_id)).size
                 return <button key={setNumber} type="button" disabled={!unlocked} onClick={() => { setSelectedSet(setNumber); setCurrentProjectIndex(0); setError(''); setNotice('') }} className={`rounded-xl border-2 p-4 text-left transition ${selectedSet === setNumber ? 'border-[#d8b66b] bg-[#071b38] text-white' : 'border-[#d8b66b]/50 bg-white text-[#071b38]'} ${!unlocked ? 'cursor-not-allowed opacity-50' : 'hover:border-[#d8b66b]'}`}><span className="flex items-center justify-between"><strong className="display text-lg">Badge {setNumber}</strong><span>{unlocked ? '🏅' : '🔒'}</span></span><span className={`mt-2 block text-xs ${selectedSet === setNumber ? 'text-white/75' : 'text-ink-soft'}`}>{Math.max(0, Math.min(100, Number(customerSetAccess.find((item) => item.user_id === currentUserId && item.level_name === selectedLevel && item.set_number === setNumber)?.progress_percent ?? 0)))}% admin-set progress · {completed} / 20 funded</span><span className={`mt-1 block text-[10px] font-semibold uppercase tracking-widest ${selectedSet === setNumber ? 'text-[#f1d28d]' : 'text-[#9a793b]'}`}>{unlocked ? 'Unlocked' : 'Locked by administrator'}</span></button>
               })}</div> : null}
+              {fortuneRewards.length ? <section className="mx-auto mt-8 w-full max-w-3xl rounded-xl border border-[#d8b66b] bg-white p-5"><h3 className="display text-xl text-[#071b38]">Reward Records</h3><div className="mt-3 divide-y divide-[#eee6d7]">{fortuneRewards.map((reward) => <div key={reward.id} className="flex items-center justify-between gap-3 py-3 text-sm"><span className="text-[#555]">{reward.description || 'Fortune Box reward'}<small className="mt-1 block text-xs text-[#888]">{new Date(reward.created_at).toLocaleString()}</small></span><strong className="text-[#94702e]">{Number(reward.amount).toFixed(2)} credits</strong></div>)}</div></section> : null}
               {!currentLevelUnlocked ? <p className="mt-6 border border-border p-5 text-sm text-ink-soft">This badge is locked. The administrator must unlock it before you can continue.</p> : (
                 <>
                   {loadingProjects ? <p className="mt-8 text-sm text-ink-soft">Loading projects…</p> : (
