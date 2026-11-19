@@ -77,6 +77,75 @@ $$;
 revoke all on function public.admin_add_trial_bonus(uuid,numeric,text) from public, anon;
 grant execute on function public.admin_add_trial_bonus(uuid,numeric,text) to authenticated;
 
+
+-- One-time OMR 200 welcome Trial Bonus. The idempotency key is tied to the
+-- authenticated customer, so repeated logins cannot create another credit.
+alter table public.trial_bonus_transactions
+  add column if not exists popup_seen_at timestamptz;
+
+create or replace function public.ensure_member_trial_bonus()
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $
+declare
+  v_user_id uuid := (select auth.uid());
+  v_id uuid;
+begin
+  if v_user_id is null then
+    raise exception 'Authentication required' using errcode = '42501';
+  end if;
+
+  insert into public.trial_bonus_transactions(
+    user_id, direction, amount, currency, reference_type,
+    idempotency_key, description, created_by
+  ) values (
+    v_user_id, 'credit', 200, 'OMR', 'welcome_trial_bonus',
+    'welcome-trial-bonus:' || v_user_id::text,
+    'One-time welcome Trial Bonus', null
+  )
+  on conflict (idempotency_key) do nothing
+  returning id into v_id;
+
+  if v_id is null then
+    select id into v_id
+    from public.trial_bonus_transactions
+    where idempotency_key = 'welcome-trial-bonus:' || v_user_id::text
+      and user_id = v_user_id;
+  end if;
+
+  return v_id;
+end;
+$;
+
+revoke all on function public.ensure_member_trial_bonus() from public, anon;
+grant execute on function public.ensure_member_trial_bonus() to authenticated;
+
+create or replace function public.dismiss_member_trial_bonus_popup()
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $
+declare
+  v_user_id uuid := (select auth.uid());
+begin
+  if v_user_id is null then
+    raise exception 'Authentication required' using errcode = '42501';
+  end if;
+
+  update public.trial_bonus_transactions
+  set popup_seen_at = coalesce(popup_seen_at, now())
+  where user_id = v_user_id
+    and reference_type = 'welcome_trial_bonus'
+    and popup_seen_at is null;
+end;
+$;
+
+revoke all on function public.dismiss_member_trial_bonus_popup() from public, anon;
+grant execute on function public.dismiss_member_trial_bonus_popup() to authenticated;
+
 create or replace function public.admin_review_investment_request(
   p_request_id uuid,
   p_action text,
