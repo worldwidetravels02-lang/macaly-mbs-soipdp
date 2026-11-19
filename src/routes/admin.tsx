@@ -154,6 +154,8 @@ function AdminPage() {
   const [taskFromDate, setTaskFromDate] = useState('')
   const [taskToDate, setTaskToDate] = useState('')
   const [fortuneDraft, setFortuneDraft] = useState({ user_id: '', level_name: 'Senior', badge_number: '1', position: '1', rewards: ['5', '10', '20'] })
+  const [fortuneMode, setFortuneMode] = useState<'fortune' | 'premium'>('fortune')
+  const [premiumDraft, setPremiumDraft] = useState({ user_id: '', level_name: 'Senior', badge_number: '1', position: '1', project_name: '', deposit_amount: '', commission_percent: '' })
 
   const load = useCallback(async () => {
     setChecking(true)
@@ -217,6 +219,7 @@ function AdminPage() {
         walletHolds: client.from('wallet_holds').select('*').order('created_at', { ascending: false }).limit(200),
         trialBonusTransactions: client.from('trial_bonus_transactions').select('*').order('created_at', { ascending: false }).limit(200),
         fortuneAssignments: client.from('fortune_box_assignments').select('*').order('created_at', { ascending: false }).limit(200),
+        premiumAssignments: client.from('premium_project_assignments').select('*').order('created_at', { ascending: false }).limit(200),
         fortuneRewards: client.from('fortune_reward_transactions').select('*').order('created_at', { ascending: false }).limit(200),
       }
       const names = Object.keys(queries)
@@ -777,6 +780,28 @@ function AdminPage() {
     }, 'Fortune Box assignment created.')
   }
 
+  const savePremiumAssignment = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const position = Number(premiumDraft.position)
+    const badgeNumber = Number(premiumDraft.badge_number)
+    const depositAmount = Number(premiumDraft.deposit_amount)
+    const commissionPercent = Number(premiumDraft.commission_percent)
+    if (!premiumDraft.user_id) { setError('Select a customer first.'); return }
+    if (!Number.isInteger(position) || position < 1 || position > 20 || !Number.isInteger(badgeNumber) || badgeNumber < 1 || badgeNumber > 3) { setError('Choose a valid badge and property position.'); return }
+    if (!premiumDraft.project_name.trim() || premiumDraft.project_name.trim().length > 160) { setError('Enter a Premium Project name (160 characters maximum).'); return }
+    if (!Number.isFinite(depositAmount) || depositAmount <= 0 || depositAmount > 100000000) { setError('Enter a valid deposit amount in OMR.'); return }
+    if (!Number.isFinite(commissionPercent) || commissionPercent < 0 || commissionPercent > 100) { setError('Commission must be between 0 and 100 percent.'); return }
+    await run(async () => {
+      const { error: insertError } = await requireSupabase().from('premium_project_assignments').insert({
+        user_id: premiumDraft.user_id, level_name: premiumDraft.level_name, badge_number: badgeNumber,
+        position, project_name: premiumDraft.project_name.trim(), deposit_amount: depositAmount,
+        commission_percent: commissionPercent, currency: 'OMR', created_by: user?.id,
+      })
+      if (insertError) throw insertError
+      setPremiumDraft({ user_id: '', level_name: 'Senior', badge_number: '1', position: '1', project_name: '', deposit_amount: '', commission_percent: '' })
+    }, 'Premium Project assignment created.')
+  }
+
   const savePromotion = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const title = promotionDraft.title.trim()
@@ -1323,7 +1348,9 @@ function AdminPage() {
                 })}
                 {!filteredCustomers.length ? <p className="rounded-xl border border-dashed border-border p-6 text-sm text-ink-soft">No customers match these filters.</p> : null}
               </section></section> : null}
-            {section === 'fortune' ? <section className="grid gap-6 xl:grid-cols-[minmax(18rem,0.8fr)_1.2fr]">
+            {section === 'fortune' ? <section className="grid gap-6">
+              <div className="flex flex-wrap gap-2"><button type="button" className={fortuneMode === 'fortune' ? buttonClass : softButton} onClick={() => setFortuneMode('fortune')}>Fortune Box</button><button type="button" className={fortuneMode === 'premium' ? buttonClass : softButton} onClick={() => setFortuneMode('premium')}>Premium Project</button></div>
+              {fortuneMode === 'fortune' ? <section className="grid gap-6 xl:grid-cols-[minmax(18rem,0.8fr)_1.2fr]">
               <form onSubmit={saveFortuneAssignment} className="h-fit grid gap-4 border border-border bg-card p-6">
                 <div><h2 className="display text-xl">Create Fortune Box assignment</h2><p className="mt-2 text-xs leading-5 text-ink-soft">Assign one three-card reward to a customer at a specific badge position. Credits are promotional only and are not withdrawable or exchangeable for cash.</p></div>
                 <select required className={inputClass} value={fortuneDraft.user_id} onChange={(e) => setFortuneDraft({ ...fortuneDraft, user_id: e.target.value })}><option value="">Select customer</option>{(rows.users ?? []).map((item) => <option key={item.id} value={text(item.id)}>{text(item.full_name) || text(item.mobile) || text(item.id)} · {text(item.mobile)}</option>)}</select>
@@ -1338,6 +1365,20 @@ function AdminPage() {
                 <section className="border border-border bg-card p-5"><h2 className="display text-xl">Reward records</h2><DataTable title="Fortune Box reward credits" rows={(rows.fortuneRewards ?? []).map((item) => ({ ...item, customer: customerLabel(item.user_id) }))} columns={['customer','amount','currency','description','created_at']} /></section>
               </div>
             </section> : null}
+              {fortuneMode === 'premium' ? <section className="grid gap-6 xl:grid-cols-[minmax(18rem,0.8fr)_1.2fr]">
+                <form onSubmit={savePremiumAssignment} className="h-fit grid gap-4 border border-border bg-card p-6">
+                  <div><h2 className="display text-xl">Assign Premium Project</h2><p className="mt-2 text-xs leading-5 text-ink-soft">Create a customer-specific assignment for one exact badge position. Deposit and commission settings are shown in OMR.</p></div>
+                  <select required className={inputClass} value={premiumDraft.user_id} onChange={(e) => setPremiumDraft({ ...premiumDraft, user_id: e.target.value })}><option value="">Select customer</option>{(rows.users ?? []).map((item) => <option key={item.id} value={text(item.id)}>{text(item.full_name) || text(item.mobile) || text(item.id)} · {text(item.mobile)}</option>)}</select>
+                  <select className={inputClass} value={premiumDraft.level_name} onChange={(e) => setPremiumDraft({ ...premiumDraft, level_name: e.target.value })}>{['Senior','Master','Expert'].map((level) => <option key={level}>{level}</option>)}</select>
+                  <select className={inputClass} value={premiumDraft.badge_number} onChange={(e) => setPremiumDraft({ ...premiumDraft, badge_number: e.target.value })}>{[1,2,3].map((badge) => <option key={badge} value={badge}>Badge {badge}</option>)}</select>
+                  <label className="grid gap-1 text-xs">Property position<input required type="number" min="1" max="20" className={inputClass} value={premiumDraft.position} onChange={(e) => setPremiumDraft({ ...premiumDraft, position: e.target.value })} /></label>
+                  <label className="grid gap-1 text-xs">Premium Project name<input required maxLength={160} className={inputClass} value={premiumDraft.project_name} onChange={(e) => setPremiumDraft({ ...premiumDraft, project_name: e.target.value })} placeholder="Project name" /></label>
+                  <label className="grid gap-1 text-xs">Deposit amount (OMR)<input required type="number" min="0.01" max="100000000" step="0.01" className={inputClass} value={premiumDraft.deposit_amount} onChange={(e) => setPremiumDraft({ ...premiumDraft, deposit_amount: e.target.value })} /></label>
+                  <label className="grid gap-1 text-xs">Commission (%)<input required type="number" min="0" max="100" step="0.01" className={inputClass} value={premiumDraft.commission_percent} onChange={(e) => setPremiumDraft({ ...premiumDraft, commission_percent: e.target.value })} /></label>
+                  <button disabled={busy} className={buttonClass}>Create Premium assignment <ArrowRight /></button>
+                </form>
+                <section className="border border-border bg-card p-5"><h2 className="display text-xl">Premium Project assignments</h2><DataTable title="Premium Project assignments" rows={(rows.premiumAssignments ?? []).map((item) => ({ ...item, customer: customerLabel(item.user_id) }))} columns={['customer','level_name','badge_number','position','project_name','deposit_amount','currency','commission_percent','status','created_at']} /></section>
+              </section> : null}
 
             {section === 'promotions' ? <section className="grid gap-6 xl:grid-cols-[minmax(18rem,0.8fr)_1.2fr]">
               <form onSubmit={savePromotion} className="h-fit border border-border bg-card p-6"><h2 className="display text-xl">{editingPromotionId ? 'Edit promotion' : 'Create promotion'}</h2><div className="mt-5 grid gap-3"><input required className={inputClass} placeholder="Promotion title" value={promotionDraft.title} onChange={(e) => setPromotionDraft({ ...promotionDraft, title: e.target.value })} /><textarea className={inputClass} rows={4} placeholder="Description" value={promotionDraft.description} onChange={(e) => setPromotionDraft({ ...promotionDraft, description: e.target.value })} /><input className={inputClass} placeholder="Image URL" value={promotionDraft.image_url} onChange={(e) => setPromotionDraft({ ...promotionDraft, image_url: e.target.value })} /><select className={inputClass} value={promotionDraft.property_slug} onChange={(e) => setPromotionDraft({ ...promotionDraft, property_slug: e.target.value })}><option value="">All properties</option>{(rows.properties ?? []).map((property) => <option key={property.id} value={text(property.slug)}>{text(property.name)}</option>)}</select><label className="flex items-center gap-3 text-sm"><input type="checkbox" checked={promotionDraft.active} onChange={(e) => setPromotionDraft({ ...promotionDraft, active: e.target.checked })} /> Active immediately</label><div className="flex flex-wrap gap-2"><button disabled={busy} className={buttonClass}>{editingPromotionId ? 'Save changes' : 'Create promotion'} <ArrowRight /></button>{editingPromotionId ? <button type="button" disabled={busy} className={softButton} onClick={() => { setEditingPromotionId(''); setPromotionDraft({ title: '', description: '', image_url: '', property_slug: '', active: false }) }}>Cancel edit</button> : null}</div></div></form>
