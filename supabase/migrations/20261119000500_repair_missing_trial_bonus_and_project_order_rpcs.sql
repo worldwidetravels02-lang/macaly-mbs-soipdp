@@ -77,6 +77,83 @@ $$;
 revoke all on function public.admin_add_trial_bonus(uuid,numeric,text) from public, anon;
 grant execute on function public.admin_add_trial_bonus(uuid,numeric,text) to authenticated;
 
+create or replace function public.admin_review_investment_request(
+  p_request_id uuid,
+  p_action text,
+  p_admin_note text default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_request public.investment_requests%rowtype;
+  v_plan_id uuid;
+  v_minimum numeric(20,2);
+  v_profit_percent numeric(8,4);
+  v_commission_percent numeric(8,4);
+begin
+  if not (select private.is_admin()) then
+    raise exception 'Administrator access required' using errcode = '42501';
+  end if;
+  if p_action not in ('approve','reject') then
+    raise exception 'Choose approve or reject';
+  end if;
+  select * into v_request from public.investment_requests
+  where id = p_request_id for update;
+  if not found then raise exception 'Investment request not found'; end if;
+  if v_request.status <> 'pending' then
+    raise exception 'Only pending investment requests can be reviewed';
+  end if;
+
+  if p_action = 'approve' then
+    select id, minimum_amount, profit_percent, commission_percent
+      into v_plan_id, v_minimum, v_profit_percent, v_commission_percent
+    from public.membership_plans
+    where code = v_request.plan_code and active = true;
+    if v_plan_id is null then raise exception 'The selected investment plan is no longer active'; end if;
+    if v_request.amount < v_minimum then
+      raise exception 'The investment amount is below the current plan minimum';
+    end if;
+    if v_request.plan_code = 'project_order' then
+      if v_request.currency <> 'OMR' then
+        raise exception 'Project orders must use OMR';
+      end if;
+      v_commission_percent := coalesce(v_request.commission_percent, 0);
+      if v_commission_percent < 0 or v_commission_percent > 100 then
+        raise exception 'Project commission percentage is invalid';
+      end if;
+    end if;
+    update public.investment_requests
+    set status = 'approved',
+        plan_id = v_plan_id,
+        profit_percent = v_profit_percent,
+        commission_percent = v_commission_percent,
+        expected_profit = round(v_request.amount * v_profit_percent / 100, 2),
+        expected_commission = round(v_request.amount * v_commission_percent / 100, 2),
+        admin_note = nullif(btrim(p_admin_note), ''),
+        reviewed_at = now(),
+        reviewed_by = (select auth.uid())
+    where id = v_request.id;
+  else
+    update public.investment_requests
+    set status = 'rejected',
+        admin_note = nullif(btrim(p_admin_note), ''),
+        reviewed_at = now(),
+        reviewed_by = (select auth.uid())
+    where id = v_request.id;
+  end if;
+
+  insert into public.financial_audit_log(actor_id, action, entity_type, entity_id, details)
+  values ((select auth.uid()), 'investment_request_' || p_action, 'investment_request',
+    v_request.id, jsonb_build_object('user_id', v_request.user_id,
+      'amount', v_request.amount, 'currency', v_request.currency,
+      'plan_code', v_request.plan_code, 'admin_note', p_admin_note));
+  return v_request.id;
+end;
+$$;
+
 create or replace function public.admin_fund_investment_request(p_request_id uuid)
 returns uuid
 language plpgsql
