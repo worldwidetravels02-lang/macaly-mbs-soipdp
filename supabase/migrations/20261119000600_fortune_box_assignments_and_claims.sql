@@ -56,7 +56,9 @@ create policy "Customers read own Fortune Box rewards"
   on public.fortune_reward_transactions for select to authenticated
   using (user_id = (select auth.uid()) or (select private.is_admin()));
 
-create or replace function public.claim_fortune_box(
+drop function if exists public.claim_fortune_box(uuid, smallint);
+
+create function public.claim_fortune_box(
   p_assignment_id uuid,
   p_card_number smallint
 )
