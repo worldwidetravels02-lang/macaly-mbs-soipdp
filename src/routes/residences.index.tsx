@@ -99,7 +99,7 @@ function ResidencesPage() {
     ;(async () => {
       const client = requireSupabase()
       const [propertyResult, userResult, accessResult, setAccessResult] = await Promise.all([
-        client.from('properties').select('id,slug,name,location,description,price_label,price_amount,order_percentages,cover_image_url,project_level,set_number,sort_order').eq('status', 'published').not('project_level', 'is', null).order('sort_order', { ascending: true }),
+        client.from('properties').select('id,slug,name,location,description,price_label,price_amount,order_percentages,cover_image_url,project_level,set_number,sort_order').eq('status', 'published').not('project_level', 'is', null).order('sort_order', { ascending: true }).order('name', { ascending: true }).order('id', { ascending: true }),
         client.auth.getUser(),
         client.from('customer_project_level_access').select('user_id,level_name,is_unlocked'),
         client.from('customer_project_set_access').select('user_id,level_name,set_number,is_unlocked'),
@@ -264,7 +264,7 @@ function ResidencesPage() {
                   const unlocked = customerLevelAccess.find((item) => item.user_id === currentUserId && item.level_name === level)?.is_unlocked ?? level === 'Junior Trial'
                   const isTrial = level === 'Junior Trial'
                   const levelImage = isTrial ? IMAGES.marinaNight : level === "Senior" ? IMAGES.tower : level === "Master" ? IMAGES.detail : IMAGES.villas
-                  const levelProperties = projects.filter((project) => project.project_level === level)
+                  const levelProperties = projects.filter((project) => project.project_level === level && (!isTrial || Number(project.set_number) === 1))
                   const count = levelProperties.length
                   const prices = levelProperties.map((project) => Number(project.price_amount)).filter((price) => Number.isFinite(price) && price > 0)
                   const startingPrice = prices.length ? Math.min(...prices) : null
