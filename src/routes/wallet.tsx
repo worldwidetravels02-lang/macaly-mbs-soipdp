@@ -210,7 +210,7 @@ function WalletPage() {
       if (!['Bank transfer', 'Other'].includes(method)) { setError('Choose a supported withdrawal method.'); return }
       if (!details || details.length > 1000) { setError('Enter payout instructions between 1 and 1,000 characters.'); return }
       const reservedWithdrawals = withdrawals
-        .filter((row) => row.currency === 'OMR' && ['pending', 'submitted', 'under_review', 'approved', 'processing', 'in_progress'].includes(normalizeStatus(row.status)))
+        .filter((row) => row.currency === 'OMR' && ['pending'].includes(normalizeStatus(row.status)))
         .reduce((total, row) => total + (Number(row.amount) || 0), 0)
       if (amount + reservedWithdrawals + activeHolds > balance) {
         setError(`Your request plus ${money(convertCurrency(reservedWithdrawals, 'OMR', currency, fxRates), currency)} in active withdrawals and ${money(convertCurrency(activeHolds, 'OMR', currency, fxRates), currency)} on hold would exceed your available posted balance.`)
@@ -230,7 +230,7 @@ function WalletPage() {
           .eq('user_id', authData.user.id)
           .eq('currency', 'OMR')
         if (latestError) throw latestError
-        const activeStatuses = ['pending', 'submitted', 'under_review', 'approved', 'processing', 'in_progress']
+        const activeStatuses = ['pending']
         const latestReserved = (latestWithdrawals ?? [])
           .filter((row) => activeStatuses.includes(String(row.status ?? '').toLowerCase().replace(/-/g, '_')))
           .reduce((total, row) => total + (Number(row.amount) || 0), 0)
@@ -294,7 +294,7 @@ function WalletPage() {
   }
 
   const reservedWithdrawalAmount = withdrawals
-    .filter((row) => row.currency === 'OMR' && ['pending', 'submitted', 'under_review', 'approved', 'processing', 'in_progress'].includes(normalizeStatus(row.status)))
+    .filter((row) => row.currency === 'OMR' && ['pending'].includes(normalizeStatus(row.status)))
     .reduce((total, row) => total + (Number(row.amount) || 0), 0)
   const withdrawableAmount = Math.max(0, balance - reservedWithdrawalAmount - activeHolds)
   const displayMoney = (value: number | string, source: Currency) => money(convertCurrency(value, source, currency, fxRates), currency)
@@ -359,7 +359,7 @@ function WalletPage() {
                 <p className="mt-1 text-xs text-ink-soft">{currency === 'OMR' ? 'OMR is the wallet base currency.' : fxRates[currency] ? `1 OMR = ${fxRates[currency].toFixed(6)} ${currency}` : 'Exchange rate unavailable.'} {fxDate ? `Rate updated: ${fxDate}` : 'Reference rates in use.'} · Auto-refresh every 5 minutes.</p>
                 {fxError ? <p role="status" className="mt-1 text-xs text-amber-700">{fxError} Reference rates are being used until live rates return.</p> : null}
                 <p className="mt-2 text-xs text-ink-soft">Calculated from posted ledger entries only.</p>
-                <p className="mt-2 text-xs text-ink-soft">Reserved in pending, approved or processing withdrawals: {money(convertCurrency(reservedWithdrawalAmount, 'OMR', currency, fxRates), currency)}. Active wallet holds: {money(convertCurrency(activeHolds, 'OMR', currency, fxRates), currency)}. Both are deducted before new withdrawal requests.</p>
+                <p className="mt-2 text-xs text-ink-soft">Reserved in pending withdrawals: {money(convertCurrency(reservedWithdrawalAmount, 'OMR', currency, fxRates), currency)}. Active wallet holds: {money(convertCurrency(activeHolds, 'OMR', currency, fxRates), currency)}. Both are deducted before new withdrawal requests.</p>
               </div>
               <div className="border border-border bg-card p-6">
                 <p className="eyebrow text-[0.5rem] text-ink-soft">Credited profit total</p>

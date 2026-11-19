@@ -118,7 +118,7 @@ function AccountPage() {
       setBalance(Number(wallet.data?.balance ?? 0))
       const activeHolds=(holdRows.data ?? []).filter((r:any)=>r.currency==='OMR')
       setHold(activeHolds.reduce((n:number,r:any)=>n+Math.max(0,Number(r.amount||0)-Number(r.released_amount||0)),0))
-      setReservedWithdrawals((withdrawals.data ?? []).filter((r:any)=>r.currency==='OMR' && ['pending','approved'].includes(norm(r.status))).reduce((n:number,r:any)=>n+Number(r.amount||0),0))
+      setReservedWithdrawals((withdrawals.data ?? []).filter((r:any)=>r.currency==='OMR' && ['pending'].includes(norm(r.status))).reduce((n:number,r:any)=>n+Number(r.amount||0),0))
       setBanks((bankRows.data ?? []) as BankAccount[])
       setBankId((bankRows.data?.[0] as any)?.id ?? '')
       setHasWithdrawalCode(Boolean(codeResult.data))
