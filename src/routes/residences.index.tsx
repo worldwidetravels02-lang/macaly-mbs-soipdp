@@ -105,7 +105,7 @@ function ResidencesPage() {
     ;(async () => {
       const client = requireSupabase()
       const [propertyResult, userResult, accessResult, setAccessResult] = await Promise.all([
-        client.from('properties').select('id,slug,name,location,description,price_label,price_amount,order_percentages,cover_image_url,project_level,set_number,sort_order').eq('status', 'published').not('project_level', 'is', null).order('sort_order', { ascending: true }).order('name', { ascending: true }).order('id', { ascending: true }),
+        client.from('properties').select('id,slug,name,location,description,price_label,price_amount,order_percentages,cover_image_url,project_level,set_number,sort_order').eq('status', 'published').not('project_level', 'is', null),
         client.auth.getUser(),
         client.from('customer_project_level_access').select('user_id,level_name,is_unlocked'),
         client.from('customer_project_set_access').select('user_id,level_name,set_number,is_unlocked'),
@@ -167,11 +167,13 @@ function ResidencesPage() {
   const currentLevelUnlocked = selectedLevel === 'Junior Trial' || ((customerLevelAccess.find((item) => item.user_id === currentUserId && item.level_name === selectedLevel)?.is_unlocked ?? false) && (customerSetAccess.find((item) => item.user_id === currentUserId && item.level_name === selectedLevel && item.set_number === selectedSet)?.is_unlocked ?? selectedSet === 1))
   const levelProjects = useMemo(() => projects.filter((project) => project.project_level === selectedLevel && (selectedLevel === 'Junior Trial' ? Number(project.set_number) === 1 : Number(project.set_number) === selectedSet)), [projects, selectedLevel, selectedSet])
   const visibleProjects = useMemo(() => {
+    // Junior Trial follows the database-returned property order; do not sort it.
+    if (selectedLevel === 'Junior Trial') return levelProjects
     const rows = [...levelProjects]
     if (projectSort === 'name') rows.sort((a, b) => a.name.localeCompare(b.name))
     if (projectSort === 'price') rows.sort((a, b) => Number(a.price_amount ?? 0) - Number(b.price_amount ?? 0))
     return rows
-  }, [levelProjects, projectSort])
+  }, [levelProjects, projectSort, selectedLevel])
   const orderedPropertyIds = useMemo(() => new Set(requests
     .filter((request) => request.user_id === currentUserId && request.property_id && !['rejected', 'cancelled'].includes(String(request.status).toLowerCase()))
     .filter((request) => levelProjects.some((project) => project.id === request.property_id))
