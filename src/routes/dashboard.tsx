@@ -15,6 +15,7 @@ type Investment = { id: string; amount: number | string; currency: Currency; sta
 type InvestmentRequest = { id: string; property_name: string; plan_code: string | null; amount: number | string; currency: Currency; profit_percent: number | string | null; expected_profit: number | string | null; commission_percent: number | string | null; expected_commission: number | string | null; status: string; created_at: string }
 type LedgerItem = { id: string; amount: number | string; currency: Currency; transaction_type: string; direction: string; status: string; description: string | null; created_at: string }
 type Commission = { id: string; amount: number | string; currency: Currency; commission_type: string; status: string; description: string | null; created_at: string }
+type WelcomeTrialBonus = { id: string; amount: number | string; currency: 'OMR'; popup_seen_at: string | null }
 type MemberTask = { id: string; title: string; detail: string | null; target_level: number | null; status: string; created_at: string; reviewed_at?: string | null; review_note?: string | null }
 type MembershipPlan = { id: string; level: number; name: string; minimum_amount: number | string; profit_percent: number | string; commission_percent: number | string; active: boolean }
 type CustomerLevelAccess = { user_id: string; level_name: string; is_unlocked: boolean }
@@ -68,6 +69,7 @@ function DashboardPage() {
   const [taskMessage, setTaskMessage] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [welcomeBonus, setWelcomeBonus] = useState<WelcomeTrialBonus | null>(null)
 
   const load = useCallback(async () => {
     setError('')
@@ -77,7 +79,22 @@ function DashboardPage() {
       if (authError) throw authError
       const current = auth.session?.user ?? null
       setUser(current)
-      if (!current) return
+      if (!current) { setWelcomeBonus(null); return }
+      const { error: bonusEnsureError } = await client.rpc('ensure_member_trial_bonus')
+      if (bonusEnsureError) {
+        console.warn('Welcome Trial Bonus is not available until its database migration is applied:', bonusEnsureError.message)
+        setWelcomeBonus(null)
+      } else {
+        const { data: bonusRow, error: bonusReadError } = await client.from('trial_bonus_transactions')
+          .select('id,amount,currency,popup_seen_at')
+          .eq('user_id', current.id).eq('reference_type', 'welcome_trial_bonus').maybeSingle()
+        if (bonusReadError) {
+          console.warn('Could not load the welcome Trial Bonus popup:', bonusReadError.message)
+          setWelcomeBonus(null)
+        } else {
+          setWelcomeBonus(bonusRow as WelcomeTrialBonus | null)
+        }
+      }
       const [profile, wallet, pendingWithdrawals, projects, requests, ledger, notices, commissionRows, memberProfile, taskRows, planRows, accessRows] = await Promise.all([
         client.from('profiles').select('full_name').eq('id', current.id).maybeSingle(),
         client.from('wallet_balances').select('balance').eq('user_id', current.id).eq('currency', 'OMR').maybeSingle(),
@@ -150,6 +167,16 @@ function DashboardPage() {
     const { data: listener } = client.auth.onAuthStateChange(() => { void run() })
     return () => { active = false; listener.subscription.unsubscribe() }
   }, [load])
+
+  const dismissWelcomeBonus = async () => {
+    try {
+      const { error: dismissError } = await requireSupabase().rpc('dismiss_member_trial_bonus_popup')
+      if (dismissError) throw dismissError
+      setWelcomeBonus((current) => current ? { ...current, popup_seen_at: new Date().toISOString() } : null)
+    } catch (cause) {
+      console.error('Could not save the welcome bonus popup status:', cause)
+    }
+  }
 
   const submitTaskForReview = async (task: MemberTask) => {
     const currentStatus = normalizeInvestmentStatus(task.status)
@@ -234,6 +261,28 @@ function DashboardPage() {
           {loading ? <div data-testid="dashboard-loading" className="border border-border bg-card p-10 text-center text-sm text-ink-soft">Opening your dashboard…</div> : null}
           {!loading && !user ? <section data-testid="dashboard-signed-out" className="border border-border bg-card p-8 sm:p-12"><p className="eyebrow text-brass">Member area</p><h2 className="display mt-4 text-2xl">Sign in to open your dashboard.</h2><p className="mt-3 text-sm text-ink-soft">Your dashboard holds your wallet, property requests, account details and customer support.</p><Link to="/login" className="eyebrow mt-6 inline-flex items-center gap-3 bg-primary px-6 py-4 text-[0.6rem] text-primary-foreground">Login <ArrowRight /></Link></section> : null}
           {error ? <p role="alert" className="border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</p> : null}
+          {user && !loading && welcomeBonus && !welcomeBonus.popup_seen_at ? (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#061d15]/75 p-4 backdrop-blur-sm" role="presentation">
+              <section role="dialog" aria-modal="true" aria-labelledby="welcome-trial-bonus-title" className="relative w-full max-w-md overflow-hidden rounded-[28px] border border-[#d8b56d]/70 bg-gradient-to-br from-[#06452f] via-[#0b5a3c] to-[#092f23] p-7 text-center text-white shadow-[0_24px_90px_rgba(0,0,0,.45)] sm:p-9">
+                <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full border border-[#d8b56d]/25" />
+                <div className="relative mx-auto grid h-16 w-16 place-items-center rounded-2xl border border-[#d8b56d]/60 bg-white/5 text-[#e6c984]">
+                  <BrandMark className="h-11 w-11" />
+                </div>
+                <p className="eyebrow mt-6 text-[0.58rem] tracking-[0.28em] text-[#e6c984]">A WELCOME GIFT</p>
+                <h2 id="welcome-trial-bonus-title" className="display mt-3 text-3xl text-white sm:text-4xl">Your Trial Bonus</h2>
+                <p className="mt-3 text-sm leading-6 text-white/75">A welcome credit has been added to your Trial Bonus wallet.</p>
+                <div className="my-6 rounded-2xl border border-[#e6c984]/60 bg-[#f4e6bf] px-5 py-5 text-[#123c2d] shadow-inner">
+                  <p className="eyebrow text-[0.58rem] font-bold tracking-[0.25em] text-[#725923]">WELCOME CREDIT</p>
+                  <p className="mt-2 text-4xl font-bold tracking-tight tabular-nums">OMR {Number(welcomeBonus.amount).toFixed(2)}</p>
+                  <p className="mt-1 text-xs font-semibold text-[#725923]">Trial Bonus Wallet</p>
+                </div>
+                <p className="text-xs leading-5 text-white/65">This bonus is already credited automatically. Claiming will not add another credit.</p>
+                <button type="button" onClick={() => void dismissWelcomeBonus()} className="mt-6 w-full rounded-xl bg-[#e1c477] px-6 py-4 text-sm font-bold text-[#123c2d] transition hover:bg-[#f0d994]">Claim Bonus</button>
+                <button type="button" onClick={() => void dismissWelcomeBonus()} className="mt-3 px-4 py-2 text-xs font-semibold text-white/70 underline underline-offset-4 hover:text-white">Close</button>
+              </section>
+            </div>
+          ) : null}
+
           {user && !loading ? <>
             <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Account overview">
               <Link to="/wallet" className="group rounded-2xl border border-[#dce7dd] bg-white p-5 shadow-[0_8px_24px_rgba(18,60,45,.07)] transition hover:-translate-y-0.5 hover:border-[#c8ad68]">
