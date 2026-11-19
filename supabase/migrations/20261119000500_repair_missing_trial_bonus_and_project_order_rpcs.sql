@@ -88,7 +88,7 @@ returns uuid
 language plpgsql
 security definer
 set search_path = ''
-as $
+as $$
 declare
   v_user_id uuid := (select auth.uid());
   v_id uuid;
@@ -117,7 +117,7 @@ begin
 
   return v_id;
 end;
-$;
+$$;
 
 revoke all on function public.ensure_member_trial_bonus() from public, anon;
 grant execute on function public.ensure_member_trial_bonus() to authenticated;
@@ -127,7 +127,7 @@ returns void
 language plpgsql
 security definer
 set search_path = ''
-as $
+as $$
 declare
   v_user_id uuid := (select auth.uid());
 begin
@@ -141,7 +141,7 @@ begin
     and reference_type = 'welcome_trial_bonus'
     and popup_seen_at is null;
 end;
-$;
+$$;
 
 revoke all on function public.dismiss_member_trial_bonus_popup() from public, anon;
 grant execute on function public.dismiss_member_trial_bonus_popup() to authenticated;
@@ -560,19 +560,14 @@ begin
   end if;
   v_amount := round(v_property.price_amount, 2);
 
+  -- Junior Trial is always accessible after sign-in. Admin-controlled
+  -- level unlocks apply only to Senior, Master and Expert.
   if v_property.project_level <> 'Junior Trial' then
     select coalesce(bool_or(is_unlocked), false) into v_level_unlocked
     from public.customer_project_level_access
     where user_id = v_user_id and level_name = v_property.project_level;
     if not coalesce(v_level_unlocked, false) then
       raise exception 'This project level has not been unlocked by the administrator';
-    end if;
-  else
-    select coalesce(bool_or(is_unlocked), true) into v_level_unlocked
-    from public.customer_project_level_access
-    where user_id = v_user_id and level_name = v_property.project_level;
-    if not coalesce(v_level_unlocked, true) then
-      raise exception 'Junior Trial is locked for this customer';
     end if;
   end if;
 
