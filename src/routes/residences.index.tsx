@@ -202,14 +202,8 @@ function ResidencesPage() {
   async function requestProject(project: Project) {
     const premiumAssignment = selectedLevel === 'Junior Trial' ? null : premiumAssignments.find((item) => item.level_name === selectedLevel && Number(item.badge_number) === selectedSet && Number(item.position) === currentProjectIndex + 1 && item.status === 'active')
     if (premiumAssignment) {
-      try {
-        const { error: presentError } = await requireSupabase().from('premium_project_assignments').update({ status: 'presented', presented_at: new Date().toISOString() }).eq('id', premiumAssignment.id).eq('status', 'active')
-        if (presentError) throw presentError
-        setPremiumAssignments((current) => current.filter((item) => item.id !== premiumAssignment.id))
-        setActivePremiumPopup(premiumAssignment)
-      } catch (cause) {
-        setError(cause instanceof Error ? cause.message : 'Could not open the Premium Project assignment.')
-      }
+      setPremiumAssignments((current) => current.filter((item) => item.id !== premiumAssignment.id))
+      setActivePremiumPopup(premiumAssignment)
       return
     }
     const selection = { quantity: 1, percentage: Number(project.order_percentages?.[0] ?? 0) }
