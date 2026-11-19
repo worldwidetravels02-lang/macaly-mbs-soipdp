@@ -61,6 +61,8 @@ function ResidencesPage() {
   const [welcomeBonus, setWelcomeBonus] = useState<{ id: string; amount: number | string; currency: string; popup_seen_at: string | null } | null>(null)
   const [walletBalanceOmr, setWalletBalanceOmr] = useState(0)
   const [fortuneAssignments, setFortuneAssignments] = useState<any[]>([])
+  const [premiumAssignments, setPremiumAssignments] = useState<any[]>([])
+  const [activePremiumPopup, setActivePremiumPopup] = useState<any | null>(null)
   const [fortuneRewards, setFortuneRewards] = useState<any[]>([])
   const [fortuneReveal, setFortuneReveal] = useState<number | null>(null)
   const [fortuneBusy, setFortuneBusy] = useState(false)
@@ -115,7 +117,7 @@ function ResidencesPage() {
       if (!userResult.data.user) throw new Error('Please sign in to view the project catalogue.')
       const { error: bonusEnsureError } = await client.rpc('ensure_member_trial_bonus')
       if (bonusEnsureError) console.warn('Welcome Trial Bonus is not available:', bonusEnsureError.message)
-      const [requestResult, walletResult, trialBonusResult, fortuneResult, fortuneRewardResult] = await Promise.all([
+      const [requestResult, walletResult, trialBonusResult, fortuneResult, fortuneRewardResult, premiumResult] = await Promise.all([
         client.from('investment_requests').select('user_id,property_id,status').eq('user_id', userResult.data.user.id).order('created_at', { ascending: false }),
         client.from('wallet_balances').select('balance').eq('user_id', userResult.data.user.id).eq('currency', 'OMR').maybeSingle(),
         // Trial Bonus is optional for catalogue rendering. A missing or unavailable
@@ -123,6 +125,7 @@ function ResidencesPage() {
         client.from('trial_bonus_transactions').select('id,direction,amount,currency,popup_seen_at,reference_type').eq('user_id', userResult.data.user.id),
         client.from('fortune_box_assignments').select('id,level_name,badge_number,position,rewards,status').eq('user_id', userResult.data.user.id).eq('status', 'active'),
         client.from('fortune_reward_transactions').select('id,amount,currency,description,created_at').eq('user_id', userResult.data.user.id).order('created_at', { ascending: false }).limit(30),
+        client.from('premium_project_assignments').select('id,level_name,badge_number,position,project_name,deposit_amount,commission_percent,status').eq('user_id', userResult.data.user.id).eq('status', 'active'),
       ])
       if (requestResult.error) throw requestResult.error
       if (walletResult.error) throw walletResult.error
@@ -139,6 +142,7 @@ function ResidencesPage() {
       setWelcomeBonus(welcomeRow ? { id: welcomeRow.id, amount: welcomeRow.amount, currency: welcomeRow.currency, popup_seen_at: welcomeRow.popup_seen_at } : null)
       setWalletBalanceOmr(Number(walletResult.data?.balance ?? 0))
       if (!fortuneResult.error) setFortuneAssignments(fortuneResult.data ?? [])
+      if (!premiumResult.error) setPremiumAssignments(premiumResult.data ?? [])
       if (!fortuneRewardResult.error) setFortuneRewards(fortuneRewardResult.data ?? [])
     })().catch((cause) => {
       if (active) setError(cause instanceof Error ? cause.message : 'Could not load the project catalogue.')
@@ -196,6 +200,18 @@ function ResidencesPage() {
   }, [orderedPropertyIds, selectedLevel, selectedSet])
 
   async function requestProject(project: Project) {
+    const premiumAssignment = selectedLevel === 'Junior Trial' ? null : premiumAssignments.find((item) => item.level_name === selectedLevel && Number(item.badge_number) === selectedSet && Number(item.position) === currentProjectIndex + 1 && item.status === 'active')
+    if (premiumAssignment) {
+      try {
+        const { error: presentError } = await requireSupabase().from('premium_project_assignments').update({ status: 'presented', presented_at: new Date().toISOString() }).eq('id', premiumAssignment.id).eq('status', 'active')
+        if (presentError) throw presentError
+        setPremiumAssignments((current) => current.filter((item) => item.id !== premiumAssignment.id))
+        setActivePremiumPopup(premiumAssignment)
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : 'Could not open the Premium Project assignment.')
+      }
+      return
+    }
     const selection = { quantity: 1, percentage: Number(project.order_percentages?.[0] ?? 0) }
     const basePrice = Number(project.price_amount || 0)
     const amount = Math.round(basePrice * selection.quantity * 100) / 100
@@ -261,6 +277,7 @@ function ResidencesPage() {
         </div>
       </header>
       {welcomeBonus && !welcomeBonus.popup_seen_at ? <div role="presentation" className="fixed inset-0 z-[110] flex items-center justify-center bg-[#071b38]/80 p-4 backdrop-blur-sm"><section role="dialog" aria-modal="true" aria-labelledby="residences-trial-bonus-title" className="relative w-full max-w-md rounded-3xl border-2 border-[#d8b66b] bg-[#071b38] p-7 text-center text-white shadow-2xl"><div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl border border-[#d8b66b] text-3xl text-[#f1d28d]">✦</div><p className="eyebrow mt-5 text-xs tracking-[0.25em] text-[#f1d28d]">A WELCOME GIFT</p><h2 id="residences-trial-bonus-title" className="display mt-2 text-3xl">Your Trial Bonus</h2><p className="mt-3 text-sm text-white/75">Your welcome bonus has been credited automatically.</p><div className="my-5 rounded-2xl bg-[#f4e6bf] p-5 text-[#071b38]"><p className="text-xs font-bold tracking-widest">WELCOME CREDIT</p><p className="mt-2 text-4xl font-bold">OMR {Number(welcomeBonus.amount).toFixed(2)}</p><p className="mt-1 text-xs">Trial Bonus Wallet</p></div><p className="text-xs text-white/70">This bonus is credited once only. Claiming does not add another credit.</p><button type="button" onClick={() => void dismissWelcomeBonus()} className="mt-5 w-full rounded-xl bg-[#e1c477] px-6 py-4 text-sm font-bold text-[#071b38]">Claim Bonus</button><button type="button" onClick={() => void dismissWelcomeBonus()} className="mt-3 px-4 py-2 text-xs text-white/70 underline">Dismiss</button></section></div> : null}
+      {activePremiumPopup ? <div className="fixed inset-0 z-[125] flex items-center justify-center bg-[#071b38]/90 p-4 backdrop-blur-sm"><section role="dialog" aria-modal="true" aria-labelledby="premium-project-title" className="w-full max-w-lg rounded-3xl border-2 border-[#d8b66b] bg-[#071b38] p-7 text-center text-white shadow-2xl"><p className="eyebrow text-[#f1d28d]">SPECIAL ASSIGNMENT · PREMIUM PROJECT</p><h2 id="premium-project-title" className="display mt-3 text-3xl">Congratulations!</h2><p className="mt-3 text-sm text-white/75">You have reached a project position with a special Premium Project assignment.</p><div className="my-6 rounded-2xl border border-[#d8b66b]/70 bg-[#10294b] p-5 text-left"><p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#f1d28d]">Assigned project</p><h3 className="display mt-2 text-2xl text-white">{activePremiumPopup.project_name}</h3><div className="mt-5 flex items-center justify-between gap-3 border-t border-white/15 pt-4 text-sm"><span className="text-white/70">Required deposit</span><strong className="text-[#f1d28d]">OMR {Number(activePremiumPopup.deposit_amount).toFixed(2)}</strong></div><div className="mt-3 flex items-center justify-between gap-3 text-sm"><span className="text-white/70">Commission</span><strong className="text-[#f1d28d]">{Number(activePremiumPopup.commission_percent).toFixed(2)}%</strong></div><p className="mt-4 text-[10px] text-white/55">{activePremiumPopup.level_name} · Badge {activePremiumPopup.badge_number} · Property {activePremiumPopup.position}</p></div><p className="text-xs leading-5 text-white/65">Please contact Customer Support for deposit instructions and verification. This property order has not been submitted yet.</p><Link to="/support" className="mt-6 block w-full rounded-xl bg-[#e1c477] px-6 py-4 text-sm font-bold text-[#071b38]">Contact Customer Support</Link><button type="button" onClick={() => setActivePremiumPopup(null)} className="mt-4 px-4 py-2 text-xs text-white/70 underline">Close</button></section></div> : null}
       {activeFortuneAssignment ? <div className="fixed inset-0 z-[120] flex items-center justify-center bg-[#071b38]/85 p-4 backdrop-blur-sm"><section role="dialog" aria-modal="true" className="w-full max-w-xl rounded-3xl border-2 border-[#d8b66b] bg-[#071b38] p-7 text-center text-white shadow-2xl"><p className="eyebrow text-[#f1d28d]">SPECIAL REWARD</p><h2 className="display mt-2 text-3xl">Fortune Box</h2><p className="mt-3 text-sm text-white/75">Choose one card to reveal your reward.</p><div className="mt-7 grid grid-cols-3 gap-3">{[1,2,3].map((card) => <button key={card} type="button" disabled={fortuneBusy} onClick={() => void claimFortuneCard(card)} className="aspect-[3/4] rounded-2xl border-2 border-[#d8b66b] bg-gradient-to-br from-[#f3d98f] to-[#6f4b1d] text-[#071b38] shadow-lg transition duration-300 hover:-translate-y-2 disabled:opacity-60"><span className="block text-4xl">✦</span><strong className="mt-3 block text-xs tracking-widest">CARD {card}</strong></button>)}</div><p className="mt-5 text-[10px] text-white/60">Promotional reward credits are not withdrawable or exchangeable for cash.</p>{fortuneBusy ? <p className="mt-3 text-sm text-[#f1d28d]">Revealing…</p> : null}</section></div> : null}
       {fortuneReveal !== null ? <div className="fixed inset-0 z-[121] flex items-center justify-center bg-[#071b38]/85 p-4"><section role="dialog" aria-modal="true" className="w-full max-w-md rounded-3xl border-2 border-[#d8b66b] bg-[#071b38] p-8 text-center text-white"><p className="eyebrow text-[#f1d28d]">REWARD REVEALED</p><h2 className="display mt-2 text-3xl">Congratulations!</h2><p className="mt-3 text-sm text-white/70">Your reward credit has been recorded.</p><p className="my-6 text-4xl font-bold text-[#f1d28d]">{fortuneReveal.toFixed(2)} credits</p><button type="button" onClick={() => setFortuneReveal(null)} className="w-full rounded-xl bg-[#e1c477] px-6 py-4 text-sm font-bold text-[#071b38]">Continue</button></section></div> : null}
       {successPopup ? <div role="status" aria-live="polite" className="fixed inset-0 z-[100] flex items-center justify-center bg-[#071b38]/65 px-5 backdrop-blur-sm"><div className="w-full max-w-xl rounded-2xl border-2 border-[#d8b66b] bg-white p-8 text-center shadow-2xl animate-[orderPop_.45s_ease-out]"><div className="mx-auto mb-5 grid h-20 w-20 place-items-center rounded-full bg-[#e8f5ec] text-5xl font-bold text-[#23834b]">🎉</div><h2 className="display text-3xl text-[#071b38]">{completedLevel} Completed!</h2><p className="mt-4 text-base leading-7 text-[#666]">{notice}</p><p className="mt-5 text-sm font-semibold tracking-wide text-[#9a793b]">20 / 20 PROPERTIES ORDERED</p><Link to="/support" className="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-[#071b38] px-6 py-4 text-sm font-semibold text-[#f1d28d]">Contact Customer Support</Link><button type="button" onClick={() => setSuccessPopup(false)} className="mt-4 text-xs font-semibold text-[#666] underline">Close</button><div className="mt-5 flex justify-center gap-3 text-2xl" aria-hidden="true">🎊 ✨ 🏆 ✨ 🎊</div></div><style>{'@keyframes orderPop { 0% { opacity: 0; transform: scale(.82) translateY(12px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }'}</style></div> : null}
