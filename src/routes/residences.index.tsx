@@ -108,13 +108,14 @@ function ResidencesPage() {
       if (accessResult.error) throw accessResult.error
       if (setAccessResult.error) throw setAccessResult.error
       if (!userResult.data.user) throw new Error('Please sign in to view the project catalogue.')
-      const [requestResult, trialBonusResult, walletResult] = await Promise.all([
+      const [requestResult, walletResult, trialBonusResult] = await Promise.all([
         client.from('investment_requests').select('user_id,property_id,status').eq('user_id', userResult.data.user.id).order('created_at', { ascending: false }),
-        client.from('trial_bonus_transactions').select('direction,amount,currency').eq('user_id', userResult.data.user.id),
         client.from('wallet_balances').select('balance').eq('user_id', userResult.data.user.id).eq('currency', 'OMR').maybeSingle(),
+        // Trial Bonus is optional for catalogue rendering. A missing or unavailable
+        // bonus table must not prevent the published property list from loading.
+        client.from('trial_bonus_transactions').select('direction,amount,currency').eq('user_id', userResult.data.user.id),
       ])
       if (requestResult.error) throw requestResult.error
-      if (trialBonusResult.error) throw trialBonusResult.error
       if (walletResult.error) throw walletResult.error
       if (!active) return
       setProjects((propertyResult.data ?? []) as Project[])
@@ -123,8 +124,7 @@ function ResidencesPage() {
       setCurrentUserName(String(userResult.data.user.user_metadata?.full_name || userResult.data.user.email?.split('@')[0] || 'Member'))
       setCustomerLevelAccess((accessResult.data ?? []) as { user_id: string; level_name: string; is_unlocked: boolean }[])
       setCustomerSetAccess((setAccessResult.data ?? []) as CustomerBadgeAccess[])
-      const trialBonusBalance = (trialBonusResult.data ?? []).filter((entry) => entry.currency === 'OMR').reduce((total, entry) => total + (entry.direction === 'credit' ? 1 : -1) * Number(entry.amount || 0), 0)
-      if (!active) return
+      const trialBonusBalance = trialBonusResult.error ? 0 : (trialBonusResult.data ?? []).filter((entry) => entry.currency === 'OMR').reduce((total, entry) => total + (entry.direction === 'credit' ? 1 : -1) * Number(entry.amount || 0), 0)
       setTrialBonusBalanceOmr(Math.max(0, trialBonusBalance))
       setWalletBalanceOmr(Number(walletResult.data?.balance ?? 0))
     })().catch((cause) => {
