@@ -134,7 +134,7 @@ function ResidencesPage() {
   }, [signedIn])
 
   const currentLevelUnlocked = selectedLevel === 'Junior Trial' || ((customerLevelAccess.find((item) => item.user_id === currentUserId && item.level_name === selectedLevel)?.is_unlocked ?? false) && (customerSetAccess.find((item) => item.user_id === currentUserId && item.level_name === selectedLevel && item.set_number === selectedSet)?.is_unlocked ?? selectedSet === 1))
-  const levelProjects = useMemo(() => projects.filter((project) => project.project_level === selectedLevel && (selectedLevel === 'Junior Trial' || Number(project.set_number) === selectedSet)), [projects, selectedLevel, selectedSet])
+  const levelProjects = useMemo(() => projects.filter((project) => project.project_level === selectedLevel && (selectedLevel === 'Junior Trial' ? Number(project.set_number) === 1 : Number(project.set_number) === selectedSet)), [projects, selectedLevel, selectedSet])
   const visibleProjects = useMemo(() => {
     const rows = [...levelProjects]
     if (projectSort === 'name') rows.sort((a, b) => a.name.localeCompare(b.name))
