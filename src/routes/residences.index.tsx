@@ -44,6 +44,7 @@ function ResidencesPage() {
   const navigate = useNavigate({ from: '/residences/' })
   const [checkingSession, setCheckingSession] = useState(true)
   const [signedIn, setSignedIn] = useState(false)
+  const [customerApproved, setCustomerApproved] = useState(false)
   const [projects, setProjects] = useState<Project[]>([])
   const [customerLevelAccess, setCustomerLevelAccess] = useState<{ user_id: string; level_name: string; is_unlocked: boolean }[]>([])
   const [customerSetAccess, setCustomerSetAccess] = useState<CustomerBadgeAccess[]>([])
@@ -97,17 +98,20 @@ function ResidencesPage() {
     setLoadingProjects(true)
     ;(async () => {
       const client = requireSupabase()
-      const [propertyResult, userResult, accessResult, setAccessResult] = await Promise.all([
+      const [propertyResult, userResult, accessResult, setAccessResult, approvalResult] = await Promise.all([
         client.from('properties').select('id,slug,name,location,description,price_label,price_amount,order_percentages,cover_image_url,project_level,set_number,sort_order').eq('status', 'published').not('project_level', 'is', null).order('sort_order', { ascending: true }),
         client.auth.getUser(),
         client.from('customer_project_level_access').select('user_id,level_name,is_unlocked'),
         client.from('customer_project_set_access').select('user_id,level_name,set_number,is_unlocked,progress_percent'),
+        client.rpc('member_is_approved'),
       ])
       if (propertyResult.error) throw propertyResult.error
       if (userResult.error) throw userResult.error
       if (accessResult.error) throw accessResult.error
       if (setAccessResult.error) throw setAccessResult.error
+      if (approvalResult.error) throw approvalResult.error
       if (!userResult.data.user) throw new Error('Please sign in to view the project catalogue.')
+      setCustomerApproved(Boolean(approvalResult.data))
       const [requestResult, trialBonusResult, walletResult] = await Promise.all([
         client.from('investment_requests').select('user_id,property_id,status').eq('user_id', userResult.data.user.id).order('created_at', { ascending: false }),
         client.from('trial_bonus_transactions').select('direction,amount,currency').eq('user_id', userResult.data.user.id),
@@ -133,7 +137,7 @@ function ResidencesPage() {
     return () => { active = false }
   }, [signedIn])
 
-  const currentLevelUnlocked = selectedLevel === 'Junior Trial' || ((customerLevelAccess.find((item) => item.user_id === currentUserId && item.level_name === selectedLevel)?.is_unlocked ?? false) && (customerSetAccess.find((item) => item.user_id === currentUserId && item.level_name === selectedLevel && item.set_number === selectedSet)?.is_unlocked ?? selectedSet === 1))
+  const currentLevelUnlocked = selectedLevel === 'Junior Trial' ? customerApproved : ((customerLevelAccess.find((item) => item.user_id === currentUserId && item.level_name === selectedLevel)?.is_unlocked ?? false) && (customerSetAccess.find((item) => item.user_id === currentUserId && item.level_name === selectedLevel && item.set_number === selectedSet)?.is_unlocked ?? selectedSet === 1))
   const levelProjects = useMemo(() => projects.filter((project) => project.project_level === selectedLevel && (selectedLevel === 'Junior Trial' || Number(project.set_number) === selectedSet)), [projects, selectedLevel, selectedSet])
   const visibleProjects = useMemo(() => {
     const rows = [...levelProjects]
@@ -229,6 +233,7 @@ function ResidencesPage() {
           <section className="py-12 sm:py-16">
             <div className="mx-auto w-full max-w-7xl px-5 sm:px-8">
               {error ? <p role="alert" className="mb-5 border border-destructive/40 p-4 text-sm text-destructive">{error}</p> : null}
+              {!customerApproved ? <div className="mb-6 rounded-xl border border-[#d8b66b] bg-[#fffaf0] p-5"><p className="eyebrow text-[#9a793b]">Account approval required</p><h2 className="display mt-2 text-xl text-[#071b38]">Your account is waiting for admin approval</h2><p className="mt-2 text-sm leading-6 text-[#625b4d]">You can sign in, but Junior Trial properties will remain locked until an administrator approves your account in Admin Panel → Users.</p></div> : null}
 
               <div className="mb-6 flex items-center justify-between gap-3">
                 {search.level ? <Link to="/residences" className="eyebrow inline-flex items-center gap-2 text-[0.55rem] text-brass">← All project groups</Link> : <span />}
@@ -245,7 +250,7 @@ function ResidencesPage() {
               </div>
               <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 {visibleLevels.map((level) => {
-                  const unlocked = customerLevelAccess.find((item) => item.user_id === currentUserId && item.level_name === level)?.is_unlocked ?? level === 'Junior Trial'
+                  const unlocked = level === 'Junior Trial' ? customerApproved : (customerLevelAccess.find((item) => item.user_id === currentUserId && item.level_name === level)?.is_unlocked ?? false)
                   const isTrial = level === 'Junior Trial'
                   const levelImage = isTrial ? IMAGES.marinaNight : level === "Senior" ? IMAGES.tower : level === "Master" ? IMAGES.detail : IMAGES.villas
                   const levelProperties = projects.filter((project) => project.project_level === level)
@@ -274,7 +279,7 @@ function ResidencesPage() {
                         <li className="flex items-center gap-2"><span className="text-[#a98235]">✓</span> Admin-managed order settings</li>
                         <li className="flex items-center gap-2"><span className="text-[#a98235]">✓</span> Customer access controls</li>
                       </ul>
-                      <span className={`mt-auto flex items-center justify-center gap-2 rounded-xl border px-4 py-3.5 pt-3.5 mt-5 text-center text-xs font-semibold ${unlocked ? 'border-[#d8b66b] bg-gradient-to-r from-[#e7c36e] to-[#d5a844] text-[#071b38]' : 'border-[#d8b66b]/50 bg-[#071b38] text-white'}`}>{unlocked ? 'View Properties  ›' : '🔒  Unlock'}</span>
+                      <span className={`mt-auto flex items-center justify-center gap-2 rounded-xl border px-4 py-3.5 pt-3.5 mt-5 text-center text-xs font-semibold ${unlocked ? 'border-[#d8b66b] bg-gradient-to-r from-[#e7c36e] to-[#d5a844] text-[#071b38]' : 'border-[#d8b66b]/50 bg-[#071b38] text-white'}`}>{unlocked ? 'View Properties  ›' : isTrial && !customerApproved ? 'Awaiting admin approval' : '🔒  Unlock'}</span>
                     </div>
                   </button>
                 })}
@@ -293,7 +298,7 @@ function ResidencesPage() {
                 const completed = new Set(requests.filter((request) => request.user_id === currentUserId && request.property_id && setPropertyIds.has(request.property_id) && String(request.status).toLowerCase() === 'funded').map((request) => request.property_id)).size
                 return <button key={setNumber} type="button" disabled={!unlocked} onClick={() => { setSelectedSet(setNumber); setCurrentProjectIndex(0); setError(''); setNotice('') }} className={`rounded-xl border-2 p-4 text-left transition ${selectedSet === setNumber ? 'border-[#d8b66b] bg-[#071b38] text-white' : 'border-[#d8b66b]/50 bg-white text-[#071b38]'} ${!unlocked ? 'cursor-not-allowed opacity-50' : 'hover:border-[#d8b66b]'}`}><span className="flex items-center justify-between"><strong className="display text-lg">Badge {setNumber}</strong><span>{unlocked ? '🏅' : '🔒'}</span></span><span className={`mt-2 block text-xs ${selectedSet === setNumber ? 'text-white/75' : 'text-ink-soft'}`}>{Math.max(0, Math.min(100, Number(customerSetAccess.find((item) => item.user_id === currentUserId && item.level_name === selectedLevel && item.set_number === setNumber)?.progress_percent ?? 0)))}% admin-set progress · {completed} / 20 funded</span><span className={`mt-1 block text-[10px] font-semibold uppercase tracking-widest ${selectedSet === setNumber ? 'text-[#f1d28d]' : 'text-[#9a793b]'}`}>{unlocked ? 'Unlocked' : 'Locked by administrator'}</span></button>
               })}</div> : null}
-              {!currentLevelUnlocked ? <p className="mt-6 border border-border p-5 text-sm text-ink-soft">This badge is locked. The administrator must unlock it before you can continue.</p> : (
+              {!currentLevelUnlocked ? <p className="mt-6 border border-border p-5 text-sm text-ink-soft">{selectedLevel === 'Junior Trial' && !customerApproved ? 'Junior Trial is locked until an administrator approves your customer account. Please check again after approval.' : 'This badge is locked. The administrator must unlock it before you can continue.'}</p> : (
                 <>
                   {loadingProjects ? <p className="mt-8 text-sm text-ink-soft">Loading projects…</p> : (
                     <>
