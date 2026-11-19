@@ -12,13 +12,14 @@ import siteMetadata from '../metadata.json'
 // Admin data spans several Supabase tables whose generated client schema is not yet unified.
 // Keep these dynamically selected admin rows flexible until database.types.ts is generated.
 type Row = any
-type Section = 'overview' | 'properties' | 'enquiries' | 'users' | 'promotions' | 'finance' | 'investments' | 'commissions' | 'verifications' | 'tasks' | 'payments' | 'content' | 'team' | 'support' | 'settings' | 'transactions'
+type Section = 'overview' | 'properties' | 'enquiries' | 'users' | 'promotions' | 'finance' | 'investments' | 'commissions' | 'verifications' | 'tasks' | 'payments' | 'content' | 'team' | 'support' | 'settings' | 'transactions' | 'fortune'
 const SECTIONS: { id: Section; label: string }[] = [
   { id: 'overview', label: 'Dashboard' },
   { id: 'properties', label: 'Projects & Badges' },
   { id: 'enquiries', label: 'Enquiries' },
   { id: 'users', label: 'Users' },
   { id: 'promotions', label: 'Promotions' },
+  { id: 'fortune', label: 'Fortune Box' },
   { id: 'finance', label: 'Cashout' },
   { id: 'investments', label: 'Investment Requests' },
   { id: 'commissions', label: 'Commissions' },
@@ -151,6 +152,7 @@ function AdminPage() {
   const [taskStatusFilter, setTaskStatusFilter] = useState('all')
   const [taskFromDate, setTaskFromDate] = useState('')
   const [taskToDate, setTaskToDate] = useState('')
+  const [fortuneDraft, setFortuneDraft] = useState({ user_id: '', level_name: 'Senior', badge_number: '1', position: '1', rewards: ['5', '10', '20'] })
 
   const load = useCallback(async () => {
     setChecking(true)
@@ -213,6 +215,8 @@ function AdminPage() {
         todayCommissionRevenue: client.rpc('admin_today_commission_revenue'),
         walletHolds: client.from('wallet_holds').select('*').order('created_at', { ascending: false }).limit(200),
         trialBonusTransactions: client.from('trial_bonus_transactions').select('*').order('created_at', { ascending: false }).limit(200),
+        fortuneAssignments: client.from('fortune_box_assignments').select('*').order('created_at', { ascending: false }).limit(200),
+        fortuneRewards: client.from('fortune_reward_transactions').select('*').order('created_at', { ascending: false }).limit(200),
       }
       const names = Object.keys(queries)
       const results = await Promise.all(names.map((name) => queries[name]))
@@ -750,6 +754,26 @@ function AdminPage() {
       if (insertError) throw insertError
       setNotificationDraft({ user_id: '', title: '', body: '' })
     }, 'Customer notification sent.')
+  }
+
+  const saveFortuneAssignment = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const amounts = fortuneDraft.rewards.map((value) => Number(value))
+    const position = Number(fortuneDraft.position)
+    const badgeNumber = Number(fortuneDraft.badge_number)
+    if (!fortuneDraft.user_id) { setError('Select a customer first.'); return }
+    if (!Number.isInteger(position) || position < 1 || position > 20 || !Number.isInteger(badgeNumber) || badgeNumber < 1 || badgeNumber > 3) { setError('Choose a valid badge and property position.'); return }
+    if (amounts.some((amount) => !Number.isFinite(amount) || amount < 0 || amount > 100000)) { setError('Enter three valid reward credit amounts.'); return }
+    await run(async () => {
+      const { error: insertError } = await requireSupabase().from('fortune_box_assignments').insert({
+        user_id: fortuneDraft.user_id, level_name: fortuneDraft.level_name,
+        badge_number: badgeNumber, position,
+        rewards: amounts.map((amount) => ({ amount, label: `Reward ${amount}` })),
+        created_by: user?.id,
+      })
+      if (insertError) throw insertError
+      setFortuneDraft({ user_id: '', level_name: 'Senior', badge_number: '1', position: '1', rewards: ['5', '10', '20'] })
+    }, 'Fortune Box assignment created.')
   }
 
   const savePromotion = async (event: FormEvent<HTMLFormElement>) => {
@@ -1298,6 +1322,22 @@ function AdminPage() {
                 })}
                 {!filteredCustomers.length ? <p className="rounded-xl border border-dashed border-border p-6 text-sm text-ink-soft">No customers match these filters.</p> : null}
               </section></section> : null}
+            {section === 'fortune' ? <section className="grid gap-6 xl:grid-cols-[minmax(18rem,0.8fr)_1.2fr]">
+              <form onSubmit={saveFortuneAssignment} className="h-fit grid gap-4 border border-border bg-card p-6">
+                <div><h2 className="display text-xl">Create Fortune Box assignment</h2><p className="mt-2 text-xs leading-5 text-ink-soft">Assign one three-card reward to a customer at a specific badge position. Credits are promotional only and are not withdrawable or exchangeable for cash.</p></div>
+                <select required className={inputClass} value={fortuneDraft.user_id} onChange={(e) => setFortuneDraft({ ...fortuneDraft, user_id: e.target.value })}><option value="">Select customer</option>{(rows.users ?? []).map((item) => <option key={item.id} value={text(item.id)}>{text(item.full_name) || text(item.mobile) || text(item.id)} · {text(item.mobile)}</option>)}</select>
+                <select className={inputClass} value={fortuneDraft.level_name} onChange={(e) => setFortuneDraft({ ...fortuneDraft, level_name: e.target.value })}>{['Senior','Master','Expert'].map((level) => <option key={level}>{level}</option>)}</select>
+                <select className={inputClass} value={fortuneDraft.badge_number} onChange={(e) => setFortuneDraft({ ...fortuneDraft, badge_number: e.target.value })}>{[1,2,3].map((badge) => <option key={badge} value={badge}>Badge {badge}</option>)}</select>
+                <label className="grid gap-1 text-xs">Property position<input required type="number" min="1" max="20" className={inputClass} value={fortuneDraft.position} onChange={(e) => setFortuneDraft({ ...fortuneDraft, position: e.target.value })} /></label>
+                <div className="grid gap-2"><p className="eyebrow text-ink-soft">Reward credits for each card</p>{fortuneDraft.rewards.map((amount, index) => <label key={index} className="grid gap-1 text-xs">Card {index + 1}<input required type="number" min="0" max="100000" step="0.01" className={inputClass} value={amount} onChange={(e) => setFortuneDraft((draft) => ({ ...draft, rewards: draft.rewards.map((value, i) => i === index ? e.target.value : value) }))} /></label>)}</div>
+                <button disabled={busy} className={buttonClass}>Create assignment <ArrowRight /></button>
+              </form>
+              <div className="grid content-start gap-4">
+                <section className="border border-border bg-card p-5"><h2 className="display text-xl">Assignments</h2><DataTable title="Fortune Box assignments" rows={(rows.fortuneAssignments ?? []).map((item) => ({ ...item, customer: customerLabel(item.user_id), rewards: Array.isArray(item.rewards) ? item.rewards.map((reward: Row) => reward.amount).join(' / ') : '' }))} columns={['customer','level_name','badge_number','position','rewards','status','selected_card','claimed_amount','created_at']} /></section>
+                <section className="border border-border bg-card p-5"><h2 className="display text-xl">Reward records</h2><DataTable title="Fortune Box reward credits" rows={(rows.fortuneRewards ?? []).map((item) => ({ ...item, customer: customerLabel(item.user_id) }))} columns={['customer','amount','currency','description','created_at']} /></section>
+              </div>
+            </section> : null}
+
             {section === 'promotions' ? <section className="grid gap-6 xl:grid-cols-[minmax(18rem,0.8fr)_1.2fr]">
               <form onSubmit={savePromotion} className="h-fit border border-border bg-card p-6"><h2 className="display text-xl">{editingPromotionId ? 'Edit promotion' : 'Create promotion'}</h2><div className="mt-5 grid gap-3"><input required className={inputClass} placeholder="Promotion title" value={promotionDraft.title} onChange={(e) => setPromotionDraft({ ...promotionDraft, title: e.target.value })} /><textarea className={inputClass} rows={4} placeholder="Description" value={promotionDraft.description} onChange={(e) => setPromotionDraft({ ...promotionDraft, description: e.target.value })} /><input className={inputClass} placeholder="Image URL" value={promotionDraft.image_url} onChange={(e) => setPromotionDraft({ ...promotionDraft, image_url: e.target.value })} /><select className={inputClass} value={promotionDraft.property_slug} onChange={(e) => setPromotionDraft({ ...promotionDraft, property_slug: e.target.value })}><option value="">All properties</option>{(rows.properties ?? []).map((property) => <option key={property.id} value={text(property.slug)}>{text(property.name)}</option>)}</select><label className="flex items-center gap-3 text-sm"><input type="checkbox" checked={promotionDraft.active} onChange={(e) => setPromotionDraft({ ...promotionDraft, active: e.target.checked })} /> Active immediately</label><div className="flex flex-wrap gap-2"><button disabled={busy} className={buttonClass}>{editingPromotionId ? 'Save changes' : 'Create promotion'} <ArrowRight /></button>{editingPromotionId ? <button type="button" disabled={busy} className={softButton} onClick={() => { setEditingPromotionId(''); setPromotionDraft({ title: '', description: '', image_url: '', property_slug: '', active: false }) }}>Cancel edit</button> : null}</div></div></form>
               <section className="grid gap-3 border border-border bg-card p-4 sm:grid-cols-[1fr_13rem_auto]"><div><h2 className="display text-xl">Promotions</h2><p className="mt-1 text-xs text-ink-soft">Showing {filteredPromotions.length} of {(rows.promotions ?? []).length} promotions</p></div><input aria-label="Search promotions" className={inputClass} value={promotionSearch} onChange={(event) => setPromotionSearch(event.target.value)} placeholder="Title, description or property" /><div className="flex gap-2"><select aria-label="Filter promotion status" className={inputClass} value={promotionStatusFilter} onChange={(event) => setPromotionStatusFilter(event.target.value)}><option value="all">All promotions</option><option value="active">Active</option><option value="paused">Paused</option></select><button type="button" className={softButton} onClick={() => { setPromotionSearch(""); setPromotionStatusFilter("all") }}>Clear</button></div></section><DataTable title="Promotion list" rows={filteredPromotions} columns={['title','property_slug','description','active','starts_at','ends_at']} render={(item) => <div className="flex flex-wrap gap-2"><button disabled={busy} className={softButton} onClick={() => { setEditingPromotionId(text(item.id)); setPromotionDraft({ title: text(item.title), description: text(item.description), image_url: text(item.image_url), property_slug: text(item.property_slug), active: Boolean(item.active) }) }}>Edit</button><button disabled={busy} className={softButton} onClick={() => updateStatus('promotions', text(item.id), { active: !item.active, updated_at: new Date().toISOString() }, item.active ? 'Promotion paused.' : 'Promotion activated.')}>{item.active ? 'Pause' : 'Activate'}</button></div>} />
