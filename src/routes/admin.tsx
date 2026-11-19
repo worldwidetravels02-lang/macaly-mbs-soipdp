@@ -12,10 +12,11 @@ import siteMetadata from '../metadata.json'
 // Admin data spans several Supabase tables whose generated client schema is not yet unified.
 // Keep these dynamically selected admin rows flexible until database.types.ts is generated.
 type Row = any
-type Section = 'overview' | 'properties' | 'enquiries' | 'users' | 'promotions' | 'finance' | 'investments' | 'commissions' | 'verifications' | 'tasks' | 'payments' | 'content' | 'team' | 'support' | 'settings' | 'transactions' | 'fortune'
+type Section = 'overview' | 'properties' | 'badges' | 'enquiries' | 'users' | 'promotions' | 'finance' | 'investments' | 'commissions' | 'verifications' | 'tasks' | 'payments' | 'content' | 'team' | 'support' | 'settings' | 'transactions' | 'fortune'
 const SECTIONS: { id: Section; label: string }[] = [
   { id: 'overview', label: 'Dashboard' },
-  { id: 'properties', label: 'Projects & Badges' },
+  { id: 'properties', label: 'Projects' },
+  { id: 'badges', label: 'Badge Management' },
   { id: 'enquiries', label: 'Enquiries' },
   { id: 'users', label: 'Users' },
   { id: 'promotions', label: 'Promotions' },
@@ -1215,7 +1216,7 @@ function AdminPage() {
                 ].map(([label, value]) => <div key={label} className="rounded-xl border border-slate-200 border-t-2 border-t-[#c5a45d] bg-white p-5 shadow-sm"><p className="eyebrow text-[0.5rem] text-slate-500">{label}</p><p className="display mt-3 text-3xl">{value}</p></div>)}
               </div>
             </section> : null}
-            {section === 'properties' ? <section className="grid gap-6">
+            {section === 'properties' || section === 'badges' ? <section className="grid gap-6">
               <div className="border border-brass/40 bg-card p-5">
                 <h2 className="display text-xl">Customer-specific level access</h2>
                 <p className="mt-2 text-xs leading-5 text-ink-soft">Level access is controlled separately for each customer. Select a customer below in Customers, then unlock only the level they have completed. This does not unlock the level for other customers.</p>
