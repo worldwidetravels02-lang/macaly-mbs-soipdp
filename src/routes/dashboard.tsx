@@ -168,7 +168,7 @@ function DashboardPage() {
     return () => { active = false; listener.subscription.unsubscribe() }
   }, [load])
 
-  const dismissWelcomeBonus = async () => {
+  const dismissWelcomeBonus = useCallback(async () => {
     try {
       const { error: dismissError } = await requireSupabase().rpc('dismiss_member_trial_bonus_popup')
       if (dismissError) throw dismissError
@@ -176,7 +176,15 @@ function DashboardPage() {
     } catch (cause) {
       console.error('Could not save the welcome bonus popup status:', cause)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    if (!user || !welcomeBonus || welcomeBonus.popup_seen_at) return
+    const timeout = window.setTimeout(() => {
+      void dismissWelcomeBonus()
+    }, 5000)
+    return () => window.clearTimeout(timeout)
+  }, [user, welcomeBonus, dismissWelcomeBonus])
 
   const submitTaskForReview = async (task: MemberTask) => {
     const currentStatus = normalizeInvestmentStatus(task.status)
@@ -278,7 +286,7 @@ function DashboardPage() {
                 </div>
                 <p className="text-xs leading-5 text-white/65">This bonus is already credited automatically. Claiming will not add another credit.</p>
                 <button type="button" onClick={() => void dismissWelcomeBonus()} className="mt-6 w-full rounded-xl bg-[#e1c477] px-6 py-4 text-sm font-bold text-[#123c2d] transition hover:bg-[#f0d994]">Claim Bonus</button>
-                <button type="button" onClick={() => void dismissWelcomeBonus()} className="mt-3 px-4 py-2 text-xs font-semibold text-white/70 underline underline-offset-4 hover:text-white">Close</button>
+                <button type="button" onClick={() => void dismissWelcomeBonus()} className="mt-3 px-4 py-2 text-xs font-semibold text-white/70 underline underline-offset-4 hover:text-white">Dismiss</button>
               </section>
             </div>
           ) : null}
