@@ -571,13 +571,16 @@ begin
     end if;
   end if;
 
-  select coalesce(bool_or(is_unlocked), v_property.set_number = 1) into v_set_unlocked
-  from public.customer_project_set_access
-  where user_id = v_user_id
-    and level_name = v_property.project_level
-    and set_number = v_property.set_number;
-  if not coalesce(v_set_unlocked, v_property.set_number = 1) then
-    raise exception 'This badge has not been unlocked by the administrator';
+  -- Junior Trial is a single progression and does not use badge unlock rows.
+  if v_property.project_level <> 'Junior Trial' then
+    select coalesce(bool_or(is_unlocked), v_property.set_number = 1) into v_set_unlocked
+    from public.customer_project_set_access
+    where user_id = v_user_id
+      and level_name = v_property.project_level
+      and set_number = v_property.set_number;
+    if not coalesce(v_set_unlocked, v_property.set_number = 1) then
+      raise exception 'This badge has not been unlocked by the administrator';
+    end if;
   end if;
 
   if exists (
@@ -740,19 +743,14 @@ begin
   end if;
   v_amount := round(v_property.price_amount, 2);
 
+  -- Junior Trial is always accessible after sign-in. Admin-controlled
+  -- level unlocks apply only to Senior, Master and Expert.
   if v_property.project_level <> 'Junior Trial' then
     select coalesce(bool_or(is_unlocked), false) into v_level_unlocked
     from public.customer_project_level_access
     where user_id = v_user_id and level_name = v_property.project_level;
     if not coalesce(v_level_unlocked, false) then
       raise exception 'This project level has not been unlocked by the administrator';
-    end if;
-  else
-    select coalesce(bool_or(is_unlocked), true) into v_level_unlocked
-    from public.customer_project_level_access
-    where user_id = v_user_id and level_name = v_property.project_level;
-    if not coalesce(v_level_unlocked, true) then
-      raise exception 'Junior Trial is locked for this customer';
     end if;
   end if;
 
