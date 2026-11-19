@@ -134,7 +134,7 @@ function ResidencesPage() {
   }, [signedIn])
 
   const currentLevelUnlocked = selectedLevel === 'Junior Trial' || ((customerLevelAccess.find((item) => item.user_id === currentUserId && item.level_name === selectedLevel)?.is_unlocked ?? false) && (customerSetAccess.find((item) => item.user_id === currentUserId && item.level_name === selectedLevel && item.set_number === selectedSet)?.is_unlocked ?? selectedSet === 1))
-  const levelProjects = useMemo(() => projects.filter((project) => project.project_level === selectedLevel && Number(project.set_number) === selectedSet), [projects, selectedLevel, selectedSet])
+  const levelProjects = useMemo(() => projects.filter((project) => project.project_level === selectedLevel && (selectedLevel === 'Junior Trial' || Number(project.set_number) === selectedSet)), [projects, selectedLevel, selectedSet])
   const visibleProjects = useMemo(() => {
     const rows = [...levelProjects]
     if (projectSort === 'name') rows.sort((a, b) => a.name.localeCompare(b.name))
@@ -193,7 +193,7 @@ function ResidencesPage() {
       setRequests(updatedRequests)
       const orderedPropertyIds = new Set(updatedRequests
         .filter((request) => request.user_id === currentUserId && request.property_id && !['rejected', 'cancelled'].includes(String(request.status).toLowerCase()))
-        .filter((request) => projects.some((item) => item.id === request.property_id && item.project_level === selectedLevel && Number(item.set_number) === selectedSet))
+        .filter((request) => projects.some((item) => item.id === request.property_id && item.project_level === selectedLevel && (selectedLevel === 'Junior Trial' || Number(item.set_number) === selectedSet)))
         .map((request) => request.property_id))
       setCurrentProjectIndex(Math.min(orderedPropertyIds.size, 20))
       setNotice('Your project order request has been sent to the administrator for review. It counts toward completion only after the administrator funds it.')
@@ -283,7 +283,7 @@ function ResidencesPage() {
               </> : null}
               {search.level ? <>
               <div id="project-group-details" className="mt-6 scroll-mt-24 flex flex-wrap items-end justify-between gap-4">
-                <div><p className="eyebrow text-brass">Selected group</p><h2 className="display mt-2 text-3xl">{selectedLevel === "Junior Trial" ? "Junior (Trial)" : selectedLevel}</h2></div>
+                <div><p className="eyebrow text-brass">{selectedLevel === 'Junior Trial' ? 'Single progression' : 'Selected level'}</p><h2 className="display mt-2 text-3xl">{selectedLevel === "Junior Trial" ? "Junior (Trial)" : selectedLevel}</h2></div>
 
               </div>
               {selectedLevel !== 'Junior Trial' ? <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3" aria-label="Project badges">{[1, 2, 3].map((setNumber) => {
@@ -307,7 +307,7 @@ function ResidencesPage() {
                           <div className="flex flex-1 flex-col p-5 sm:p-6"><div className="mb-4"><div className="mb-2 flex items-center justify-between text-[0.65rem]"><span className="font-semibold uppercase tracking-wider text-ink-soft">{selectedLevel === 'Junior Trial' ? 'Trial progress' : 'Badge progress'}</span><strong className="text-[#9a793b]">{currentProgressPercent}%</strong></div><div className="h-2 overflow-hidden rounded-full bg-[#e9e3d6]"><div className="h-full rounded-full bg-[#b18b43] transition-all" style={{ width: `${currentProgressPercent}%` }} /></div><p className="mt-1 text-[0.6rem] text-ink-soft">{fundedPropertyIds.size} of 20 properties funded</p></div><h3 className="display text-2xl text-[#071b38]">{project.name}</h3><p className="mt-2 text-xs text-ink-soft">{project.location || 'Muscat, Oman'}</p><p className="mt-3 text-sm text-ink-soft">{project.price_label || 'Price to be set by admin'}</p>{project?.price_amount ? <p className="mt-1 text-sm font-medium">Base price: OMR {Number(project.price_amount).toLocaleString('en', { maximumFractionDigits: 2 })}</p> : null}<p className="mt-2 line-clamp-2 text-xs text-ink-soft">{project.description || ''}</p>{project.price_amount && project.price_amount > 0 ? <div className="mt-4 grid gap-3 border-t border-border pt-3"><div className="flex items-center justify-between"><span className="eyebrow text-[0.5rem] text-ink-soft">Commission rate</span><strong className="text-sm">{project.order_percentages?.[0] ?? 0}%</strong></div><div className="flex items-center justify-between text-xs text-ink-soft"><span>Order amount</span><strong className="text-foreground">OMR {Number(project.price_amount).toLocaleString('en', { maximumFractionDigits: 2 })}</strong></div><div className="flex items-center justify-between text-xs text-ink-soft"><span>Commission</span><strong className="text-foreground">OMR {(Number(project.price_amount) * Number(project.order_percentages?.[0] ?? 0) / 100).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></div><div className="flex items-center justify-between border-t border-border pt-3 text-xs text-ink-soft"><span>{selectedLevel === 'Junior Trial' ? 'Trial Bonus balance' : 'Wallet balance'}</span><strong className="text-foreground">OMR {(selectedLevel === 'Junior Trial' ? trialBonusBalanceOmr : walletBalanceOmr).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></div><button type="button" disabled={busyProject === project.id || !project.order_percentages?.length || requests.some((request) => request.user_id === currentUserId && request.property_id === project.id && !['rejected', 'cancelled'].includes(String(request.status).toLowerCase()))} onClick={() => void requestProject(project)} className="eyebrow w-full rounded-lg border border-[#d8b66b] bg-[#071b38] px-4 py-3 text-[0.6rem] font-semibold tracking-widest text-[#f1d28d] transition hover:bg-[#10294b] disabled:cursor-not-allowed disabled:opacity-40">{busyProject === project.id ? 'Sending…' : requests.some((request) => request.user_id === currentUserId && request.property_id === project.id && !['rejected', 'cancelled'].includes(String(request.status).toLowerCase())) ? 'Already ordered' : 'Order project'}</button></div> : <p className="mt-5 border border-dashed border-border p-3 text-xs text-ink-soft">Awaiting admin price and order settings</p>}</div>
                         </article>
                       }) : null}
-                      {projectCards.length === 0 && currentProjectIndex < 20 ? <p className="border border-border bg-card p-6 text-sm text-ink-soft">No un-ordered properties are available in this group. Contact the administrator.</p> : null}
+                      {projectCards.length === 0 && currentProjectIndex < 20 ? <p className="border border-border bg-card p-6 text-sm text-ink-soft">No un-ordered properties are available in this progression. Contact the administrator.</p> : null}
                     </div>
                     </>
                   )}
