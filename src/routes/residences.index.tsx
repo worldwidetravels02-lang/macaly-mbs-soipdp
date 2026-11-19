@@ -237,7 +237,10 @@ function ResidencesPage() {
       setCurrentProjectIndex(Math.min(orderedPropertyIds.size, 20))
       setNotice('Your order request has been submitted. Opening the next property…')
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not submit your project order.')
+      const details = cause && typeof cause === 'object' ? cause as { message?: unknown; details?: unknown; hint?: unknown; code?: unknown } : null
+      const message = cause instanceof Error ? cause.message : typeof details?.message === 'string' ? details.message : typeof details?.details === 'string' ? details.details : typeof details?.hint === 'string' ? details.hint : null
+      console.error('Project order submission failed:', cause)
+      setError(message || (typeof details?.code === 'string' ? `Project order failed (${details.code}).` : 'Could not submit your project order. Check the browser console for details.'))
     } finally { setBusyProject('') }
   }
 
