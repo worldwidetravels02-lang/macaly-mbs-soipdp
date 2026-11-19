@@ -4,12 +4,18 @@
 -- This migration is additive and safe whether the legacy provider functions exist or not.
 
 -- Keep payment instructions administrator-only; customers must contact support for deposit guidance.
-drop policy if exists "Authenticated members read payment details" on public.payment_details;
+-- The payment_details table may be introduced by a later migration on a clean database.
+do $
+begin
+  if to_regclass('public.payment_details') is not null then
+    execute 'drop policy if exists "Authenticated members read payment details" on public.payment_details';
+    execute 'alter table public.payment_details drop column if exists crypto';
+  end if;
+end $;
 
 -- Remove any legacy crypto submission/review/ledger-credit workflow.
 drop function if exists public.admin_review_crypto_payment(uuid, boolean, text);
 drop table if exists public.crypto_payments;
-alter table public.payment_details drop column if exists crypto;
 
 -- Remove the legacy Stripe webhook finalizer. No card checkout is supported.
 drop function if exists public.finalize_stripe_payment(text, boolean);
