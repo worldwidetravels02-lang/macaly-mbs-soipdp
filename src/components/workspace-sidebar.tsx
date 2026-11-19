@@ -19,6 +19,7 @@ const adminItems = [
   ['overview','Dashboard'],
   ['users','Users'],
   ['properties','Projects'],
+  ['fortune','Fortune Box'],
   ['finance','Cashout'],
   ['transactions','Transactions'],
   ['support','Support'],
