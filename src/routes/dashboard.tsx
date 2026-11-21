@@ -219,9 +219,9 @@ function DashboardPage() {
   }, {})
   const commissionCurrencyRows = Object.entries(commissionTotals).sort(([a], [b]) => a.localeCompare(b))
   const creditedCommissions = commissions.filter((row) => ['credited', 'paid', 'completed'].includes(normalizeInvestmentStatus(row.status)))
-  const totalCommission = creditedCommissions.reduce((sum, row) => sum + convertDisplayCurrency(row.amount, row.currency, currency, fxRates), 0)
+  const totalCommission = creditedCommissions.reduce((sum, row) => sum + convertDisplayAmount(row.amount, row.currency, currency, fxRates), 0)
   const todayKey = new Date().toLocaleDateString('en-CA')
-  const todayCommission = creditedCommissions.filter((row) => new Date(row.created_at).toLocaleDateString('en-CA') === todayKey).reduce((sum, row) => sum + convertDisplayCurrency(row.amount, row.currency, currency, fxRates), 0)
+  const todayCommission = creditedCommissions.filter((row) => new Date(row.created_at).toLocaleDateString('en-CA') === todayKey).reduce((sum, row) => sum + convertDisplayAmount(row.amount, row.currency, currency, fxRates), 0)
 
   return (
     <div className="customer-dashboard dashboard-typography min-h-screen bg-[#f3f6f0] text-[#123c2d]">
@@ -276,11 +276,11 @@ function DashboardPage() {
             <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Account overview">
               <Link to="/wallet" className="group rounded-2xl border border-[#dce7dd] bg-white p-5 shadow-[0_8px_24px_rgba(18,60,45,.07)] transition hover:-translate-y-0.5 hover:border-[#c8ad68]">
                 <div className="flex items-center justify-between"><span className="text-xs font-semibold text-[#62766a]">Wallet balance</span><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e7f1e9] text-xl text-[#0b5a3c]">▣</span></div>
-                <p data-testid="dashboard-balance" className="mt-3 text-2xl font-bold tracking-tight text-[#123c2d]">{formatMoney(convertDisplayCurrency(balance, 'OMR', currency, fxRates), currency)}</p><p className="mt-1 text-xs font-semibold text-[#718477]">Available funds</p>
+                <p data-testid="dashboard-balance" className="mt-3 text-2xl font-bold tracking-tight text-[#123c2d]">{formatMoney(convertDisplayAmount(balance, 'OMR', currency, fxRates), currency)}</p><p className="mt-1 text-xs font-semibold text-[#718477]">Available funds</p>
               </Link>
               <Link to="/wallet#withdrawals" className="group rounded-2xl border border-[#dce7dd] bg-white p-5 shadow-[0_8px_24px_rgba(18,60,45,.07)] transition hover:-translate-y-0.5 hover:border-[#c8ad68]">
                 <div className="flex items-center justify-between"><span className="text-xs font-semibold text-[#62766a]">Pending withdrawals</span><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e7f1e9] text-xl text-[#0b5a3c]">◈</span></div>
-                <p className="mt-3 text-2xl font-bold tracking-tight text-[#123c2d]">{formatMoney(convertDisplayCurrency(holdBalance, 'OMR', currency, fxRates), currency)}</p><p className="mt-1 text-xs font-semibold text-[#718477]">Awaiting processing</p>
+                <p className="mt-3 text-2xl font-bold tracking-tight text-[#123c2d]">{formatMoney(convertDisplayAmount(holdBalance, 'OMR', currency, fxRates), currency)}</p><p className="mt-1 text-xs font-semibold text-[#718477]">Awaiting processing</p>
               </Link>
               <Link to="/wallet#commissions" className="group rounded-2xl border border-[#c8ad68] bg-gradient-to-br from-[#f7e8bd] to-[#e7cb83] p-5 shadow-[0_8px_24px_rgba(18,60,45,.08)] transition hover:-translate-y-0.5">
                 <div className="flex items-center justify-between"><span className="text-xs font-bold text-[#624b1e]">Total commission</span><span className="grid h-10 w-10 place-items-center rounded-xl bg-white/55 text-xl text-[#775b20]">↗</span></div>
