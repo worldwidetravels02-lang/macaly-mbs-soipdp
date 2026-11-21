@@ -324,7 +324,7 @@ function WalletPage() {
               <div className="border border-brass/40 bg-brass/5 p-6">
                 <p className="eyebrow text-[0.5rem] text-brass">Posted wallet balance</p>
                 <p data-testid="wallet-balance" className="display mt-3 text-3xl">{money(convertCurrency(balance, 'OMR', currency, fxRates), currency)}</p>
-                <p className="mt-2 text-xs text-ink-soft">Base balance: {money(balance, 'OMR')}</p>
+                
                 <p className="mt-1 text-xs text-ink-soft">{currency === 'OMR' ? 'OMR is the wallet base currency.' : fxRates[currency] ? `1 OMR = ${fxRates[currency].toFixed(6)} ${currency}` : 'Exchange rate unavailable.'} Rates are set manually by the administrator.</p>
                 {fxError ? <p role="status" className="mt-1 text-xs text-amber-700">{fxError}</p> : null}
                 <p className="mt-2 text-xs text-ink-soft">Calculated from posted ledger entries only.</p>
@@ -337,8 +337,8 @@ function WalletPage() {
               </div>
               <div className="border border-border bg-card p-6">
                 <p className="eyebrow text-[0.5rem] text-ink-soft">Profit credit records</p>
-                <p className="display mt-3 text-2xl">{profits.filter((row) => row.status === 'credited' && row.currency === currency).length}</p>
-                <p className="mt-2 text-xs text-ink-soft">Credited payout records in {currency}.</p>
+                <p className="display mt-3 text-2xl">{profits.filter((row) => row.status === 'credited').length}</p>
+                <p className="mt-2 text-xs text-ink-soft">Credited payout records · amounts shown in {currency}.</p>
               </div>
             </section>
 
