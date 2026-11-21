@@ -98,6 +98,7 @@ function OrdersPage() {
       <header className="fixed inset-x-0 top-0 z-40 flex h-[62px] items-center justify-between border-b border-[#e8e4dc] bg-white/95 px-5 pl-20 backdrop-blur lg:left-64 lg:px-7">
         <div className="text-xs text-[#777]"><span>Workspace</span><span className="mx-2">/</span><strong className="text-[#25231f]">Orders</strong></div>
         <div className="flex items-center gap-3 sm:gap-5">
+          <label className="sr-only" htmlFor="orders-currency">Display currency</label><select id="orders-currency" aria-label="Display currency" value={currency} onChange={(event) => { if (CURRENCIES.includes(event.target.value as Currency)) { const next = event.target.value as Currency; setCurrency(next); saveDisplayCurrency(next) } }} className="border border-[#e8e4dc] bg-white px-2 py-2 text-xs">{CURRENCIES.map((code) => <option key={code}>{code}</option>)}</select>
           <Link to="/account" className="flex items-center gap-2 rounded-xl border border-[#e8e4dc] bg-[#fbfaf8] px-2 py-1.5 text-xs text-[#172238]"><span className="grid h-8 w-8 place-items-center rounded-lg bg-[#f2e9e7] font-semibold">{name.slice(0, 1).toUpperCase()}</span><span className="hidden text-left sm:block"><strong className="block">{name.split(' ')[0]}</strong><span className="text-[10px] text-[#888]">User</span></span></Link>
         </div>
       </header>
