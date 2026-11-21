@@ -5,12 +5,12 @@ import type { User } from '@supabase/supabase-js'
 import { ArrowRight, BrandMark } from '../components/site-chrome'
 import { requireSupabase } from '../lib/supabase-client'
 import { canonicalUrl } from '../lib/canonical-url'
+import { CURRENCIES, type DisplayCurrency, loadAdminDisplayRates, convertDisplayAmount, readDisplayCurrency, saveDisplayCurrency } from '../lib/currency-display'
 import siteMetadata from '../metadata.json'
 
 const meta = siteMetadata['/dashboard']
-const currencies = ['OMR', 'AED', 'SAR', 'KWD', 'BHD', 'QAR'] as const
 const normalizeInvestmentStatus = (value: unknown) => String(value ?? '').trim().toLowerCase().replace(/[\s-]+/g, '_')
-type Currency = (typeof currencies)[number]
+type Currency = DisplayCurrency
 type Investment = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; reference: string | null; property_id: string | null }
 type InvestmentRequest = { id: string; property_name: string; plan_code: string | null; amount: number | string; currency: Currency; profit_percent: number | string | null; expected_profit: number | string | null; commission_percent: number | string | null; expected_commission: number | string | null; status: string; created_at: string }
 type LedgerItem = { id: string; amount: number | string; currency: Currency; transaction_type: string; direction: string; status: string; description: string | null; created_at: string }
@@ -19,14 +19,6 @@ type WelcomeTrialBonus = { id: string; amount: number | string; currency: 'OMR';
 type MemberTask = { id: string; title: string; detail: string | null; target_level: number | null; status: string; created_at: string; reviewed_at?: string | null; review_note?: string | null }
 type MembershipPlan = { id: string; level: number; name: string; minimum_amount: number | string; profit_percent: number | string; commission_percent: number | string; active: boolean }
 type CustomerLevelAccess = { user_id: string; level_name: string; is_unlocked: boolean }
-const fallbackFxRates: Record<Currency, number> = { OMR: 1, AED: 9.55, SAR: 9.7549, KWD: 0.7978, BHD: 0.9805, QAR: 9.4836 }
-function convertDisplayCurrency(value: number | string, from: Currency, to: Currency, rates: Record<Currency, number>) {
-  const amount = Number(value)
-  if (!Number.isFinite(amount)) return 0
-  if (from === to) return amount
-  return amount / rates[from] * rates[to]
-}
-
 function formatMoney(amount: number | string, currency: Currency) {
   const numeric = Number(amount)
   return new Intl.NumberFormat('en', { style: 'currency', currency, maximumFractionDigits: 2 }).format(Number.isFinite(numeric) ? numeric : 0)
@@ -52,8 +44,8 @@ export const Route = createFileRoute('/dashboard')({
 function DashboardPage() {
   const [user, setUser] = useState<User | null>(null)
   const [name, setName] = useState('Member')
-  const currency: Currency = 'OMR'
-  const [fxRates, setFxRates] = useState<Record<Currency, number>>(fallbackFxRates)
+  const [currency, setCurrency] = useState<Currency>('OMR')
+  const [fxRates, setFxRates] = useState<Record<Currency, number>>({ OMR: 1, AED: 0, SAR: 0, KWD: 0, BHD: 0, QAR: 0 })
   const [balance, setBalance] = useState(0)
   const [holdBalance, setHoldBalance] = useState(0)
   const [investments, setInvestments] = useState<Investment[]>([])
@@ -96,7 +88,7 @@ function DashboardPage() {
         }
       }
       const [profile, wallet, pendingWithdrawals, projects, requests, ledger, notices, commissionRows, memberProfile, taskRows, planRows, accessRows] = await Promise.all([
-        client.from('profiles').select('full_name').eq('id', current.id).maybeSingle(),
+        client.from('profiles').select('full_name,preferred_currency').eq('id', current.id).maybeSingle(),
         client.from('wallet_balances').select('balance').eq('user_id', current.id).eq('currency', 'OMR').maybeSingle(),
         client.from('wallet_pending_withdrawals').select('pending_amount').eq('user_id', current.id).eq('currency', 'OMR').maybeSingle(),
         client.from('investments').select('id,amount,currency,status,created_at,reference,property_id').eq('user_id', current.id).order('created_at', { ascending: false }).limit(8),
@@ -111,6 +103,9 @@ function DashboardPage() {
       ])
       for (const result of [profile, wallet, pendingWithdrawals, projects, requests, ledger, notices, commissionRows, memberProfile, taskRows, planRows, accessRows]) if (result.error) throw result.error
       setName(profile.data?.full_name?.trim() || current.user_metadata?.full_name || current.email?.split('@')[0] || 'Member')
+      if (profile.data?.preferred_currency && CURRENCIES.includes(profile.data.preferred_currency as Currency)) setCurrency(profile.data.preferred_currency as Currency)
+      const adminRates = await loadAdminDisplayRates(client)
+      setFxRates(adminRates)
       setBalance(Number(wallet.data?.balance ?? 0))
       setHoldBalance(Number(pendingWithdrawals.data?.pending_amount ?? 0))
       setInvestments((projects.data ?? []) as Investment[])
@@ -129,35 +124,20 @@ function DashboardPage() {
     }
   }, [])
 
-    useEffect(() => {
-    let active = true
-    async function refreshRates() {
-      try {
-        const response = await fetch('https://open.er-api.com/v6/latest/OMR', { cache: 'no-store' })
-        if (!response.ok) throw new Error('Live exchange rates unavailable.')
-        const payload = await response.json() as { result?: string; base_code?: string; time_last_update_utc?: string; rates?: Record<string, number> }
-        if (payload.result !== 'success' || payload.base_code !== 'OMR' || !payload.rates) throw new Error('Invalid exchange-rate response.')
-        const next = { ...fallbackFxRates }
-        for (const code of currencies) {
-          const rate = Number(payload.rates[code])
-          if (code !== 'OMR' && Number.isFinite(rate) && rate > 0) next[code] = rate
-        }
-        if (active) {
-          setFxRates(next)
-        }
-      } catch {
-        // Keep the last good or fallback reference rates visible if the live service is offline.
-      }
-    }
-    void refreshRates()
-    const timer = window.setInterval(() => { void refreshRates() }, 5 * 60 * 1000)
-    window.addEventListener('focus', refreshRates)
-    return () => {
-      active = false
-      window.clearInterval(timer)
-      window.removeEventListener('focus', refreshRates)
-    }
+  useEffect(() => {
+    setCurrency(readDisplayCurrency())
+    const sync = (event: Event) => { const value = (event as CustomEvent<unknown>).detail; if (typeof value === 'string' && CURRENCIES.includes(value as Currency)) setCurrency(value as Currency) }
+    window.addEventListener('msheireb-currency-change', sync)
+    return () => window.removeEventListener('msheireb-currency-change', sync)
   }, [])
+
+  const changeDashboardCurrency = (value: string) => {
+    if (!CURRENCIES.includes(value as Currency)) return
+    const next = value as Currency
+    setCurrency(next)
+    saveDisplayCurrency(next)
+    if (user) void requireSupabase().from('profiles').update({ preferred_currency: next }).eq('id', user.id)
+  }
 
   useEffect(() => {
     let active = true
@@ -212,7 +192,7 @@ function DashboardPage() {
 
   const activeProjects = investments.filter((row) => ['approved', 'funded', 'active', 'completed'].includes(normalizeInvestmentStatus(row.status))).length
   const pendingProjects = investmentRequests.filter((row) => ['pending', 'approved'].includes(normalizeInvestmentStatus(row.status))).length
-  const fundedTotal = investments.filter((row) => ['funded', 'active', 'approved', 'completed'].includes(normalizeInvestmentStatus(row.status))).reduce((total, row) => total + convertDisplayCurrency(row.amount, row.currency, currency, fxRates), 0)
+  const fundedTotal = investments.filter((row) => ['funded', 'active', 'approved', 'completed'].includes(normalizeInvestmentStatus(row.status))).reduce((total, row) => total + convertDisplayAmount(row.amount, row.currency, currency, fxRates), 0)
   const investmentStatus = (value: string) => {
     const status = normalizeInvestmentStatus(value)
     if (status === 'pending') return { label: 'Awaiting review', detail: 'Your application is waiting for the administration team to review it.', tone: 'text-ink-soft' }
@@ -249,6 +229,7 @@ function DashboardPage() {
 
       <header className="fixed inset-x-0 top-0 z-40 flex h-[72px] items-center justify-end border-b border-[#d4e2d7] bg-[#06452f]/98 px-4 pl-20 text-white shadow-lg backdrop-blur sm:px-6 sm:pl-20 lg:left-64 lg:px-7">
         <div className="flex items-center gap-3 sm:gap-5">
+          <label className="sr-only" htmlFor="dashboard-currency">Display currency</label><select id="dashboard-currency" aria-label="Display currency" value={currency} onChange={(event) => changeDashboardCurrency(event.target.value)} className="rounded-lg border border-white/30 bg-[#06452f] px-2 py-2 text-xs font-semibold text-white">{CURRENCIES.map((code) => <option key={code} value={code}>{code}</option>)}</select>
           <Link to="/account" className="flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"><span className="grid h-8 w-8 place-items-center rounded-lg bg-[#d8b56d] font-semibold text-[#123c2d]">{name.slice(0,1).toUpperCase()}</span><span className="hidden text-left sm:block"><strong className="block">{name.split(' ')[0]}</strong><span className="text-[10px] text-white/55">Member</span></span></Link>
         </div>
       </header>
