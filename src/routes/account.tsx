@@ -2,15 +2,11 @@ import { WorkspaceSidebar } from '../components/workspace-sidebar'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useState } from 'react'
 import { requireSupabase } from '@/lib/supabase-client'
-import { CURRENCIES, type DisplayCurrency, loadAdminDisplayRates, convertDisplayAmount, readDisplayCurrency, saveDisplayCurrency } from '../lib/currency-display'
 
-type Currency = DisplayCurrency
+type Currency = string
 type Section = 'records' | 'cashin' | 'cashout' | 'bank' | 'bindForm' | 'password' | 'withdrawalPassword' | 'deposit' | 'terms'
 type BankAccount = { id: string; account_holder: string; bank_name: string; iban: string; account_number: string; mobile_number: string; created_at: string }
 type RecordRow = { id: string; type: string; description: string; amount: number; currency: Currency; status: string; created_at: string }
-const currencies: Currency[] = [...CURRENCIES]
-type FxRates = Record<Currency, number>
-const fallbackFxRates: FxRates = { OMR: 1, AED: 0, SAR: 0, KWD: 0, BHD: 0, QAR: 0 }
 const menu: {id: Section; label: string; icon: string}[] = [
   {id:'records',label:'Records',icon:'☷'},{id:'cashin',label:'Cash in',icon:'＋'},
   {id:'cashout',label:'Cash out',icon:'▱'},{id:'bank',label:'Bind wallet',icon:'▣'},
@@ -20,7 +16,8 @@ const menu: {id: Section; label: string; icon: string}[] = [
 const field = 'w-full rounded-md border border-[#e5e1dc] bg-white px-4 py-3 text-sm text-[#292722] outline-none focus:border-[#b89b59]'
 const button = 'rounded-md bg-[#201d1b] px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50'
 const norm = (s: unknown) => String(s ?? '').toLowerCase().replace(/[ _-]+/g,' ').trim()
-const money = (v: number, c: Currency) => new Intl.NumberFormat('en',{style:'currency',currency:c,maximumFractionDigits:2}).format(Number.isFinite(v)?v:0)
+const money = (v: number) => new Intl.NumberFormat('en', { style: 'currency', currency: 'OMR', maximumFractionDigits: 2 }).format(Number.isFinite(v) ? v : 0)
+const recordedMoney = (v: number, c: Currency) => c === 'OMR' ? money(v) : 'Legacy non-OMR record (not converted)'
 const fmtDate = (v: string) => new Intl.DateTimeFormat('en-GB',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}).format(new Date(v))
 export const Route = createFileRoute('/account')({ component: AccountPage })
 
@@ -31,10 +28,6 @@ function AccountPage() {
   const [name,setName] = useState('Member')
   const [mobile,setMobile] = useState('')
   const [email,setEmail] = useState('')
-  const [currency,setCurrency] = useState<Currency>('OMR')
-  const [fxRates,setFxRates] = useState<FxRates>(fallbackFxRates)
-  const [fxDate,setFxDate] = useState('')
-  const [fxError,setFxError] = useState('')
   const [section,setSection] = useState<Section>('records')
   const [records,setRecords] = useState<RecordRow[]>([])
   const [banks,setBanks] = useState<BankAccount[]>([])
@@ -82,7 +75,7 @@ function AccountPage() {
       const omanDayStart = new Date(Date.UTC(omanYear, omanMonth - 1, omanDay) - 4 * 60 * 60 * 1000).toISOString()
       const omanNextDayStart = new Date(Date.UTC(omanYear, omanMonth - 1, omanDay + 1) - 4 * 60 * 60 * 1000).toISOString()
       const [profile, wallet, tx, comm, topups, withdrawals, investments, bankRows, codeResult, holdRows, trialBonusRows, todayCommissionCredits] = await Promise.all([
-        db.from('profiles').select('full_name,mobile,preferred_currency,member_code').eq('id',id).maybeSingle(),
+        db.from('profiles').select('full_name,mobile,member_code').eq('id',id).maybeSingle(),
         db.from('wallet_balances').select('balance').eq('user_id',id).eq('currency','OMR').maybeSingle(),
         db.from('wallet_transactions').select('id,transaction_type,direction,amount,currency,status,description,created_at').eq('user_id',id).order('created_at',{ascending:false}).limit(300),
         db.from('commission_records').select('id,amount,currency,status,created_at,commission_type,description,wallet_transaction_id').eq('user_id',id).order('created_at',{ascending:false}).limit(300),
@@ -109,12 +102,6 @@ function AccountPage() {
       setName(profile.data?.full_name || auth.user.user_metadata?.full_name || auth.user.email?.split('@')[0] || 'Member')
       setMobile(profile.data?.mobile || auth.user.user_metadata?.mobile || '')
       setMemberCode(profile.data?.member_code == null ? null : Number(profile.data.member_code))
-      let savedCurrency: string | null = null
-      try { savedCurrency = window.localStorage.getItem('msheireb-currency') } catch { /* optional */ }
-      const preferredCurrency = savedCurrency && currencies.includes(savedCurrency as Currency)
-        ? savedCurrency
-        : profile.data?.preferred_currency
-      if (preferredCurrency && currencies.includes(preferredCurrency as Currency)) setCurrency(preferredCurrency as Currency)
       setBalance(Number(wallet.data?.balance ?? 0))
       const activeHolds=(holdRows.data ?? []).filter((r:any)=>r.currency==='OMR')
       setHold(activeHolds.reduce((n:number,r:any)=>n+Math.max(0,Number(r.amount||0)-Number(r.released_amount||0)),0))
@@ -200,25 +187,7 @@ function AccountPage() {
     }catch(e){setError(e instanceof Error?e.message:'Could not change password.')}finally{setBusy(false)}
   }
 
-  useEffect(() => { let active = true; async function loadRates() {
-    try {
-      const next = await loadAdminDisplayRates(requireSupabase())
-      if (active) { setFxRates(next); setFxDate(new Date().toLocaleString('en-GB')); setFxError('') }
-    } catch (cause) { if (active) setFxError(cause instanceof Error ? cause.message : 'Administrator exchange rates are unavailable.') }
-  } void loadRates(); const timer = window.setInterval(() => { void loadRates() }, 300000); window.addEventListener('focus', loadRates);
-  return () => { active = false; window.clearInterval(timer); window.removeEventListener('focus', loadRates) }; }, [])
-  async function changeCurrency(next: Currency) {
-    setCurrency(next)
-    setError('')
-    try {
-      saveDisplayCurrency(next)
-    } catch { /* optional */ }
-    if (userId) {
-      const { error: updateError } = await requireSupabase().from('profiles').update({ preferred_currency: next }).eq('id', userId)
-      if (updateError) setError('Currency display changed on this page, but could not save your preference: ' + updateError.message)
-    }
-  }
-  const displayMoney = (value: number) => money(convertDisplayAmount(value, 'OMR', currency, fxRates), currency)
+  const displayMoney = (value: number) => money(value)
 
   async function signOut(){const {error:e}=await requireSupabase().auth.signOut();if(e)setError(e.message);else await navigate({to:'/login'})}
   const filtered=records.filter(r=>(filter==='All'||norm(r.type)===norm(filter)))
@@ -228,7 +197,7 @@ function AccountPage() {
     <WorkspaceSidebar mode="member"/>
     <header className="fixed inset-x-0 top-0 z-40 flex h-[62px] items-center justify-between border-b border-[#e8e4dc] bg-white px-5 pl-20 lg:left-64 lg:px-7">
       <div className="text-xs text-[#777]">Workspace <span className="mx-2">/</span><strong className="text-[#25231f]">Account</strong></div>
-      <div className="flex items-center gap-3"><label className="flex items-center gap-2 text-[10px] font-semibold tracking-widest text-[#888]">CURRENCY<select aria-label="Account display currency" className="rounded-md border border-[#e6e1d8] bg-white px-3 py-2 text-xs" value={currency} onChange={e=>void changeCurrency(e.target.value as Currency)}>{currencies.map(c=><option key={c} value={c}>{c}</option>)}</select></label><div className="hidden rounded-lg border border-[#eee] px-3 py-2 text-xs sm:block">{name.split(' ')[0]} · User</div></div>
+      <div className="flex items-center gap-3"><div className="hidden rounded-lg border border-[#eee] px-3 py-2 text-xs sm:block">{name.split(' ')[0]} · User</div></div>
     </header>
     <main className="pb-12 pt-[82px] lg:ml-64"><div className="mx-auto max-w-[1500px] px-4 sm:px-7">
       {loading?<div className="rounded-xl border bg-white p-8 text-center text-sm text-[#777]">Loading your account…</div>:!userId?<div className="rounded-xl border bg-white p-8">Please <Link to="/login" className="underline">sign in</Link> to view your account.</div>:<>
@@ -238,14 +207,13 @@ function AccountPage() {
           <div className="grid grid-cols-2 gap-2"><Stat value={String(projects)} label="Projects"/><Stat value={displayMoney(trialBonus)} label="Trial bonus"/><Stat value={displayMoney(todayRevenue)} label="Today's revenue"/><Stat value={displayMoney(hold)} label="On hold"/></div>
           <div className="grid gap-2 sm:col-span-2 sm:grid-cols-2"><div className="flex items-center justify-between rounded-lg bg-[#201d1b] px-4 py-4 text-sm text-white"><span>Wallet balance</span><strong>{displayMoney(balance)}</strong></div><div className="flex items-center justify-between rounded-lg bg-[#f6edd4] px-4 py-4 text-sm text-[#625638]"><span>Hold balance</span><strong>{displayMoney(hold)}</strong></div></div>
           <p className="text-xs text-[#85817b] sm:col-span-2">Total commission: <strong>{displayMoney(totalCommission)}</strong></p>
-          <p className="text-xs text-[#85817b] sm:col-span-2">{currency === "OMR" ? "OMR base currency." : "1 OMR = " + fxRates[currency].toFixed(6) + " " + currency} {fxDate ? "· Rate updated: " + fxDate : "· Reference rates in use"} · Auto-refresh every 5 minutes. {fxError}</p>
         </section>
         <div className="mt-4 grid items-start gap-4 lg:grid-cols-[263px_minmax(0,1fr)]">
           <nav className="overflow-hidden rounded-lg border border-[#e5e0da] bg-white">{menu.map(item=><button key={item.id} type="button" onClick={()=>{setSection(item.id);setError('');setNotice('')}} className={`flex w-full items-center justify-between border-b border-[#e8e4df] px-5 py-4 text-left text-sm last:border-0 ${section===item.id?'bg-[#f7f3f1] font-semibold text-[#28231f]':'text-[#444] hover:bg-[#fbfaf8]'}`}><span><span className="mr-4 text-base">{item.icon}</span>{item.label}</span><span className="text-[#aaa]">›</span></button>)}<button type="button" onClick={()=>void signOut()} className="w-full border-t border-[#e8e4df] px-5 py-5 text-left text-sm text-[#777]">↪　Log out</button></nav>
           <section className="min-h-[430px] rounded-xl border border-[#e5e0da] bg-white p-4 sm:p-6">
             {error?<p role="alert" className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>:null}
             {notice?<p role="status" className="mb-4 rounded-md bg-[#f7f1e4] p-3 text-sm text-[#625638]">{notice}</p>:null}
-            {section==='records'?<><h2 className="display mb-5 text-3xl">Records</h2><div className="mb-4 flex flex-wrap gap-2">{['All','Welcome bonus','Trial bonus','Trial reset','Cash in','Activation','Property','Commission','Cash out','Refund','Adjustment'].map(x=><button key={x} type="button" onClick={()=>setFilter(x)} className={`rounded-lg border px-3 py-2 text-[11px] ${filter===x?'border-[#211e1c] bg-[#211e1c] text-white':'border-[#e5e1dc] text-[#666]'}`}>{x}</button>)}</div><div className="overflow-x-auto"><table className="w-full min-w-[600px] text-left text-xs"><thead><tr className="border-b text-[9px] uppercase tracking-widest text-[#999]"><th className="px-3 py-3">Type</th><th className="px-3 py-3">Description</th><th className="px-3 py-3">Amount</th><th className="px-3 py-3">Status</th><th className="px-3 py-3">Date</th></tr></thead><tbody>{filtered.map(r=><tr key={r.id} className="border-b last:border-0"><td className="px-3 py-4">{r.type}</td><td className="px-3 py-4">{r.description}</td><td className="whitespace-nowrap px-3 py-4">{r.amount<0?'−':'+'}{money(Math.abs(r.amount),r.currency)}</td><td className="px-3 py-4"><span className="rounded-full bg-[#f2eae8] px-3 py-1 capitalize">{r.status}</span></td><td className="whitespace-nowrap px-3 py-4">{fmtDate(r.created_at)}</td></tr>)}{filtered.length===0?<tr><td colSpan={5} className="p-10 text-center text-[#888]">No records found for this filter.</td></tr>:null}</tbody></table></div></>:null}
+            {section==='records'?<><h2 className="display mb-5 text-3xl">Records</h2><div className="mb-4 flex flex-wrap gap-2">{['All','Welcome bonus','Trial bonus','Trial reset','Cash in','Activation','Property','Commission','Cash out','Refund','Adjustment'].map(x=><button key={x} type="button" onClick={()=>setFilter(x)} className={`rounded-lg border px-3 py-2 text-[11px] ${filter===x?'border-[#211e1c] bg-[#211e1c] text-white':'border-[#e5e1dc] text-[#666]'}`}>{x}</button>)}</div><div className="overflow-x-auto"><table className="w-full min-w-[600px] text-left text-xs"><thead><tr className="border-b text-[9px] uppercase tracking-widest text-[#999]"><th className="px-3 py-3">Type</th><th className="px-3 py-3">Description</th><th className="px-3 py-3">Amount</th><th className="px-3 py-3">Status</th><th className="px-3 py-3">Date</th></tr></thead><tbody>{filtered.map(r=><tr key={r.id} className="border-b last:border-0"><td className="px-3 py-4">{r.type}</td><td className="px-3 py-4">{r.description}</td><td className="whitespace-nowrap px-3 py-4">{r.amount<0?'−':'+'}{recordedMoney(Math.abs(r.amount),r.currency)}</td><td className="px-3 py-4"><span className="rounded-full bg-[#f2eae8] px-3 py-1 capitalize">{r.status}</span></td><td className="whitespace-nowrap px-3 py-4">{fmtDate(r.created_at)}</td></tr>)}{filtered.length===0?<tr><td colSpan={5} className="p-10 text-center text-[#888]">No records found for this filter.</td></tr>:null}</tbody></table></div></>:null}
             {section==='cashin'?<><h2 className="display text-3xl">Cash in</h2><p className="mt-3 text-sm text-[#777]">Submit a deposit request, then contact customer support for the payment instructions. Your wallet is credited only after administrator review.</p><Link to="/wallet#deposits" className="mt-6 inline-flex rounded-md bg-[#211e1c] px-5 py-3 text-sm text-white">Open deposit request</Link></>:null}
             {section==='cashout'?<><h2 className="display text-3xl">Cash out</h2><p className="mt-2 text-sm text-[#777]">Minimum OMR 20. Requests remain pending until an administrator reviews them.</p><form onSubmit={e=>void requestCashOut(e)} className="mt-6 grid max-w-xl gap-4"><div className="rounded-lg bg-[#f8f6f3] p-4 text-sm">Available wallet balance <strong className="float-right">{money(Math.max(0,balance-hold-reservedWithdrawals),'OMR')}</strong></div><label className="grid gap-2 text-xs text-[#777]">Bank account<select className={field} value={bankId} onChange={e=>setBankId(e.target.value)}><option value="">Select bound bank account</option>{banks.map(b=><option key={b.id} value={b.id}>{b.bank_name} ·••{b.account_number.slice(-4)}</option>)}</select></label>{!banks.length?<p className="text-sm text-red-700">No bank account is bound. Bind a bank account first. <button type="button" onClick={()=>setSection('bank')} className="underline">Bind wallet</button></p>:null}<label className="grid gap-2 text-xs text-[#777]">Amount (OMR)<input className={field} type="number" min="20" step="0.01" value={amount} onChange={e=>setAmount(e.target.value)} required/></label><label className="grid gap-2 text-xs text-[#777]">Withdrawal password{!hasWithdrawalCode?<span className="text-red-700">Not set · <button type="button" onClick={()=>setSection('withdrawalPassword')} className="underline">Set withdrawal password</button></span>:null}<input className={field} type="password" inputMode="numeric" maxLength={12} value={withdrawalCode} onChange={e=>setWithdrawalCode(e.target.value.replace(/\D/g,''))} placeholder="Enter withdrawal password" required/></label><div className="flex gap-3"><button type="button" onClick={()=>setSection('records')} className="rounded-md border px-5 py-3 text-sm">Cancel</button><button className={button} disabled={busy||!banks.length||!hasWithdrawalCode}>Request cash out</button></div></form></>:null}
             {section==='bank'?<><h2 className="display text-3xl">Bound accounts</h2><div className="mt-5 grid gap-3">{banks.map(b=><div key={b.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4 text-sm"><div><strong>{b.bank_name}</strong><p className="mt-1 text-xs text-[#777]">{b.account_holder} · ••••{b.account_number.slice(-4)}</p><p className="text-xs text-[#777]">{b.iban?b.iban.slice(0,4)+'••••'+b.iban.slice(-4):'IBAN not supplied'}</p></div><button type="button" onClick={()=>setBankId(b.id)} className={bankId===b.id?'text-xs font-semibold text-[#92783d]':'text-xs underline'}>{bankId===b.id?'Selected':'Select for cash out'}</button></div>)}</div><button type="button" onClick={()=>setSection('bindForm')} className={`${button} mt-5`}>+ Bind wallet</button></>:null}
