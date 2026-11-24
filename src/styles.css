@@ -658,3 +658,163 @@ body * {
 .property-save-button:disabled::after {
   animation-play-state: paused;
 }
+
+
+/* Property catalogue and cards: responsive Oman-green visual refresh.
+   Layout-only styling; no ordering, progression, pricing, or data behaviour changes. */
+@media (min-width: 1280px) {
+  main#main .mt-4.grid.gap-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1.25rem;
+  }
+}
+main#main .mt-4.grid.gap-4 > button.group {
+  min-height: 0;
+  border-color: #d9e5dc;
+  border-radius: 1.25rem;
+  background: #fff;
+  box-shadow: 0 12px 34px -26px rgb(15 61 43 / 38%);
+  transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
+}
+main#main .mt-4.grid.gap-4 > button.group > div:first-child {
+  height: clamp(150px, 15vw, 205px);
+}
+main#main .mt-4.grid.gap-4 > button.group > div:nth-child(2) {
+  min-height: 82px;
+  border-color: #d9e5dc;
+  background: #14543d;
+}
+main#main .mt-4.grid.gap-4 > button.group > div:nth-child(2) strong,
+main#main .mt-4.grid.gap-4 > button.group > div:nth-child(2) span {
+  color: #fff;
+}
+main#main .mt-4.grid.gap-4 > button.group > div:nth-child(2) span:last-child {
+  color: #e8d39a;
+}
+main#main .mt-4.grid.gap-4 > button.group > div:last-child {
+  padding: 1.25rem;
+  color: #173d2e;
+}
+main#main .mt-4.grid.gap-4 > button.group > div:last-child strong {
+  color: #174b36;
+}
+main#main .mt-4.grid.gap-4 > button.group > div:last-child > span:last-child {
+  border-color: #c9a967;
+  background: linear-gradient(135deg, #f3e5bd, #dfc27c);
+  color: #173d2e;
+  min-height: 48px;
+}
+@media (hover: hover) and (pointer: fine) {
+  main#main .mt-4.grid.gap-4 > button.group:hover:not(:disabled) {
+    transform: translateY(-4px);
+    border-color: #b99a54;
+    box-shadow: 0 20px 42px -26px rgb(15 61 43 / 45%);
+  }
+}
+main#main [aria-label="Project badges"] > button {
+  min-height: 116px;
+  border-color: #d5dfd7;
+  border-radius: 1rem;
+  box-shadow: 0 8px 24px -22px rgb(15 61 43 / 40%);
+}
+main#main [aria-label="Project badges"] > button[aria-pressed="true"],
+main#main [aria-label="Project badges"] > button:focus-visible {
+  border-color: #b99a54;
+}
+main#main .mx-auto.mt-8.w-full.max-w-3xl {
+  max-width: 850px;
+}
+main#main article.group {
+  overflow: hidden;
+  border-color: #d5dfd7;
+  border-radius: 1.5rem;
+  box-shadow: 0 18px 48px -34px rgb(15 61 43 / 42%);
+}
+main#main article.group > div:first-child {
+  background: #e8eee9;
+}
+main#main article.group > div:first-child img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 440px;
+  object-fit: cover;
+}
+main#main article.group > div:last-child {
+  padding: clamp(1.1rem, 3vw, 2rem);
+}
+main#main article.group h3 {
+  color: #174b36;
+  font-size: clamp(1.45rem, 2.5vw, 2rem);
+  line-height: 1.2;
+}
+main#main article.group button {
+  min-height: 50px;
+  border-color: #1d6849;
+  border-radius: .85rem;
+  background: #14543d;
+  color: #fff;
+}
+main#main article.group button:hover:not(:disabled) {
+  background: #0f4431;
+}
+@media (max-width: 639px) {
+  main#main {
+    padding-bottom: max(5rem, env(safe-area-inset-bottom));
+  }
+  main#main > div {
+    padding-left: .875rem;
+    padding-right: .875rem;
+  }
+  main#main section.py-12,
+  main#main section.py-16 {
+    padding-top: 1.5rem;
+    padding-bottom: 2rem;
+  }
+  main#main .mt-4.grid.gap-4 {
+    grid-template-columns: minmax(0, 1fr);
+    gap: .875rem;
+  }
+  main#main .mt-4.grid.gap-4 > button.group {
+    width: 100%;
+    border-radius: 1rem;
+  }
+  main#main .mt-4.grid.gap-4 > button.group > div:first-child {
+    height: 176px;
+  }
+  main#main .mt-4.grid.gap-4 > button.group > div:last-child {
+    padding: 1rem;
+  }
+  main#main [aria-label="Project badges"] {
+    gap: .625rem;
+  }
+  main#main [aria-label="Project badges"] > button {
+    min-height: 104px;
+    padding: .875rem;
+  }
+  main#main .mx-auto.mt-8.w-full.max-w-3xl {
+    margin-top: 1.25rem;
+  }
+  main#main article.group {
+    border-radius: 1.125rem;
+  }
+  main#main article.group > div:first-child img {
+    aspect-ratio: 4 / 3;
+    max-height: 280px;
+  }
+  main#main article.group > div:last-child {
+    padding: 1rem;
+  }
+  main#main article.group h3 {
+    font-size: 1.45rem;
+  }
+  main#main article.group button {
+    min-height: 52px;
+    font-size: .7rem;
+  }
+}
+@media (min-width: 640px) and (max-width: 1023px) {
+  main#main .mt-4.grid.gap-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
