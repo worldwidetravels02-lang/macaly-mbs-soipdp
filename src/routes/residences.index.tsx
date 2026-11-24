@@ -304,10 +304,10 @@ function ResidencesPage() {
 
   const visibleLevels = useMemo(() => {
     const query = groupSearch.trim().toLowerCase()
-    let rows = LEVELS.filter((level) => (!query || level.toLowerCase().includes(query)) && (groupFilter === 'all' || level === 'Junior Trial') && (level !== 'Junior Trial' || customerLevelAccess.some((item) => item.user_id === currentUserId && item.level_name === 'Junior Trial' && item.is_unlocked)))
+    let rows = LEVELS.filter((level) => (!query || level.toLowerCase().includes(query)) && (groupFilter === 'all' || level === 'Junior Trial'))
     if (groupSort === 'newest') rows = [...rows].reverse()
     return rows
-  }, [groupSearch, groupFilter, groupSort, customerLevelAccess, currentUserId])
+  }, [groupSearch, groupFilter, groupSort])
 
   return (
     <div className="dashboard-typography min-h-screen bg-[#faf9f7] text-[#25231f]">
