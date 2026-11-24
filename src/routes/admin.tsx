@@ -12,7 +12,7 @@ import siteMetadata from '../metadata.json'
 // Admin data spans several Supabase tables whose generated client schema is not yet unified.
 // Keep these dynamically selected admin rows flexible until database.types.ts is generated.
 type Row = any
-type Section = 'overview' | 'properties' | 'badges' | 'enquiries' | 'users' | 'promotions' | 'finance' | 'investments' | 'commissions' | 'verifications' | 'tasks' | 'payments' | 'content' | 'team' | 'support' | 'settings' | 'transactions' | 'fortune' | 'fx'
+type Section = 'overview' | 'properties' | 'badges' | 'enquiries' | 'users' | 'promotions' | 'finance' | 'investments' | 'commissions' | 'verifications' | 'tasks' | 'payments' | 'content' | 'team' | 'support' | 'settings' | 'transactions' | 'fortune'
 const SECTIONS: { id: Section; label: string }[] = [
   { id: 'overview', label: 'Dashboard' },
   { id: 'properties', label: 'Projects' },
@@ -25,12 +25,10 @@ const SECTIONS: { id: Section; label: string }[] = [
   { id: 'investments', label: 'Investment Requests' },
   { id: 'commissions', label: 'Commissions' },
   { id: 'transactions', label: 'Transactions' },
-  { id: 'fx', label: 'FX Rates' },
   { id: 'settings', label: 'Website Content & Settings' },
   { id: 'team', label: 'Team & Access' },
   { id: 'support', label: 'Support' },
 ]
-const CURRENCIES = ['OMR', 'AED', 'SAR', 'KWD', 'BHD', 'QAR', 'PKR', 'BDT']
 const meta = siteMetadata['/admin']
 const money = (value: unknown, currency = 'OMR') => {
   const amount = Number(value)
@@ -145,7 +143,6 @@ function AdminPage() {
   const [telegramUsername, setTelegramUsername] = useState('')
   const [siteContentDrafts, setSiteContentDrafts] = useState<Record<'about' | 'terms', { title: string; content: string; sections: { header: string; description: string }[] }>>({ about: { title: 'About Msheireb Properties', content: '', sections: [] }, terms: { title: 'Terms & Conditions', content: '', sections: [] } })
   const [adminEmail, setAdminEmail] = useState('')
-  const [fxDrafts, setFxDrafts] = useState<Record<string, string>>({})
   const [priceDrafts, setPriceDrafts] = useState<Record<string, string>>({})
   const [planDrafts, setPlanDrafts] = useState<Record<string, { name: string; minimum_amount: string; profit_percent: string; commission_percent: string; active: boolean }>>({})
   const [newPlanDraft, setNewPlanDraft] = useState({ code: '', level: '1', name: '', minimum_amount: '0', profit_percent: '0', commission_percent: '0', active: false })
@@ -198,7 +195,6 @@ function AdminPage() {
         profits: client.from('profit_payouts').select('*').order('created_at', { ascending: false }).limit(100),
         commissions: client.from('commission_records').select('*').order('created_at', { ascending: false }).limit(200),
         threads: client.from('support_threads').select('*').order('updated_at', { ascending: false }).limit(100),
-        fx: client.from('fx_rates').select('*').order('code'),
         prices: client.from('property_prices').select('*').order('slug'),
         plans: client.from('membership_plans').select('*').order('level'),
         investmentRequests: client.from('investment_requests').select('*').order('created_at', { ascending: false }).limit(1000),
@@ -1528,8 +1524,7 @@ function AdminPage() {
 
             {section === 'support' ? <div className="grid gap-5"><form onSubmit={saveTelegramSupport} className="grid gap-3 border border-border bg-card p-5"><h2 className="display text-xl">Telegram customer support</h2><p className="text-xs text-ink-soft">Customers will see a Telegram button on their support page. Enter the Telegram username without @. You can change it here at any time.</p><input aria-label="Telegram support username" autoCapitalize="none" autoCorrect="off" spellCheck={false} className={inputClass} value={telegramUsername} onChange={(event) => setTelegramUsername(event.target.value.replace(/\s/g, ''))} placeholder="Telegram username (e.g. MsheirebSupport)" maxLength={33} />{telegramUsername.trim().replace(/^@/, '') ? <a href={`https://t.me/${encodeURIComponent(telegramUsername.trim().replace(/^@/, ''))}`} target="_blank" rel="noopener noreferrer" className="text-sm text-brass underline underline-offset-4">Preview customer Telegram link</a> : <p className="text-xs text-ink-soft">Leave the username empty and save to remove the Telegram button from the customer page.</p>}<button disabled={busy} className={buttonClass}>Save Telegram contact <ArrowRight /></button></form><section className="grid gap-5 lg:grid-cols-[minmax(16rem,0.7fr)_1.3fr]"><div className="border border-border bg-card"><div className="grid gap-3 border-b border-border p-4"><div><h2 className="display text-xl">Support conversations</h2><p className="mt-1 text-xs text-ink-soft">Showing {filteredSupportThreads.length} of {(rows.threads ?? []).length} conversations · {supportThreadCounts.open} open · {supportThreadCounts.closed} closed</p></div><input aria-label="Search support conversations" className={inputClass} placeholder="Search customer ID, subject or conversation ID" value={supportSearch} onChange={(event) => setSupportSearch(event.target.value)} /><div className="flex flex-wrap gap-2"><select aria-label="Filter support status" className={inputClass} value={supportStatus} onChange={(event) => setSupportStatus(event.target.value)}><option value="all">All statuses</option>{Array.from(new Set((rows.threads ?? []).map((thread) => normalizeAdminStatus(thread.status || 'open')))).sort().map((status) => <option key={status} value={status}>{status.replace(/_/g, ' ')}</option>)}</select><button type="button" className={softButton} onClick={() => { setSupportSearch(''); setSupportStatus('all') }}>Clear filters</button></div></div><div className="divide-y divide-border">{filteredSupportThreads.map((thread) => <button key={thread.id} onClick={() => setSelectedThread(text(thread.id))} className={selectedThread === thread.id ? 'block w-full bg-brass/10 px-5 py-4 text-left' : 'block w-full px-5 py-4 text-left hover:bg-brass/5'}><b className="block text-xs">{text(thread.customer_name) || 'Unknown customer'}</b><span className="mt-1 block break-all text-[0.65rem] text-ink-soft">{text(thread.customer_mobile) || 'No mobile on profile'}</span><span className="mt-1 block break-all text-[0.65rem] text-ink-soft">{text(thread.subject) || 'Support conversation'} · {text(thread.status || 'open')} · {date(thread.updated_at)}</span><span className="mt-1 block break-all font-mono text-[0.58rem] tracking-widest text-ink-soft">Customer ID: {customerNumber(thread.user_id)}</span></button>)}{!filteredSupportThreads.length ? <p className="p-5 text-sm text-ink-soft">No conversations match these filters.</p> : null}</div></div><SupportConversation key={selectedThread + '-' + supportMessageVersion} threadId={selectedThread} customerId={text(selectedSupportThread?.user_id)} status={text(selectedSupportThread?.status || 'open')} onStatusChange={changeSupportStatus} onSend={sendReply} reply={reply} setReply={setReply} busy={busy} /></section></div> : null}
 
-            {section === 'fx' ? <section className="grid gap-4 border border-border bg-card p-5"><div><h2 className="display text-xl">Currency exchange rates</h2><p className="mt-1 text-xs text-ink-soft">Enter the administrator-set AED value of one unit of each currency. Customer amounts are converted from the saved rates using OMR as the base. No live exchange-rate service is used.</p></div>{(rows.fx ?? []).map((item) => <form key={item.code} onSubmit={(event) => { event.preventDefault(); void run(async () => { const value = Number(fxDrafts[text(item.code)]); if (!Number.isFinite(value) || value <= 0) throw new Error('Enter a rate greater than zero.'); const { error: saveError } = await requireSupabase().from('fx_rates').update({ aed_per_unit: value, updated_at: new Date().toISOString(), updated_by: user?.id }).eq('code', item.code); if (saveError) throw saveError }, `Updated ${text(item.code)} exchange rate.`) }} className="grid items-center gap-2 border-t border-border pt-3 sm:grid-cols-[1fr_1fr_auto]"><label className="text-sm font-medium">{text(item.code)} · {text(item.label)}</label><input required type="number" min="0.00000001" step="0.00000001" className={inputClass} value={fxDrafts[text(item.code)] ?? ''} onChange={(event) => setFxDrafts({ ...fxDrafts, [text(item.code)]: event.target.value })} /><button disabled={busy} className={softButton}>Save rate</button></form>)}</section> : null}
-
+            
             {section === 'settings' ? <div className="grid gap-6">
               <div className="grid gap-5 lg:grid-cols-2">
                 {(['terms','about'] as const).map((slug) => {
