@@ -78,7 +78,7 @@ function WalletPage() {
         return
       }
       setUserId(authData.user.id)
-      const [profileResult, balanceResult, transactionResult, profitResult, commissionResult, topupResult, withdrawalResult, notificationResult, holdResult] = await Promise.all([
+      const [balanceResult, transactionResult, profitResult, commissionResult, topupResult, withdrawalResult, notificationResult, holdResult] = await Promise.all([
         client.from('wallet_balances').select('balance').eq('user_id', authData.user.id).eq('currency', 'OMR').maybeSingle(),
         client.from('wallet_transactions').select('id,amount,currency,status,created_at,description,transaction_type,direction').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(transactionLimit),
         client.from('profit_payouts').select('id,amount,currency,status,created_at').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(20),
