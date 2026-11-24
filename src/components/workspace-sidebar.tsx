@@ -23,6 +23,7 @@ const adminItems = [
   ['finance','Cashout'],
   ['transactions','Transactions'],
   ['support','Support'],
+  ['fx','FX Rates'],
   ['settings','Settings'],
   ['team','Add Admin'],
 ] as const
@@ -96,7 +97,7 @@ export function WorkspaceSidebar({ mode, active, onSelect, isOwner = false }: Pr
     </aside>
     {isAdmin ? <nav aria-label="Admin quick navigation" className="fixed inset-x-0 bottom-0 z-[80] grid grid-cols-9 border-t border-[#d9e5dc] bg-[#f8faf6] px-1 pb-[max(env(safe-area-inset-bottom),0.35rem)] pt-2 shadow-[0_-4px_18px_rgba(0,0,0,0.08)] lg:hidden">
       {adminItems.map(([id, label]) => <button key={id} type="button" onClick={() => onSelect?.(id)} className={['flex min-w-0 flex-col items-center justify-center gap-1 py-1 text-[0.62rem]', active === id ? 'font-semibold text-[#14532d]' : 'text-[#64756a]'].join(' ')}>
-        <span aria-hidden="true" className="text-lg leading-5">{id === 'overview' ? '⌂' : id === 'users' ? '♙' : id === 'properties' ? '▦' : id === 'finance' ? '▱' : id === 'transactions' ? '≡' : id === 'support' ? '✉' : id === 'team' ? '＋' : '☼'}</span>
+        <span aria-hidden="true" className="text-lg leading-5">{id === 'overview' ? '⌂' : id === 'users' ? '♙' : id === 'properties' ? '▦' : id === 'finance' ? '▱' : id === 'transactions' ? '≡' : id === 'support' ? '✉' : id === 'fx' ? '¤' : id === 'team' ? '＋' : '☼'}</span>
         <span className="truncate">{label}</span>
       </button>)}
     </nav> : null}
