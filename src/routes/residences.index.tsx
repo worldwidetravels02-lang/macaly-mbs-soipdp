@@ -5,7 +5,6 @@ import { ListingsGate } from '../components/listings-gate'
 import { WorkspaceSidebar } from '../components/workspace-sidebar'
 import { IMAGES } from '../data/site'
 import { canonicalUrl } from '../lib/canonical-url'
-import { CURRENCIES, type DisplayCurrency, loadAdminDisplayRates, convertDisplayAmount, readDisplayCurrency, saveDisplayCurrency } from '../lib/currency-display'
 import siteMetadata from '../metadata.json'
 
 const meta = siteMetadata['/residences']
@@ -55,8 +54,6 @@ function ResidencesPage() {
   const [groupSearch, setGroupSearch] = useState('')
   const [groupFilter, setGroupFilter] = useState<'all' | 'trial'>('all')
   const [groupSort, setGroupSort] = useState<'oldest' | 'newest'>('oldest')
-  const [currency, setCurrency] = useState<DisplayCurrency>('OMR')
-  const [fxRates, setFxRates] = useState<Record<DisplayCurrency, number>>({ OMR: 1, AED: 0, SAR: 0, KWD: 0, BHD: 0, QAR: 0 })
   const [currentUserName, setCurrentUserName] = useState('Member')
   const [currentProjectIndex, setCurrentProjectIndex] = useState(0)
   const [trialBonusBalanceOmr, setTrialBonusBalanceOmr] = useState(0)
@@ -79,23 +76,7 @@ function ResidencesPage() {
   const [completedLevel, setCompletedLevel] = useState('')
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    setCurrency(readDisplayCurrency())
-    const sync = (event: Event) => { const value = (event as CustomEvent<unknown>).detail; if (typeof value === 'string' && CURRENCIES.includes(value as DisplayCurrency)) setCurrency(value as DisplayCurrency) }
-    window.addEventListener('msheireb-currency-change', sync)
-    let active = true
-    loadAdminDisplayRates(requireSupabase()).then((rates) => { if (active) setFxRates(rates) }).catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : 'Administrator exchange rates are unavailable.') })
-    return () => { active = false; window.removeEventListener('msheireb-currency-change', sync) }
-  }, [])
-
-  const changeCurrency = (value: string) => {
-    if (!CURRENCIES.includes(value as DisplayCurrency)) return
-    const next = value as DisplayCurrency
-    setCurrency(next)
-    saveDisplayCurrency(next)
-    if (currentUserId) void requireSupabase().from('profiles').update({ preferred_currency: next }).eq('id', currentUserId)
-  }
-  const displayMoney = (value: number | string, from: DisplayCurrency = 'OMR') => new Intl.NumberFormat('en', { style: 'currency', currency, maximumFractionDigits: 2 }).format(convertDisplayAmount(value, from, currency, fxRates))
+  const displayMoney = (value: number | string, from: string = 'OMR') => from === 'OMR' ? new Intl.NumberFormat('en', { style: 'currency', currency: 'OMR', maximumFractionDigits: 2 }).format(Number(value) || 0) : 'Legacy non-OMR amount (not converted)'
 
   useEffect(() => {
     if (search.level && LEVELS.includes(search.level as typeof LEVELS[number])) {
@@ -317,9 +298,6 @@ function ResidencesPage() {
       <header className="fixed inset-x-0 top-0 z-40 flex h-[62px] items-center justify-between border-b border-[#c9a45c] bg-[#071b38]/95 px-5 pl-20 text-white shadow-lg backdrop-blur lg:left-64 lg:px-7">
         <div className="text-xs text-white/70"><span>Workspace</span><span className="mx-2 text-[#d8b66b]">/</span><strong className="text-[#f1d28d]">Projects</strong></div>
         <div className="flex items-center gap-3 sm:gap-5">
-          <label className="flex items-center gap-2 text-[10px] font-semibold tracking-widest text-[#888]">CURRENCY
-            <select aria-label="Currency" value={currency} onChange={(event) => changeCurrency(event.target.value)} className="rounded-md border border-[#c9a45c]/60 bg-[#10294b] px-3 py-2 text-xs font-semibold text-white">{CURRENCIES.map((code) => <option key={code} value={code}>{code}</option>)}</select>
-          </label>
           <Link to="/account" className="flex items-center gap-2 rounded-xl border border-[#c9a45c]/50 bg-[#10294b] px-2 py-1.5 text-xs text-white"><span className="grid h-8 w-8 place-items-center rounded-lg bg-[#d8b66b] font-semibold text-[#071b38]">{currentUserName.slice(0,1).toUpperCase()}</span><span className="hidden text-left sm:block"><strong className="block">{currentUserName.split(" ")[0]}</strong><span className="text-[10px] text-[#888]">User</span></span></Link>
         </div>
       </header>
