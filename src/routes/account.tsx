@@ -2,15 +2,15 @@ import { WorkspaceSidebar } from '../components/workspace-sidebar'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useState } from 'react'
 import { requireSupabase } from '@/lib/supabase-client'
+import { CURRENCIES, type DisplayCurrency, loadAdminDisplayRates, convertDisplayAmount, readDisplayCurrency, saveDisplayCurrency } from '../lib/currency-display'
 
-type Currency = 'AED' | 'OMR' | 'SAR' | 'KWD' | 'BHD' | 'QAR'
+type Currency = DisplayCurrency
 type Section = 'records' | 'cashin' | 'cashout' | 'bank' | 'bindForm' | 'password' | 'withdrawalPassword' | 'deposit' | 'terms'
 type BankAccount = { id: string; account_holder: string; bank_name: string; iban: string; account_number: string; mobile_number: string; created_at: string }
 type RecordRow = { id: string; type: string; description: string; amount: number; currency: Currency; status: string; created_at: string }
-const currencies: Currency[] = ['OMR','AED','SAR','KWD','BHD','QAR']
+const currencies: Currency[] = [...CURRENCIES]
 type FxRates = Record<Currency, number>
-const fallbackFxRates: FxRates = { OMR: 1, AED: 9.55, SAR: 9.7549, KWD: 0.7978, BHD: 0.9805, QAR: 9.4836 }
-function convertCurrency(value: number | string, from: Currency, to: Currency, rates: FxRates) { const amount = Number(value); if (!Number.isFinite(amount)) return 0; if (from === to) return amount; return rates[from] > 0 && rates[to] > 0 ? amount / rates[from] * rates[to] : amount }
+const fallbackFxRates: FxRates = { OMR: 1, AED: 0, SAR: 0, KWD: 0, BHD: 0, QAR: 0 }
 const menu: {id: Section; label: string; icon: string}[] = [
   {id:'records',label:'Records',icon:'☷'},{id:'cashin',label:'Cash in',icon:'＋'},
   {id:'cashout',label:'Cash out',icon:'▱'},{id:'bank',label:'Bind wallet',icon:'▣'},
@@ -201,27 +201,24 @@ function AccountPage() {
   }
 
   useEffect(() => { let active = true; async function loadRates() {
-    try { const response = await fetch('https://open.er-api.com/v6/latest/OMR', { cache: 'no-store' }); if (!response.ok) throw new Error('Live exchange rates are temporarily unavailable.');
-      const payload = await response.json() as { result?: string; base_code?: string; time_last_update_utc?: string; rates?: Record<string, number> };
-      if (payload.result !== 'success' || payload.base_code !== 'OMR' || !payload.rates) throw new Error('Invalid exchange-rate response.');
-      const next: FxRates = { ...fallbackFxRates, OMR: 1 }; for (const code of currencies) { const rate = Number(payload.rates[code]); if (code !== 'OMR' && Number.isFinite(rate) && rate > 0) next[code] = rate; }
-      if (active) { setFxRates(next); setFxDate(payload.time_last_update_utc ? new Date(payload.time_last_update_utc).toLocaleString('en-GB') : new Date().toLocaleString('en-GB')); setFxError(''); }
-    } catch (cause) { if (active) setFxError(cause instanceof Error ? cause.message : 'Using reference rates.'); }
-  } void loadRates(); const timer = window.setInterval(() => { void loadRates(); }, 300000); window.addEventListener('focus', loadRates);
-  return () => { active = false; window.clearInterval(timer); window.removeEventListener('focus', loadRates); }; }, [])
+    try {
+      const next = await loadAdminDisplayRates(requireSupabase())
+      if (active) { setFxRates(next); setFxDate(new Date().toLocaleString('en-GB')); setFxError('') }
+    } catch (cause) { if (active) setFxError(cause instanceof Error ? cause.message : 'Administrator exchange rates are unavailable.') }
+  } void loadRates(); const timer = window.setInterval(() => { void loadRates() }, 300000); window.addEventListener('focus', loadRates);
+  return () => { active = false; window.clearInterval(timer); window.removeEventListener('focus', loadRates) }; }, [])
   async function changeCurrency(next: Currency) {
     setCurrency(next)
     setError('')
     try {
-      window.localStorage.setItem('msheireb-currency', next)
-      window.dispatchEvent(new CustomEvent('msheireb-currency-change', { detail: next }))
+      saveDisplayCurrency(next)
     } catch { /* optional */ }
     if (userId) {
       const { error: updateError } = await requireSupabase().from('profiles').update({ preferred_currency: next }).eq('id', userId)
       if (updateError) setError('Currency display changed on this page, but could not save your preference: ' + updateError.message)
     }
   }
-  const displayMoney = (value: number) => money(convertCurrency(value, 'OMR', currency, fxRates), currency)
+  const displayMoney = (value: number) => money(convertDisplayAmount(value, 'OMR', currency, fxRates), currency)
 
   async function signOut(){const {error:e}=await requireSupabase().auth.signOut();if(e)setError(e.message);else await navigate({to:'/login'})}
   const filtered=records.filter(r=>(filter==='All'||norm(r.type)===norm(filter)))
