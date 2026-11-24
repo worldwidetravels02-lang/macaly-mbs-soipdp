@@ -185,6 +185,19 @@ function ResidencesPage() {
     return () => window.clearTimeout(timeout)
   }, [welcomeBonus])
 
+  useEffect(() => {
+    if (selectedLevel === 'Junior Trial') return
+    const badges = [1, 2, 3].map((setNumber) => {
+      const access = customerSetAccess.find((item) => item.user_id === currentUserId && item.level_name === selectedLevel && item.set_number === setNumber)
+      const unlocked = access?.is_unlocked ?? setNumber === 1
+      const propertyIds = new Set(projects.filter((project) => project.project_level === selectedLevel && Number(project.set_number) === setNumber).map((project) => project.id))
+      const orderedCount = new Set(requests.filter((request) => request.user_id === currentUserId && request.property_id && propertyIds.has(request.property_id) && !['rejected', 'cancelled'].includes(String(request.status).toLowerCase())).map((request) => request.property_id)).size
+      return { setNumber, unlocked, orderedCount }
+    })
+    const nextBadge = badges.find((badge) => badge.unlocked && badge.orderedCount < 20) ?? badges.find((badge) => badge.unlocked)
+    if (nextBadge && selectedSet !== nextBadge.setNumber) setSelectedSet(nextBadge.setNumber)
+  }, [selectedLevel, selectedSet, customerSetAccess, projects, requests, currentUserId])
+
   const currentLevelUnlocked = (customerLevelAccess.find((item) => item.user_id === currentUserId && item.level_name === selectedLevel)?.is_unlocked ?? false) && (selectedLevel === 'Junior Trial' || (customerSetAccess.find((item) => item.user_id === currentUserId && item.level_name === selectedLevel && item.set_number === selectedSet)?.is_unlocked ?? selectedSet === 1))
   const levelProjects = useMemo(() => {
     const matching = projects.filter((project) => project.project_level === selectedLevel && (selectedLevel === 'Junior Trial' ? Number(project.set_number) === 1 : Number(project.set_number) === selectedSet))
@@ -406,12 +419,12 @@ function ResidencesPage() {
                 <div><p className="eyebrow text-brass">{selectedLevel === 'Junior Trial' ? 'Single progression' : 'Selected level'}</p><h2 className="display mt-2 text-3xl">{selectedLevel === "Junior Trial" ? "Junior (Trial)" : selectedLevel}</h2></div>
 
               </div>
-              {selectedLevel !== 'Junior Trial' ? <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3" aria-label="Project badges">{[1, 2, 3].map((setNumber) => {
+              {selectedLevel !== 'Junior Trial' ? <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3" aria-label="Badge progress">{[1, 2, 3].map((setNumber) => {
                 const access = customerSetAccess.find((item) => item.user_id === currentUserId && item.level_name === selectedLevel && item.set_number === setNumber)
                 const unlocked = access?.is_unlocked ?? setNumber === 1
                 const setPropertyIds = new Set(projects.filter((project) => project.project_level === selectedLevel && Number(project.set_number) === setNumber).map((project) => project.id))
                 const completed = new Set(requests.filter((request) => request.user_id === currentUserId && request.property_id && setPropertyIds.has(request.property_id) && String(request.status).toLowerCase() === 'funded').map((request) => request.property_id)).size
-                return <button key={setNumber} type="button" disabled={!unlocked} onClick={() => { setSelectedSet(setNumber); setCurrentProjectIndex(0); setError(''); setNotice('') }} className={`rounded-xl border-2 p-4 text-left transition ${selectedSet === setNumber ? 'border-[#d8b66b] bg-[#071b38] text-white' : 'border-[#d8b66b]/50 bg-white text-[#071b38]'} ${!unlocked ? 'cursor-not-allowed opacity-50' : 'hover:border-[#d8b66b]'}`}><span className="flex items-center justify-between"><strong className="display text-lg">Badge {setNumber}</strong><span>{unlocked ? '🏅' : '🔒'}</span></span><span className={`mt-2 block text-xs ${selectedSet === setNumber ? 'text-white/75' : 'text-ink-soft'}`}>{Math.max(0, Math.min(100, Number(customerSetAccess.find((item) => item.user_id === currentUserId && item.level_name === selectedLevel && item.set_number === setNumber)?.progress_percent ?? 0)))}% admin-set progress · {completed} / 20 funded</span><span className={`mt-1 block text-[10px] font-semibold uppercase tracking-widest ${selectedSet === setNumber ? 'text-[#f1d28d]' : 'text-[#9a793b]'}`}>{unlocked ? 'Unlocked' : 'Locked by administrator'}</span></button>
+                return <div key={setNumber} aria-current={selectedSet === setNumber ? 'step' : undefined} className={`rounded-xl border-2 p-4 text-left ${selectedSet === setNumber ? 'border-[#d8b66b] bg-[#071b38] text-white' : 'border-[#d8b66b]/50 bg-white text-[#071b38]'}`}><span className="flex items-center justify-between"><strong className="display text-lg">Badge {setNumber}</strong><span>{unlocked ? '🏅' : '•'}</span></span><span className={`mt-2 block text-xs ${selectedSet === setNumber ? 'text-white/75' : 'text-ink-soft'}`}>{Math.max(0, Math.min(100, Number(access?.progress_percent ?? 0)))}% admin-set progress · {completed} / 20 funded</span><span className={`mt-1 block text-[10px] font-semibold uppercase tracking-widest ${selectedSet === setNumber ? 'text-[#f1d28d]' : 'text-[#9a793b]'}`}>{selectedSet === setNumber ? 'Current badge' : unlocked ? 'Unlocked' : 'Not yet available'}</span></div>
               })}</div> : null}
               {fortuneRewards.length ? <section className="mx-auto mt-8 w-full max-w-3xl rounded-xl border border-[#d8b66b] bg-white p-5"><h3 className="display text-xl text-[#071b38]">Reward Records</h3><div className="mt-3 divide-y divide-[#eee6d7]">{fortuneRewards.map((reward) => <div key={reward.id} className="flex items-center justify-between gap-3 py-3 text-sm"><span className="text-[#555]">{reward.description || 'Fortune Box reward'}<small className="mt-1 block text-xs text-[#888]">{new Date(reward.created_at).toLocaleString()}</small></span><strong className="text-[#94702e]">{Number(reward.amount).toFixed(2)} credits</strong></div>)}</div></section> : null}
               {!currentLevelUnlocked ? <p className="mt-6 border border-border p-5 text-sm text-ink-soft">This badge is locked. The administrator must unlock it before you can continue.</p> : (
