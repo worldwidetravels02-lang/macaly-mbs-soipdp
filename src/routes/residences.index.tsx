@@ -233,9 +233,16 @@ function ResidencesPage() {
     if (orderedPropertyIds.size < 20 || completionShownRef.current === `${selectedLevel}:${selectedSet}`) return
     completionShownRef.current = `${selectedLevel}:${selectedSet}`
     setCompletedLevel(selectedLevel)
+    const nextStep = selectedSet < 3
+      ? `Badge ${selectedSet + 1}`
+      : selectedLevel === 'Senior'
+        ? 'Master Level'
+        : selectedLevel === 'Master'
+          ? 'Expert Level'
+          : 'the next step'
     setNotice(selectedLevel === 'Junior Trial'
-      ? 'You have ordered all 20 Junior Trial properties. Please contact Customer Support to request Senior access.'
-      : `You have ordered all 20 properties in ${selectedLevel} Badge ${selectedSet}. Please contact Customer Support to request the next badge unlock.`)
+      ? 'Congratulations! You have achieved the Junior Trial Project. Contact Customer Support to request Senior Level access.'
+      : `Congratulations! You have completed ${selectedLevel} Badge ${selectedSet}. Contact Customer Support to request ${nextStep} unlock.`)
     setSuccessPopup(true)
   }, [orderedPropertyIds, selectedLevel, selectedSet])
 
@@ -346,9 +353,9 @@ function ResidencesPage() {
             <Link to="/support" className="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-[#071b38] px-6 py-4 text-sm font-semibold text-[#f1d28d] shadow-lg transition hover:bg-[#12345b]">Contact Customer Support <span aria-hidden="true" className="ml-2">→</span></Link>
           </> : <>
             <div className="mx-auto mb-5 grid h-20 w-20 place-items-center rounded-full bg-[#e8f5ec] text-5xl font-bold text-[#23834b]">🎉</div>
-            <h2 id="project-completion-title" className="display text-3xl text-[#071b38]">{completedLevel} Completed!</h2>
+            <h2 id="project-completion-title" className="display text-3xl text-[#071b38]">Congratulations!</h2>
             <p className="mt-4 text-base leading-7 text-[#666]">{notice}</p>
-            <p className="mt-5 text-sm font-semibold tracking-wide text-[#9a793b]">20 / 20 PROPERTIES ORDERED</p>
+            <p className="mt-5 text-sm font-semibold tracking-wide text-[#9a793b]">BADGE {selectedSet} · 20 / 20 PROPERTIES COMPLETED</p>
             <Link to="/support" className="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-[#071b38] px-6 py-4 text-sm font-semibold text-[#f1d28d]">Contact Customer Support</Link>
           </>}
           <button type="button" onClick={() => setSuccessPopup(false)} className="mt-5 text-xs font-semibold text-[#666] underline underline-offset-4">Close</button>
