@@ -343,7 +343,7 @@ function ResidencesPage() {
             <div className="relative mx-auto mb-5 grid h-24 w-24 place-items-center rounded-full border-2 border-[#d8b66b] bg-gradient-to-br from-[#fff7df] to-[#e8d39a] text-6xl shadow-[0_0_35px_rgba(216,182,107,.45)] animate-[juniorCelebrate_.8s_ease-out_both]">🏆</div>
             <p className="eyebrow text-[0.58rem] font-bold tracking-[0.28em] text-[#9a793b]">JUNIOR TRIAL · COMPLETE</p>
             <h2 id="project-completion-title" className="display mt-3 text-3xl text-[#071b38] sm:text-4xl">Congratulations!</h2>
-            <p className="mt-4 text-base leading-7 text-[#555]">You have successfully completed all 20 Junior Trial projects.</p>
+            <p className="mt-4 text-base leading-7 text-[#555]">You have achieved the Junior Trial Project by completing all 20 properties.</p>
             <div className="my-6 rounded-2xl border border-[#d8b66b]/70 bg-gradient-to-r from-[#fff8e6] via-[#f4e6bf] to-[#fff8e6] px-5 py-4">
               <p className="text-sm font-bold tracking-[0.16em] text-[#765b25]">20 / 20 PROJECTS COMPLETED</p>
               <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#e4d7b6]"><div className="h-full w-full origin-left rounded-full bg-gradient-to-r from-[#b58b3c] to-[#e6c477] animate-[juniorProgress_.9s_ease-out_both]" /></div>
