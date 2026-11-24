@@ -258,7 +258,7 @@ function WalletPage() {
               </div>
               <div className="border border-border bg-card p-6">
                 <p className="eyebrow text-[0.5rem] text-ink-soft">Credited profit total</p>
-                <p className="display mt-3 text-2xl">{money(profits.filter((row) => row.status === 'credited' && row.currency === 'OMR').reduce((total, row) => total + Number(row.amount), 0), currency)}</p>
+                <p className="display mt-3 text-2xl">{money(profits.filter((row) => row.status === 'credited' && row.currency === 'OMR').reduce((total, row) => total + Number(row.amount), 0))}</p>
                 <p className="mt-2 text-xs text-ink-soft">Posted profit payout records in OMR.</p>
               </div>
               <div className="border border-border bg-card p-6">
