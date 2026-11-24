@@ -64,7 +64,6 @@ export function SiteHeader({ overlay = false, hideMenuButton = false }: { overla
   const [scrolled, setScrolled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [language, setLanguage] = useState('EN')
-  const [currency, setCurrency] = useState('OMR')
   const [isAuthenticated, setIsAuthenticated] = useState(false)
 
   useEffect(() => {
@@ -89,14 +88,10 @@ export function SiteHeader({ overlay = false, hideMenuButton = false }: { overla
   useEffect(() => {
     try {
       const savedLanguage = window.localStorage.getItem('msheireb-language')
-      const savedCurrency = window.localStorage.getItem('msheireb-currency')
       if (savedLanguage === 'EN' || savedLanguage === 'AR') {
         setLanguage(savedLanguage)
         document.documentElement.lang = savedLanguage.toLowerCase()
         document.documentElement.dir = savedLanguage === 'AR' ? 'rtl' : 'ltr'
-      }
-      if (['OMR', 'AED', 'SAR', 'KWD', 'BHD', 'QAR'].includes(savedCurrency ?? '')) {
-        setCurrency(savedCurrency!)
       }
     } catch {
       // Preferences remain usable for this page even when storage is unavailable.
@@ -111,15 +106,6 @@ export function SiteHeader({ overlay = false, hideMenuButton = false }: { overla
     try { window.localStorage.setItem('msheireb-language', value) } catch { /* optional */ }
   }
 
-  const changeCurrency = (value: string) => {
-    if (!['OMR', 'AED', 'SAR', 'KWD', 'BHD', 'QAR'].includes(value)) return
-    setCurrency(value)
-    try { window.localStorage.setItem('msheireb-currency', value) } catch { /* optional */ }
-    window.dispatchEvent(new CustomEvent('msheireb-currency-change', { detail: value }))
-    void requireSupabase().auth.getUser().then(({ data }) => {
-      if (data.user) return requireSupabase().from('profiles').update({ preferred_currency: value }).eq('id', data.user.id)
-    }).catch((error) => console.error('Could not save currency preference:', error))
-  }
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40)
@@ -164,10 +150,6 @@ export function SiteHeader({ overlay = false, hideMenuButton = false }: { overla
           <select id="site-language" aria-label="Language" value={language} onChange={(event) => changeLanguage(event.target.value)} className="eyebrow max-w-16 cursor-pointer border border-current/25 bg-transparent px-2 py-2 text-[0.52rem]">
             <option value="EN">EN</option>
             <option value="AR">AR</option>
-          </select>
-          <label className="sr-only" htmlFor="site-currency">{translateSiteLabel('Currency', language)}</label>
-          <select id="site-currency" aria-label="Currency" value={currency} onChange={(event) => changeCurrency(event.target.value)} className="eyebrow cursor-pointer border border-current/25 bg-transparent px-2 py-2 text-[0.52rem]">
-            {['OMR', 'AED', 'SAR', 'KWD', 'BHD', 'QAR'].map((code) => <option key={code} value={code}>{code}</option>)}
           </select>
           {isAuthenticated ? (
             <Link
@@ -251,12 +233,6 @@ export function SiteHeader({ overlay = false, hideMenuButton = false }: { overla
               <select aria-label="Language" value={language} onChange={(event) => changeLanguage(event.target.value)} className="border border-border bg-background px-3 py-3 text-sm">
                 <option value="EN">English</option>
                 <option value="AR">العربية</option>
-              </select>
-            </label>
-            <label className="flex flex-1 flex-col gap-2">
-              <span className="eyebrow text-[0.5rem] text-brass">{translateSiteLabel('Currency', language)}</span>
-              <select aria-label="Currency" value={currency} onChange={(event) => changeCurrency(event.target.value)} className="border border-border bg-background px-3 py-3 text-sm">
-                {['OMR', 'AED', 'SAR', 'KWD', 'BHD', 'QAR'].map((code) => <option key={code} value={code}>{code}</option>)}
               </select>
             </label>
           </div>
