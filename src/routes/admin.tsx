@@ -235,7 +235,6 @@ function AdminPage() {
       if (failedLoads.length) {
         setError(`Some admin data could not refresh: ${failedLoads.join(' | ')}`)
       }
-      setFxDrafts(Object.fromEntries((next.fx ?? []).map((row) => [text(row.code), text(row.aed_per_unit)])))
       setPriceDrafts(Object.fromEntries((next.prices ?? []).map((row) => [text(row.id), text(row.price_label)])))
       setPlanDrafts(Object.fromEntries((next.plans ?? []).map((row) => [text(row.id), { name: text(row.name), minimum_amount: text(row.minimum_amount), profit_percent: text(row.profit_percent), commission_percent: text(row.commission_percent), active: Boolean(row.active) }])))
       setTelegramUsername(text(next.supportSettings?.[0]?.telegram_username))
