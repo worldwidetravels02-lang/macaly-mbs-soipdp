@@ -109,7 +109,7 @@ function AdminPage() {
   const [walletHoldReleaseDrafts, setWalletHoldReleaseDrafts] = useState<Record<string, string>>({})
   const [manualWalletSearch, setManualWalletSearch] = useState('')
   const [walletSearch, setWalletSearch] = useState('')
-  const [walletCurrencyFilter, setWalletCurrencyFilter] = useState('all')
+  
   const [walletDirectionFilter, setWalletDirectionFilter] = useState('all')
   const [walletFromDate, setWalletFromDate] = useState('')
   const [walletToDate, setWalletToDate] = useState('')
@@ -187,7 +187,7 @@ function AdminPage() {
         customerLevelAccess: client.from('customer_project_level_access').select('*'),
         customerProjectSetAccess: client.from('customer_project_set_access').select('*'),
         enquiries: client.from('enquiries').select('*,properties(name)').order('created_at', { ascending: false }).limit(100),
-        users: client.from('profiles').select('id,full_name,mobile,preferred_currency,preferred_language,created_at').order('created_at', { ascending: false }).limit(200),
+        users: client.from('profiles').select('id,full_name,mobile,preferred_language,created_at').order('created_at', { ascending: false }).limit(200),
         promotions: client.from('promotions').select('*').order('created_at', { ascending: false }),
         topups: client.from('topup_requests').select('*').order('created_at', { ascending: false }).limit(100),
         withdrawals: client.from('withdrawal_requests').select('*').order('created_at', { ascending: false }).limit(100),
@@ -431,18 +431,18 @@ function AdminPage() {
       const customer = customers.find((profile) => profile.id === item.user_id)
       const matchesSearch = !query || [item.user_id, customer?.full_name, customer?.mobile, item.description, item.transaction_type, item.status, item.amount, item.currency, item.created_at]
         .some((value) => text(value).toLowerCase().includes(query))
-      const matchesCurrency = walletCurrencyFilter === 'all' || text(item.currency).toUpperCase() === walletCurrencyFilter
+      
       const direction = normalizeAdminStatus(item.direction)
       const matchesDirection = walletDirectionFilter === 'all' || direction === normalizeAdminStatus(walletDirectionFilter)
       const created = item.created_at ? new Date(item.created_at).getTime() : 0
       const afterFrom = !walletFromDate || created >= new Date(walletFromDate + 'T00:00:00').getTime()
       const beforeTo = !walletToDate || created <= new Date(walletToDate + 'T23:59:59.999').getTime()
-      return matchesSearch && matchesCurrency && matchesDirection && afterFrom && beforeTo
+      return matchesSearch && matchesDirection && afterFrom && beforeTo
     }).map((item) => {
       const customer = customers.find((profile) => profile.id === item.user_id)
       return { ...item, customer_name: text(customer?.full_name) || text(customer?.mobile) || 'Unknown customer' }
     })
-  }, [rows.walletTransactions, rows.users, walletSearch, walletCurrencyFilter, walletDirectionFilter, walletFromDate, walletToDate])
+  }, [rows.walletTransactions, rows.users, walletSearch, walletDirectionFilter, walletFromDate, walletToDate])
 
   const customerAccountStatus = (customerId: string) => normalizeAdminStatus((rows.accounts ?? []).find((entry) => entry.user_id === customerId)?.status ?? 'active') || 'active'
 
@@ -451,7 +451,7 @@ function AdminPage() {
     return (rows.users ?? []).filter((item) => {
       const accountStatus = normalizeAdminStatus((rows.accounts ?? []).find((entry) => entry.user_id === item.id)?.status ?? 'active') || 'active'
       const profile = (rows.memberProfiles ?? []).find((entry) => entry.user_id === item.id)
-      const matchesQuery = !query || [item.full_name, item.mobile, item.id, item.preferred_currency, item.preferred_language, profile?.address, profile?.interest, profile?.membership_level]
+      const matchesQuery = !query || [item.full_name, item.mobile, item.id, item.preferred_language, profile?.address, profile?.interest, profile?.membership_level]
         .some((value) => text(value).toLowerCase().includes(query))
       const matchesStatus = customerStatus === 'all' || accountStatus === normalizeAdminStatus(customerStatus)
       const created = item.created_at ? new Date(item.created_at).getTime() : 0
@@ -1336,7 +1336,7 @@ function AdminPage() {
                     </div>
                     <div className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-3">
                       <div className="min-w-0"><p className="text-ink-soft">Membership</p><p className="mt-1 font-medium">{text(item.membership_level ?? profile?.membership_level ?? 0)}</p></div>
-                      <div><p className="text-ink-soft">Currency</p><p className="mt-1 font-medium">{text(item.preferred_currency) || 'OMR'}</p></div>
+                      
                       <div><p className="text-ink-soft">Language</p><p className="mt-1 font-medium">{text(item.preferred_language) || 'en'}</p></div>
                       <div className="min-w-0"><p className="text-ink-soft">Address</p><p className="mt-1 break-words font-medium">{text(item.address || profile?.address) || 'Not provided'}</p></div>
                       <div className="min-w-0"><p className="text-ink-soft">Property interest</p><p className="mt-1 break-words font-medium">{text(item.property_interest || profile?.interest) || 'Not provided'}</p></div>
@@ -1490,7 +1490,7 @@ function AdminPage() {
                 <h2 className="display text-lg">Filter wallet transactions</h2>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                   <input aria-label="Search wallet transactions" className={inputClass} placeholder="Customer name, ID or description" value={walletSearch} onChange={(event) => setWalletSearch(event.target.value)} />
-                  <select aria-label="Filter by currency" className={inputClass} value={walletCurrencyFilter} onChange={(event) => setWalletCurrencyFilter(event.target.value)}><option value="all">All currencies</option>{CURRENCIES.map((code) => <option key={code} value={code}>{code}</option>)}</select>
+                  
                   <select aria-label="Filter by transaction direction" className={inputClass} value={walletDirectionFilter} onChange={(event) => setWalletDirectionFilter(event.target.value)}><option value="all">All transaction types</option><option value="credit">Credits</option><option value="debit">Debits</option></select>
                   <input aria-label="From date" type="date" className={inputClass} value={walletFromDate} onChange={(event) => setWalletFromDate(event.target.value)} />
                   <input aria-label="To date" type="date" className={inputClass} value={walletToDate} onChange={(event) => setWalletToDate(event.target.value)} />
@@ -1500,7 +1500,7 @@ function AdminPage() {
                   <div className="border border-border p-3"><p className="eyebrow text-[0.5rem] text-ink-soft">Filtered debits</p><p className="display mt-2 text-xl">{filteredWalletTransactions.filter((item) => text(item.direction).toLowerCase() === 'debit').length} <span className="text-sm text-ink-soft">transactions</span></p><p className="mt-1 text-sm">{filteredWalletTransactions.filter((item) => text(item.direction).toLowerCase() === 'debit').reduce((total, item) => total + (Number(item.amount) || 0), 0).toLocaleString('en', { maximumFractionDigits: 2 })} <span className="text-xs text-ink-soft">historical amounts not converted</span></p></div>
                   <div className="border border-border p-3"><p className="eyebrow text-[0.5rem] text-ink-soft">Filtered transactions</p><p className="display mt-2 text-xl">{filteredWalletTransactions.length}</p><p className="mt-1 text-xs text-ink-soft">Matching records</p></div>
                 </div>
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-3"><p className="text-xs text-ink-soft">{filteredWalletTransactions.length} matching transactions</p><button type="button" className={softButton} onClick={() => { setWalletSearch(''); setWalletCurrencyFilter('all'); setWalletDirectionFilter('all'); setWalletFromDate(''); setWalletToDate('') }}>Clear filters</button></div>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3"><p className="text-xs text-ink-soft">{filteredWalletTransactions.length} matching transactions</p><button type="button" className={softButton} onClick={() => { setWalletSearch(''); setWalletDirectionFilter('all'); setWalletFromDate(''); setWalletToDate('') }}>Clear filters</button></div>
               </section>
               <DataTable title="Customer wallet transaction history" rows={filteredWalletTransactions} columns={['customer_name','user_id','transaction_type','direction','amount','currency','status','description','created_at']} />
               <DataTable title="Recent profit credits" rows={rows.profits ?? []} columns={['user_id','amount','currency','period_start','period_end','status','created_at']} />
