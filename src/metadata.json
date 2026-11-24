@@ -1,34 +1,34 @@
 {
   "/": {
-    "title": "Msheireb Properties | Luxury Residences in Dubai",
-    "description": "Illustrative Dubai luxury property website concept with sample residence pages, member tools and customer enquiries. Project details are placeholders pending verification."
+    "title": "Msheireb Properties | Luxury Residences in Oman",
+    "description": "Illustrative Oman luxury property website concept with sample residence pages, member tools and customer enquiries. Project details are placeholders pending verification."
   },
   "/residences": {
-    "title": "Residences | Msheireb Properties Dubai",
-    "description": "Explore illustrative Dubai residence concepts. Property names, availability, specifications and pricing are sample placeholders pending verification."
+    "title": "Residences | Msheireb Properties Oman",
+    "description": "Explore illustrative Oman residence concepts. Property names, specifications, availability and pricing are sample placeholders pending verification."
   },
   "/residences/palm-jumeirah": {
-    "title": "Msheireb Palm Crest, Palm Jumeirah | Msheireb Properties",
-    "description": "Illustrative Dubai residence concept. Property names, specifications, availability, pricing and completion details are sample placeholders pending verification."
+    "title": "Oman Residence Concept | Msheireb Properties",
+    "description": "Explore illustrative Oman residence concepts. Property names, specifications, availability and pricing are sample placeholders pending verification."
   },
   "/residences/downtown": {
-    "title": "Msheireb Downtown, Downtown Dubai | Msheireb Properties",
-    "description": "Illustrative Dubai residence concept. Property names, specifications, availability, pricing and completion details are sample placeholders pending verification."
+    "title": "Oman Residence Concept | Msheireb Properties",
+    "description": "Explore illustrative Oman residence concepts. Property names, specifications, availability and pricing are sample placeholders pending verification."
   },
   "/residences/marina": {
-    "title": "Msheireb Marina, Dubai Marina | Msheireb Properties",
-    "description": "Illustrative Dubai residence concept. Property names, specifications, availability, pricing and completion details are sample placeholders pending verification."
+    "title": "Oman Residence Concept | Msheireb Properties",
+    "description": "Explore illustrative Oman residence concepts. Property names, specifications, availability and pricing are sample placeholders pending verification."
   },
   "/amenities": {
-    "title": "Amenities | Msheireb Properties Dubai",
-    "description": "Explore sample amenity concepts for the illustrative Dubai residence collection. Confirm actual facilities and availability before publication."
+    "title": "Amenities | Msheireb Properties Oman",
+    "description": "Explore sample amenity concepts for the illustrative Oman residence collection. Confirm actual facilities and availability before publication."
   },
   "/about": {
-    "title": "About Msheireb Properties | Dubai",
+    "title": "About Msheireb Properties | Oman",
     "description": "Learn about the Msheireb Properties website concept, its design direction and planned customer services. Company history and credentials must be verified before publication."
   },
   "/contact": {
-    "title": "Contact and private previews | Msheireb Properties Dubai",
+    "title": "Contact and private previews | Msheireb Properties Oman",
     "description": "Send a property enquiry or request a private preview. Sales gallery details and appointment availability must be confirmed before publication."
   },
   "/login": {
@@ -65,7 +65,7 @@
   },
   "/journal": {
     "title": "Journal | Msheireb Properties",
-    "description": "Market letters, design notes and neighbourhood guides from the Msheireb Properties editorial desk in Dubai.",
+    "description": "Market letters, design notes and neighbourhood guides from the Msheireb Properties editorial desk in Oman.",
     "brand": "Msheireb Properties"
   },
   "/admin": {
@@ -77,71 +77,71 @@
     "description": "Message the Msheireb Properties administration team about your wallet, top-ups, withdrawals, membership level or a residence."
   },
   "/residences/al-barari": {
-    "title": "Msheireb Al Barari Garden Homes | Al Barari Residences",
-    "description": "Illustrative Dubai residence concept. Property names, specifications, availability, pricing and completion details are sample placeholders pending verification."
+    "title": "Oman Residence Concept | Msheireb Properties",
+    "description": "Explore illustrative Oman residence concepts. Property names, specifications, availability and pricing are sample placeholders pending verification."
   },
   "/residences/jbr": {
-    "title": "Msheireb Jumeirah Beach Residence | JBR Residences",
-    "description": "Illustrative Dubai residence concept. Property names, specifications, availability, pricing and completion details are sample placeholders pending verification."
+    "title": "Oman Residence Concept | Msheireb Properties",
+    "description": "Explore illustrative Oman residence concepts. Property names, specifications, availability and pricing are sample placeholders pending verification."
   },
   "/residences/emirates-hills": {
-    "title": "Msheireb Emirates Hills Estate | Emirates Hills Residences",
-    "description": "Illustrative Dubai residence concept. Property names, specifications, availability, pricing and completion details are sample placeholders pending verification."
+    "title": "Oman Residence Concept | Msheireb Properties",
+    "description": "Explore illustrative Oman residence concepts. Property names, specifications, availability and pricing are sample placeholders pending verification."
   },
   "/residences/business-bay": {
-    "title": "Msheireb Business Bay Heights | Business Bay Residences",
-    "description": "Illustrative Dubai residence concept. Property names, specifications, availability, pricing and completion details are sample placeholders pending verification."
+    "title": "Oman Residence Concept | Msheireb Properties",
+    "description": "Explore illustrative Oman residence concepts. Property names, specifications, availability and pricing are sample placeholders pending verification."
   },
   "/residences/jumeirah-golf": {
-    "title": "Msheireb Jumeirah Golf Villas | Jumeirah Golf Estates Residences",
-    "description": "Illustrative Dubai residence concept. Property names, specifications, availability, pricing and completion details are sample placeholders pending verification."
+    "title": "Oman Residence Concept | Msheireb Properties",
+    "description": "Explore illustrative Oman residence concepts. Property names, specifications, availability and pricing are sample placeholders pending verification."
   },
   "/residences/city-walk": {
-    "title": "Msheireb City Walk Terraces | City Walk Residences",
-    "description": "Illustrative Dubai residence concept. Property names, specifications, availability, pricing and completion details are sample placeholders pending verification."
+    "title": "Oman Residence Concept | Msheireb Properties",
+    "description": "Explore illustrative Oman residence concepts. Property names, specifications, availability and pricing are sample placeholders pending verification."
   },
   "/residences/difc": {
-    "title": "Msheireb DIFC Residences | DIFC Residences",
-    "description": "Illustrative Dubai residence concept. Property names, specifications, availability, pricing and completion details are sample placeholders pending verification."
+    "title": "Oman Residence Concept | Msheireb Properties",
+    "description": "Explore illustrative Oman residence concepts. Property names, specifications, availability and pricing are sample placeholders pending verification."
   },
   "/residences/bluewaters": {
-    "title": "Msheireb Bluewaters Island Homes | Bluewaters Island Residences",
-    "description": "Illustrative Dubai residence concept. Property names, specifications, availability, pricing and completion details are sample placeholders pending verification."
+    "title": "Oman Residence Concept | Msheireb Properties",
+    "description": "Explore illustrative Oman residence concepts. Property names, specifications, availability and pricing are sample placeholders pending verification."
   },
   "/residences/al-wasl": {
-    "title": "Msheireb Al Wasl Garden Residences | Al Wasl Residences",
-    "description": "Illustrative Dubai residence concept. Property names, specifications, availability, pricing and completion details are sample placeholders pending verification."
+    "title": "Oman Residence Concept | Msheireb Properties",
+    "description": "Explore illustrative Oman residence concepts. Property names, specifications, availability and pricing are sample placeholders pending verification."
   },
   "/residences/dubai-hills": {
-    "title": "Msheireb Dubai Hills Courtyard Villas | Dubai Hills Estate Residences",
-    "description": "Illustrative Dubai residence concept. Property names, specifications, availability, pricing and completion details are sample placeholders pending verification."
+    "title": "Oman Residence Concept | Msheireb Properties",
+    "description": "Explore illustrative Oman residence concepts. Property names, specifications, availability and pricing are sample placeholders pending verification."
   },
   "/residences/jumeirah-bay": {
-    "title": "Msheireb Jumeirah Bay Water Homes | Jumeirah Bay Island Residences",
-    "description": "Illustrative Dubai residence concept. Property names, specifications, availability, pricing and completion details are sample placeholders pending verification."
+    "title": "Oman Residence Concept | Msheireb Properties",
+    "description": "Explore illustrative Oman residence concepts. Property names, specifications, availability and pricing are sample placeholders pending verification."
   },
   "/residences/tilal-al-ghaf": {
-    "title": "Msheireb Tilal Al Ghaf Lagoon Homes | Tilal Al Ghaf Residences",
-    "description": "Illustrative Dubai residence concept. Property names, specifications, availability, pricing and completion details are sample placeholders pending verification."
+    "title": "Oman Residence Concept | Msheireb Properties",
+    "description": "Explore illustrative Oman residence concepts. Property names, specifications, availability and pricing are sample placeholders pending verification."
   },
   "/residences/mudon": {
-    "title": "Msheireb Mudon Al Ranim Townhouses | Mudon Residences",
-    "description": "Illustrative Dubai residence concept. Property names, specifications, availability, pricing and completion details are sample placeholders pending verification."
+    "title": "Oman Residence Concept | Msheireb Properties",
+    "description": "Explore illustrative Oman residence concepts. Property names, specifications, availability and pricing are sample placeholders pending verification."
   },
   "/residences/arabian-ranches": {
-    "title": "Msheireb Arabian Ranches Estate Villas | Arabian Ranches Residences",
-    "description": "Illustrative Dubai residence concept. Property names, specifications, availability, pricing and completion details are sample placeholders pending verification."
+    "title": "Oman Residence Concept | Msheireb Properties",
+    "description": "Explore illustrative Oman residence concepts. Property names, specifications, availability and pricing are sample placeholders pending verification."
   },
   "/residences/the-valley": {
-    "title": "Msheireb The Valley Garden Townhouses | The Valley Residences",
-    "description": "Illustrative Dubai residence concept. Property names, specifications, availability, pricing and completion details are sample placeholders pending verification."
+    "title": "Oman Residence Concept | Msheireb Properties",
+    "description": "Explore illustrative Oman residence concepts. Property names, specifications, availability and pricing are sample placeholders pending verification."
   },
   "/residences/jumeirah-islands": {
-    "title": "Msheireb Jumeirah Islands Pavilions | Jumeirah Islands Residences",
-    "description": "Illustrative Dubai residence concept. Property names, specifications, availability, pricing and completion details are sample placeholders pending verification."
+    "title": "Oman Residence Concept | Msheireb Properties",
+    "description": "Explore illustrative Oman residence concepts. Property names, specifications, availability and pricing are sample placeholders pending verification."
   },
   "/residences/creek-harbour": {
-    "title": "Msheireb Creek Harbour Skyline Homes | Dubai Creek Harbour Residences",
-    "description": "Illustrative Dubai residence concept. Property names, specifications, availability, pricing and completion details are sample placeholders pending verification."
+    "title": "Oman Residence Concept | Msheireb Properties",
+    "description": "Explore illustrative Oman residence concepts. Property names, specifications, availability and pricing are sample placeholders pending verification."
   }
 }
