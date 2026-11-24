@@ -2,9 +2,8 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useCallback, useEffect, useState } from 'react'
 import { WorkspaceSidebar } from '../components/workspace-sidebar'
 import { requireSupabase } from '../lib/supabase-client'
-import { CURRENCIES, type DisplayCurrency, loadAdminDisplayRates, convertDisplayAmount, readDisplayCurrency, saveDisplayCurrency } from '../lib/currency-display'
 
-type Currency = DisplayCurrency
+type Currency = string
 type OrderRow = { id: string; property_name: string; plan_code: string | null; amount: number | string; currency: Currency; status: string; created_at: string }
 type CommissionRow = { id: string; amount: number | string; currency: Currency; commission_type: string; description: string | null; status: string; created_at: string }
 type Tab = 'orders' | 'commission'
@@ -13,9 +12,12 @@ type Filter = 'all' | 'active' | 'completed'
 const normalize = (value: unknown) => String(value ?? '').trim().toLowerCase().replace(/[\\s-]+/g, '_')
 const completedStatuses = ['completed', 'paid', 'credited', 'successful', 'succeeded', 'funded']
 const activeStatuses = ['pending', 'submitted', 'under_review', 'approved', 'processing', 'in_progress', 'active']
-function formatMoney(value: number | string, currency: Currency) {
+function formatMoney(value: number | string) {
   const amount = Number(value)
-  return new Intl.NumberFormat('en', { style: 'currency', currency, maximumFractionDigits: 2 }).format(Number.isFinite(amount) ? amount : 0)
+  return new Intl.NumberFormat('en', { style: 'currency', currency: 'OMR', maximumFractionDigits: 2 }).format(Number.isFinite(amount) ? amount : 0)
+}
+function recordedMoney(value: number | string, currency: Currency) {
+  return currency === 'OMR' ? formatMoney(value) : 'Legacy non-OMR record (not converted)'
 }
 function formatDate(value: string) {
   const time = Date.parse(value)
@@ -39,18 +41,7 @@ function OrdersPage() {
   const [commissions, setCommissions] = useState<CommissionRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [currency, setCurrency] = useState<Currency>('OMR')
-  const [fxRates, setFxRates] = useState<Record<Currency, number>>({ OMR: 1, AED: 0, SAR: 0, KWD: 0, BHD: 0, QAR: 0 })
 
-  useEffect(() => {
-    setCurrency(readDisplayCurrency())
-    const sync = (event: Event) => { const value = (event as CustomEvent<unknown>).detail; if (typeof value === 'string' && CURRENCIES.includes(value as Currency)) setCurrency(value as Currency) }
-    window.addEventListener('msheireb-currency-change', sync)
-    let active = true
-    loadAdminDisplayRates(requireSupabase()).then((rates) => { if (active) setFxRates(rates) }).catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : 'Administrator exchange rates are unavailable.') })
-    return () => { active = false; window.removeEventListener('msheireb-currency-change', sync) }
-  }, [])
-  const displayMoney = (value: number | string, from: Currency) => formatMoney(convertDisplayAmount(value, from, currency, fxRates), currency)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -98,7 +89,6 @@ function OrdersPage() {
       <header className="fixed inset-x-0 top-0 z-40 flex h-[62px] items-center justify-between border-b border-[#e8e4dc] bg-white/95 px-5 pl-20 backdrop-blur lg:left-64 lg:px-7">
         <div className="text-xs text-[#777]"><span>Workspace</span><span className="mx-2">/</span><strong className="text-[#25231f]">Orders</strong></div>
         <div className="flex items-center gap-3 sm:gap-5">
-          <label className="sr-only" htmlFor="orders-currency">Display currency</label><select id="orders-currency" aria-label="Display currency" value={currency} onChange={(event) => { if (CURRENCIES.includes(event.target.value as Currency)) { const next = event.target.value as Currency; setCurrency(next); saveDisplayCurrency(next) } }} className="border border-[#e8e4dc] bg-white px-2 py-2 text-xs">{CURRENCIES.map((code) => <option key={code}>{code}</option>)}</select>
           <Link to="/account" className="flex items-center gap-2 rounded-xl border border-[#e8e4dc] bg-[#fbfaf8] px-2 py-1.5 text-xs text-[#172238]"><span className="grid h-8 w-8 place-items-center rounded-lg bg-[#f2e9e7] font-semibold">{name.slice(0, 1).toUpperCase()}</span><span className="hidden text-left sm:block"><strong className="block">{name.split(' ')[0]}</strong><span className="text-[10px] text-[#888]">User</span></span></Link>
         </div>
       </header>
@@ -121,7 +111,7 @@ function OrdersPage() {
                 <table className="w-full min-w-[700px] border-collapse text-left text-xs">
                   <thead><tr className="border-b border-[#e6e2dc] text-[9px] font-semibold uppercase tracking-[0.13em] text-[#9a9a96]"><th className="px-3 py-4">Date</th><th className="px-3 py-4">Group / Project</th><th className="px-3 py-4">Type</th><th className="px-3 py-4">Amount</th><th className="px-3 py-4">Status</th></tr></thead>
                   <tbody>
-                    {visibleRows.map((row) => <tr key={row.id} className="border-b border-[#e8e5e0] last:border-0 hover:bg-[#fcfbf9]"><td className="whitespace-nowrap px-3 py-4 text-[#777]">{formatDate(row.date)}</td><td className="px-3 py-4 text-[#555]"><span className="block">{row.group}</span><span className="mt-0.5 block text-[#777]">{row.project}</span></td><td className="px-3 py-4 text-[#555]">{row.type}</td><td className="whitespace-nowrap px-3 py-4 font-medium text-[#34322f]">{displayMoney(row.amount, row.currency)}</td><td className="px-3 py-4"><span className="inline-flex rounded-full bg-[#f3ecea] px-3 py-1.5 text-[10px] font-semibold capitalize text-[#5d4b49]">{statusLabel(row.status)}</span></td></tr>)}
+                    {visibleRows.map((row) => <tr key={row.id} className="border-b border-[#e8e5e0] last:border-0 hover:bg-[#fcfbf9]"><td className="whitespace-nowrap px-3 py-4 text-[#777]">{formatDate(row.date)}</td><td className="px-3 py-4 text-[#555]"><span className="block">{row.group}</span><span className="mt-0.5 block text-[#777]">{row.project}</span></td><td className="px-3 py-4 text-[#555]">{row.type}</td><td className="whitespace-nowrap px-3 py-4 font-medium text-[#34322f]">{recordedMoney(row.amount, row.currency)}</td><td className="px-3 py-4"><span className="inline-flex rounded-full bg-[#f3ecea] px-3 py-1.5 text-[10px] font-semibold capitalize text-[#5d4b49]">{statusLabel(row.status)}</span></td></tr>)}
                     {!visibleRows.length ? <tr><td colSpan={5} className="px-3 py-12 text-center text-sm text-[#888]">No {tab === 'orders' ? 'orders' : 'commission records'} found for this filter.</td></tr> : null}
                   </tbody>
                 </table>
