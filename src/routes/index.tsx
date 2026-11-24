@@ -688,8 +688,8 @@ function MemberPortal() {
                 Your residence, your documents, your concierge.
               </h2>
               <p className="mt-5 max-w-lg text-[1rem] leading-relaxed text-on-deep/70">
-                Owners and applicants can register with their email and mobile number to track
-                bookings, download allotment papers and raise service requests.
+                Members can sign in using their registered phone number and password to access their account
+                and available member services.
               </p>
             </div>
 
