@@ -4,11 +4,10 @@ import { useCallback, useEffect, useState } from 'react'
 import { ArrowRight, SiteFooter, SiteHeader } from '../components/site-chrome'
 import { requireSupabase } from '../lib/supabase-client'
 import { canonicalUrl } from '../lib/canonical-url'
-import { CURRENCIES, type DisplayCurrency, loadAdminDisplayRates, convertDisplayAmount, readDisplayCurrency, saveDisplayCurrency } from '../lib/currency-display'
 import siteMetadata from '../metadata.json'
 
 const meta = siteMetadata['/wallet']
-type Currency = DisplayCurrency
+type Currency = string
 type WalletRow = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; description?: string | null; transaction_type?: string; direction?: string }
 type ProfitRow = { id: string; amount: number | string; currency: Currency; status: string; created_at: string }
 type CommissionRow = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; commission_type: string; description: string | null }
@@ -17,13 +16,8 @@ type WalletNotification = { id: string; title: string; body: string; read_at: st
 
 const fieldClass = 'mt-2 w-full border border-input bg-background px-4 py-3 text-[0.95rem] outline-none transition-colors placeholder:text-ink-soft/60 focus:border-brass disabled:opacity-60'
 
-function money(value: number | string, currency: Currency) {
-  const numeric = Number(value)
-  return new Intl.NumberFormat('en', { style: 'currency', currency, maximumFractionDigits: 2 }).format(Number.isFinite(numeric) ? numeric : 0)
-}
-type FxRates = Record<Currency, number>
-const emptyFxRates: FxRates = { OMR: 1, AED: 0, SAR: 0, KWD: 0, BHD: 0, QAR: 0 }
-const convertCurrency = convertDisplayAmount
+function money(value: number | string) { const numeric = Number(value); return new Intl.NumberFormat('en', { style: 'currency', currency: 'OMR', maximumFractionDigits: 2 }).format(Number.isFinite(numeric) ? numeric : 0) }
+function recordedMoney(value: number | string, currency: Currency) { return currency === 'OMR' ? money(value) : 'Legacy non-OMR record (not converted)' }
 function normalizeStatus(value: unknown) { return String(value ?? '').trim().toLowerCase().replace(/[\s-]+/g, '_') }
 function displayStatus(value: unknown) {
   const status = normalizeStatus(value)
@@ -50,9 +44,6 @@ export const Route = createFileRoute('/wallet')({
 function WalletPage() {
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
-  const [currency, setCurrency] = useState<Currency>('OMR')
-  const [fxRates, setFxRates] = useState<FxRates>(emptyFxRates)
-  const [fxError, setFxError] = useState('')
   const [balance, setBalance] = useState(0)
   const [activeHolds, setActiveHolds] = useState(0)
   const [transactions, setTransactions] = useState<WalletRow[]>([])
@@ -88,7 +79,6 @@ function WalletPage() {
       }
       setUserId(authData.user.id)
       const [profileResult, balanceResult, transactionResult, profitResult, commissionResult, topupResult, withdrawalResult, notificationResult, holdResult] = await Promise.all([
-        client.from('profiles').select('preferred_currency').eq('id', authData.user.id).maybeSingle(),
         client.from('wallet_balances').select('balance').eq('user_id', authData.user.id).eq('currency', 'OMR').maybeSingle(),
         client.from('wallet_transactions').select('id,amount,currency,status,created_at,description,transaction_type,direction').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(transactionLimit),
         client.from('profit_payouts').select('id,amount,currency,status,created_at').eq('user_id', authData.user.id).order('created_at', { ascending: false }).limit(20),
@@ -99,7 +89,6 @@ function WalletPage() {
         client.from('wallet_holds').select('amount,released_amount,currency,status').eq('user_id', authData.user.id).eq('currency', 'OMR').eq('status', 'active'),
       ])
       const checks = [
-        ['profiles', profileResult],
         ['wallet_balances', balanceResult],
         ['wallet_transactions', transactionResult],
         ['profit_payouts', profitResult],
@@ -115,14 +104,6 @@ function WalletPage() {
           throw new Error(`Wallet could not load ${table}: ${detail}`)
         }
       }
-      let savedCurrency: string | null = null
-      try { savedCurrency = window.localStorage.getItem('msheireb-currency') } catch { /* optional */ }
-      const preferredCurrency = savedCurrency && CURRENCIES.includes(savedCurrency as Currency)
-        ? savedCurrency
-        : profileResult.data?.preferred_currency
-      if (preferredCurrency && currencies.includes(preferredCurrency as Currency) && preferredCurrency !== currency) {
-        setCurrency(preferredCurrency as Currency)
-      }
       setBalance(Number(balanceResult.data?.balance ?? 0))
       setActiveHolds((holdResult.data ?? []).reduce((total, row) => total + Math.max(0, Number(row.amount) - Number(row.released_amount)), 0))
       setTransactions((transactionResult.data ?? []) as WalletRow[])
@@ -136,44 +117,13 @@ function WalletPage() {
     } finally {
       setLoading(false)
     }
-  }, [currency, transactionLimit])
-
-  // Keep the wallet currency selector in sync with the shared dashboard selector.
-  useEffect(() => {
-    const syncCurrency = (event: Event) => {
-      const nextCurrency = (event as CustomEvent<unknown>).detail
-      if (typeof nextCurrency === 'string' && currencies.includes(nextCurrency as Currency)) {
-        setCurrency(nextCurrency as Currency)
-      }
-    }
-    window.addEventListener('msheireb-currency-change', syncCurrency)
-    return () => window.removeEventListener('msheireb-currency-change', syncCurrency)
-  }, []) // msheireb-currency-sync-listener
-
-  useEffect(() => {
-    let active = true
-    const loadRates = async () => {
-      try {
-        const rates = await loadAdminDisplayRates(requireSupabase())
-        if (active) { setFxRates(rates); setFxError('') }
-      } catch (cause) {
-        if (active) { setFxRates(emptyFxRates); setFxError(cause instanceof Error ? cause.message : 'Admin-configured rates are unavailable.') }
-      }
-    }
-    setCurrency(readDisplayCurrency())
-    void loadRates()
-    void loadWallet()
-    const client = requireSupabase()
-    const { data: listener } = client.auth.onAuthStateChange(() => { void loadWallet() })
-    return () => { active = false; listener.subscription.unsubscribe() }
-  }, [loadWallet])
+  }, [transactionLimit])
 
   async function submitWalletRequest(kind: 'deposit' | 'withdrawal') {
     const rawAmount = kind === 'deposit' ? depositAmount : withdrawalAmount
     const enteredAmount = Number(rawAmount)
     if (!Number.isFinite(enteredAmount) || enteredAmount <= 0 || enteredAmount > 100000000 || !/^\\d+(?:\\.\\d{1,2})?$/.test(rawAmount.trim())) { setError('Enter a valid amount with no more than 2 decimal places (maximum 100,000,000).'); return }
-    if (currency !== 'OMR' && (!fxRates[currency] || fxRates[currency] <= 0)) { setError('The exchange rate is unavailable. Please try again later.'); return }
-    const amount = convertCurrency(enteredAmount, currency, 'OMR', fxRates)
+    const amount = enteredAmount
     const method = payoutMethod.trim()
     const details = payoutDetails.trim()
     if (kind === 'withdrawal') {
@@ -183,7 +133,7 @@ function WalletPage() {
         .filter((row) => row.currency === 'OMR' && ['pending'].includes(normalizeStatus(row.status)))
         .reduce((total, row) => total + (Number(row.amount) || 0), 0)
       if (amount + reservedWithdrawals + activeHolds > balance) {
-        setError(`Your request plus ${money(convertCurrency(reservedWithdrawals, 'OMR', currency, fxRates), currency)} in active withdrawals and ${money(convertCurrency(activeHolds, 'OMR', currency, fxRates), currency)} on hold would exceed your available posted balance.`)
+        setError(`Your request plus ${money(reservedWithdrawals)} in active withdrawals and ${money(activeHolds)} on hold would exceed your available posted balance.`)
         return
       }
     }
@@ -209,7 +159,7 @@ function WalletPage() {
         if (latestHoldError) throw latestHoldError
         const latestHeld = (latestHolds ?? []).reduce((total, row) => total + Math.max(0, Number(row.amount) - Number(row.released_amount)), 0)
         if (amount + latestReserved + latestHeld > balance) {
-          throw new Error(`Your available balance has changed. Active withdrawals reserve ${money(convertCurrency(latestReserved, 'OMR', currency, fxRates), currency)} and wallet holds reserve ${money(convertCurrency(latestHeld, 'OMR', currency, fxRates), currency)}. Refresh your wallet and try again.`)
+          throw new Error(`Your available balance has changed. Active withdrawals reserve ${money(latestReserved)} and wallet holds reserve ${money(latestHeld)}. Refresh your wallet and try again.`)
         }
       }
       const table = kind === 'deposit' ? 'topup_requests' : 'withdrawal_requests'
@@ -245,28 +195,11 @@ function WalletPage() {
     }
   }
 
-  async function changeCurrency(nextCurrency: Currency) {
-    // Change the display immediately. A profile-save error must never leave the
-    // selector stuck on the previous currency or alter any ledger records.
-    setCurrency(nextCurrency)
-    saveDisplayCurrency(nextCurrency)
-    setError('')
-    if (userId) {
-      try {
-        const { error: updateError } = await requireSupabase().from('profiles')
-          .update({ preferred_currency: nextCurrency }).eq('id', userId)
-        if (updateError) throw updateError
-      } catch (cause) {
-        setError(cause instanceof Error ? cause.message : 'Currency changed for this session, but could not be saved to your profile.')
-      }
-    }
-  }
-
   const reservedWithdrawalAmount = withdrawals
     .filter((row) => row.currency === 'OMR' && ['pending'].includes(normalizeStatus(row.status)))
     .reduce((total, row) => total + (Number(row.amount) || 0), 0)
   const withdrawableAmount = Math.max(0, balance - reservedWithdrawalAmount - activeHolds)
-  const displayMoney = (value: number | string, source: Currency) => money(convertCurrency(value, source, currency, fxRates), currency)
+  const displayMoney = (value: number | string, source: Currency) => recordedMoney(value, source)
 
   const currencyTransactions = transactions
   const getTransactionDirection = (row: WalletRow): 'credit' | 'debit' | 'unknown' => {
@@ -300,12 +233,6 @@ function WalletPage() {
               <h1 className="display mt-3 text-[clamp(1.8rem,4vw,2.6rem)]">Your wallet</h1>
               <p className="mt-2 text-sm text-ink-soft">View your posted balance, request deposits, and track wallet activity.</p>
             </div>
-            <label className="block min-w-36">
-              <span className="eyebrow text-[0.5rem] text-ink-soft">Display currency</span>
-              <select className={fieldClass} value={currency} onChange={(event) => { void changeCurrency(event.target.value as Currency) }}>
-                {currencies.map((item) => <option key={item} value={item}>{item}</option>)}
-              </select>
-            </label>
           </header>
 
           {loading ? <div data-testid="wallet-loading" className="border border-border bg-card p-8 text-center text-sm text-ink-soft">Loading your wallet…</div> : null}
@@ -323,22 +250,21 @@ function WalletPage() {
             <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div className="border border-brass/40 bg-brass/5 p-6">
                 <p className="eyebrow text-[0.5rem] text-brass">Posted wallet balance</p>
-                <p data-testid="wallet-balance" className="display mt-3 text-3xl">{money(convertCurrency(balance, 'OMR', currency, fxRates), currency)}</p>
+                <p data-testid="wallet-balance" className="display mt-3 text-3xl">{money(balance)}</p>
                 
-                <p className="mt-1 text-xs text-ink-soft">{currency === 'OMR' ? 'OMR is the wallet base currency.' : fxRates[currency] ? `1 OMR = ${fxRates[currency].toFixed(6)} ${currency}` : 'Exchange rate unavailable.'} Rates are set manually by the administrator.</p>
-                {fxError ? <p role="status" className="mt-1 text-xs text-amber-700">{fxError}</p> : null}
+                <p className="mt-1 text-xs text-ink-soft">All wallet balances and new requests are in OMR.</p>
                 <p className="mt-2 text-xs text-ink-soft">Calculated from posted ledger entries only.</p>
-                <p className="mt-2 text-xs text-ink-soft">Reserved in pending withdrawals: {money(convertCurrency(reservedWithdrawalAmount, 'OMR', currency, fxRates), currency)}. Active wallet holds: {money(convertCurrency(activeHolds, 'OMR', currency, fxRates), currency)}. Both are deducted before new withdrawal requests.</p>
+                <p className="mt-2 text-xs text-ink-soft">Reserved in pending withdrawals: {money(reservedWithdrawalAmount)}. Active wallet holds: {money(activeHolds)}. Both are deducted before new withdrawal requests.</p>
               </div>
               <div className="border border-border bg-card p-6">
                 <p className="eyebrow text-[0.5rem] text-ink-soft">Credited profit total</p>
-                <p className="display mt-3 text-2xl">{money(profits.filter((row) => row.status === 'credited').reduce((total, row) => total + convertCurrency(row.amount, row.currency, currency, fxRates), 0), currency)}</p>
-                <p className="mt-2 text-xs text-ink-soft">Posted profit payout records in {currency}.</p>
+                <p className="display mt-3 text-2xl">{money(profits.filter((row) => row.status === 'credited' && row.currency === 'OMR').reduce((total, row) => total + Number(row.amount), 0), currency)}</p>
+                <p className="mt-2 text-xs text-ink-soft">Posted profit payout records in OMR.</p>
               </div>
               <div className="border border-border bg-card p-6">
                 <p className="eyebrow text-[0.5rem] text-ink-soft">Profit credit records</p>
                 <p className="display mt-3 text-2xl">{profits.filter((row) => row.status === 'credited').length}</p>
-                <p className="mt-2 text-xs text-ink-soft">Credited payout records · amounts shown in {currency}.</p>
+                <p className="mt-2 text-xs text-ink-soft">Credited payout records · amounts shown in OMR.</p>
               </div>
             </section>
 
@@ -346,14 +272,14 @@ function WalletPage() {
             <section className="grid gap-6 lg:grid-cols-2">
               <form id="deposits" onSubmit={(event) => { event.preventDefault(); void submitWalletRequest('deposit') }} className="grid gap-3 border border-border bg-card p-6">
                 <div><p className="eyebrow text-brass">Add funds</p><h2 className="display mt-2 text-xl">Deposit request</h2><p className="mt-2 text-xs leading-6 text-ink-soft">Enter the amount and submit a request. Then contact customer support for instructions. No payment is taken on this page.</p></div>
-                <label className="text-xs text-ink-soft">Deposit amount ({currency})<input required type="number" min="0.01" max="100000000" step="0.01" className={fieldClass} value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} placeholder="Enter amount" /></label>
+                <label className="text-xs text-ink-soft">Deposit amount (OMR)<input required type="number" min="0.01" max="100000000" step="0.01" className={fieldClass} value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} placeholder="Enter amount" /></label>
                 <button disabled={requestBusy || !depositAmount} className="eyebrow inline-flex items-center justify-center gap-2 bg-primary px-5 py-3 text-[0.6rem] text-primary-foreground disabled:opacity-50">Submit deposit request <ArrowRight /></button>
                 <Link to="/support" className="text-sm text-brass underline underline-offset-4">Contact customer support for deposit instructions</Link>
               </form>
               <form id="withdrawals" onSubmit={(event) => { event.preventDefault(); void submitWalletRequest('withdrawal') }} className="grid content-start gap-3 border border-border bg-card p-6">
                 <div><p className="eyebrow text-brass">Withdraw funds</p><h2 className="display mt-2 text-xl">Withdrawal request</h2><p className="mt-2 text-xs leading-6 text-ink-soft">Submit a request for administrator review. Requests remain pending until an administrator processes them. This form does not send a payment.</p></div>
-                <label className="text-xs text-ink-soft">Available to request<input readOnly value={money(convertCurrency(withdrawableAmount, 'OMR', currency, fxRates), currency)} className={fieldClass} /></label>
-                <label className="text-xs text-ink-soft">Withdrawal amount ({currency})<input required type="number" min="0.01" max="100000000" step="0.01" className={fieldClass} value={withdrawalAmount} onChange={(event) => setWithdrawalAmount(event.target.value)} placeholder="Enter amount" /></label>
+                <label className="text-xs text-ink-soft">Available to request<input readOnly value={money(withdrawableAmount)} className={fieldClass} /></label>
+                <label className="text-xs text-ink-soft">Withdrawal amount (OMR)<input required type="number" min="0.01" max="100000000" step="0.01" className={fieldClass} value={withdrawalAmount} onChange={(event) => setWithdrawalAmount(event.target.value)} placeholder="Enter amount" /></label>
                 <label className="text-xs text-ink-soft">Payout method<select className={fieldClass} value={payoutMethod} onChange={(event) => setPayoutMethod(event.target.value)}><option>Bank transfer</option><option>Other</option></select></label>
                 <label className="text-xs text-ink-soft">Payout details<textarea required maxLength={1000} rows={3} className={fieldClass} value={payoutDetails} onChange={(event) => setPayoutDetails(event.target.value)} placeholder="Enter payout details for administrator review" /></label>
                 <button disabled={requestBusy || !withdrawalAmount || !payoutDetails.trim()} className="eyebrow inline-flex items-center justify-center gap-2 bg-primary px-5 py-3 text-[0.6rem] text-primary-foreground disabled:opacity-50">Submit withdrawal request <ArrowRight /></button>
@@ -380,12 +306,12 @@ function WalletPage() {
                 </li>)}
               </ul>
             </section> : null}
-              <RequestHistory title="Deposit requests" rows={topups} kind="deposit" displayCurrency={currency} rates={fxRates} />
-              <RequestHistory title="Withdrawal requests" rows={withdrawals} kind="withdrawal" displayCurrency={currency} rates={fxRates} />
+              <RequestHistory title="Deposit requests" rows={topups} kind="deposit" />
+              <RequestHistory title="Withdrawal requests" rows={withdrawals} kind="withdrawal" />
             </section>
             <section className="grid gap-6 lg:grid-cols-3">
-              <History title="Profit credits" rows={profits} displayCurrency={currency} rates={fxRates} />
-              <CommissionHistory rows={commissions} displayCurrency={currency} rates={fxRates} />
+              <History title="Profit credits" rows={profits} />
+              <CommissionHistory rows={commissions} />
               <div id="transactions" className="border border-border bg-card">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-6 py-4">
                   <h2 className="display text-lg">Wallet activity</h2>
@@ -408,7 +334,7 @@ function WalletPage() {
                     <button type="button" onClick={() => { setTransactionSearch(''); setTransactionFilter('all'); setTransactionFromDate(''); setTransactionToDate('') }} className="border border-border px-3 py-2 text-xs text-ink-soft hover:border-brass" disabled={!transactionSearch && transactionFilter === 'all' && !transactionFromDate && !transactionToDate}>Clear filters</button>
                   </div>
                 </div>
-                {currencyTransactions.length === 0 ? <p className="px-6 py-6 text-sm text-ink-soft">No posted wallet activity yet.</p> : visibleTransactions.length === 0 ? <p className="px-6 py-6 text-sm text-ink-soft">No matching wallet activity found in {currency}.</p> : <><ul data-testid="wallet-transactions" className="divide-y divide-border">{visibleTransactions.map((row) => { const direction = getTransactionDirection(row); const sign = direction === 'debit' ? '−' : direction === 'credit' ? '+' : ''; const amountTone = direction === 'debit' ? 'text-destructive' : direction === 'credit' ? 'text-emerald-700' : 'text-foreground'; const label = row.transaction_type?.replace(/_/g, ' ') || 'Wallet transaction'; return <li key={row.id} className="flex items-start justify-between gap-4 px-6 py-4"><div className="min-w-0"><p className="truncate text-sm font-medium">{row.description || label}</p><p className="mt-1 text-xs capitalize text-ink-soft">{label} · {direction === 'unknown' ? 'Direction not specified' : direction}</p><p className="mt-1 text-xs text-ink-soft">{date(row.created_at)} · {displayStatus(row.status)}</p><p className="mt-1 text-[0.65rem] text-ink-soft">Reference: {row.id.slice(0, 8).toUpperCase()}</p></div><p className={`display shrink-0 text-lg ${amountTone}`}>{sign}{displayMoney(row.amount, row.currency)}</p></li> })}</ul><div className="border-t border-border px-6 py-3"><p className="text-xs text-ink-soft">Showing {visibleTransactions.length} matching transactions from {currencyTransactions.length} loaded records in their original recorded currencies.</p>{transactions.length === transactionLimit ? <button type="button" onClick={() => setTransactionLimit((current) => current + 30)} className="mt-3 text-xs text-brass underline underline-offset-4">Load 30 more {transactionFilter === 'all' ? '' : `${transactionFilter} `}transactions</button> : null}</div></>}
+                {currencyTransactions.length === 0 ? <p className="px-6 py-6 text-sm text-ink-soft">No posted wallet activity yet.</p> : visibleTransactions.length === 0 ? <p className="px-6 py-6 text-sm text-ink-soft">No matching wallet activity found.</p> : <><ul data-testid="wallet-transactions" className="divide-y divide-border">{visibleTransactions.map((row) => { const direction = getTransactionDirection(row); const sign = direction === 'debit' ? '−' : direction === 'credit' ? '+' : ''; const amountTone = direction === 'debit' ? 'text-destructive' : direction === 'credit' ? 'text-emerald-700' : 'text-foreground'; const label = row.transaction_type?.replace(/_/g, ' ') || 'Wallet transaction'; return <li key={row.id} className="flex items-start justify-between gap-4 px-6 py-4"><div className="min-w-0"><p className="truncate text-sm font-medium">{row.description || label}</p><p className="mt-1 text-xs capitalize text-ink-soft">{label} · {direction === 'unknown' ? 'Direction not specified' : direction}</p><p className="mt-1 text-xs text-ink-soft">{date(row.created_at)} · {displayStatus(row.status)}</p><p className="mt-1 text-[0.65rem] text-ink-soft">Reference: {row.id.slice(0, 8).toUpperCase()}</p></div><p className={`display shrink-0 text-lg ${amountTone}`}>{sign}{displayMoney(row.amount, row.currency)}</p></li> })}</ul><div className="border-t border-border px-6 py-3"><p className="text-xs text-ink-soft">Showing {visibleTransactions.length} matching transactions from {currencyTransactions.length} loaded records in their original recorded currencies.</p>{transactions.length === transactionLimit ? <button type="button" onClick={() => setTransactionLimit((current) => current + 30)} className="mt-3 text-xs text-brass underline underline-offset-4">Load 30 more {transactionFilter === 'all' ? '' : `${transactionFilter} `}transactions</button> : null}</div></>}
               </div>
             </section>
             <p className="text-xs leading-relaxed text-ink-soft">Wallet entries and profit credits shown here are internal platform records. They are not proof of a bank transfer, regulated investment return, or external payment settlement.</p>
@@ -423,7 +349,7 @@ function WalletPage() {
 
 
 
-function RequestHistory({ title, rows, kind, displayCurrency, rates }: { title: string; rows: RequestRow[]; kind: 'deposit' | 'withdrawal'; displayCurrency: Currency; rates: FxRates }) {
+function RequestHistory({ title, rows, kind }: { title: string; rows: RequestRow[]; kind: 'deposit' | 'withdrawal' }) {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'active' | 'completed' | 'not_approved'>('all')
   const statusInfo = (rawStatus: string) => {
@@ -487,7 +413,7 @@ function RequestHistory({ title, rows, kind, displayCurrency, rates }: { title: 
                   {row.payout_method ? <p className="mt-1 text-xs text-ink-soft">Payout method: {row.payout_method}</p> : null}
                   {row.admin_note ? <p className="mt-2 border-l-2 border-brass/60 pl-3 text-xs leading-5 text-ink-soft">Administrator note: {row.admin_note}</p> : null}
                 </div>
-                <p className="display shrink-0 text-lg">{money(convertCurrency(row.amount, row.currency, displayCurrency, rates), displayCurrency)}</p>
+                <p className="display shrink-0 text-lg">{recordedMoney(row.amount, row.currency)}</p>
               </div>
             </li>
           })}
@@ -498,7 +424,7 @@ function RequestHistory({ title, rows, kind, displayCurrency, rates }: { title: 
   )
 }
 
-function CommissionHistory({ rows, displayCurrency, rates }: { rows: CommissionRow[]; displayCurrency: Currency; rates: FxRates }) {
+function CommissionHistory({ rows }: { rows: CommissionRow[] }) {
   return (
     <div id="commissions" className="border border-border bg-card">
       <div className="flex items-center justify-between gap-3 border-b border-border px-6 py-4">
@@ -514,7 +440,7 @@ function CommissionHistory({ rows, displayCurrency, rates }: { rows: CommissionR
                 <p className="mt-1 text-xs text-ink-soft">{date(row.created_at)} · {displayStatus(row.status)}</p>
                 {row.description ? <p className="mt-2 text-xs text-ink-soft">{row.description}</p> : null}
               </div>
-              <p className="display shrink-0 text-lg">{money(convertCurrency(row.amount, row.currency, displayCurrency, rates), displayCurrency)}</p>
+              <p className="display shrink-0 text-lg">{recordedMoney(row.amount, row.currency)}</p>
             </li>
           ))}
         </ul>
@@ -523,7 +449,7 @@ function CommissionHistory({ rows, displayCurrency, rates }: { rows: CommissionR
   )
 }
 
-function History({ title, rows, displayCurrency, rates }: { title: string; rows: ProfitRow[]; displayCurrency: Currency; rates: FxRates }) {
+function History({ title, rows }: { title: string; rows: ProfitRow[] }) {
   return (
     <div className="border border-border bg-card">
       <div className="flex items-center justify-between gap-3 border-b border-border px-6 py-4">
@@ -540,7 +466,7 @@ function History({ title, rows, displayCurrency, rates }: { title: string; rows:
                 <p className="text-sm">Profit payout</p>
                 <p className="mt-1 text-xs text-ink-soft">{date(row.created_at)} · {row.status.replace(/_/g, ' ')}</p>
               </div>
-              <p className="display shrink-0 text-lg">{money(convertCurrency(row.amount, row.currency, displayCurrency, rates), displayCurrency)}</p>
+              <p className="display shrink-0 text-lg">{recordedMoney(row.amount, row.currency)}</p>
             </li>
           ))}
         </ul>
