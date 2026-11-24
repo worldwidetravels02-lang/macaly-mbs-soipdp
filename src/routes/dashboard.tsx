@@ -5,12 +5,11 @@ import type { User } from '@supabase/supabase-js'
 import { ArrowRight, BrandMark } from '../components/site-chrome'
 import { requireSupabase } from '../lib/supabase-client'
 import { canonicalUrl } from '../lib/canonical-url'
-import { CURRENCIES, type DisplayCurrency, loadAdminDisplayRates, convertDisplayAmount, readDisplayCurrency, saveDisplayCurrency } from '../lib/currency-display'
 import siteMetadata from '../metadata.json'
 
 const meta = siteMetadata['/dashboard']
 const normalizeInvestmentStatus = (value: unknown) => String(value ?? '').trim().toLowerCase().replace(/[\s-]+/g, '_')
-type Currency = DisplayCurrency
+type Currency = string
 type Investment = { id: string; amount: number | string; currency: Currency; status: string; created_at: string; reference: string | null; property_id: string | null }
 type InvestmentRequest = { id: string; property_name: string; plan_code: string | null; amount: number | string; currency: Currency; profit_percent: number | string | null; expected_profit: number | string | null; commission_percent: number | string | null; expected_commission: number | string | null; status: string; created_at: string }
 type LedgerItem = { id: string; amount: number | string; currency: Currency; transaction_type: string; direction: string; status: string; description: string | null; created_at: string }
@@ -19,9 +18,12 @@ type WelcomeTrialBonus = { id: string; amount: number | string; currency: 'OMR';
 type MemberTask = { id: string; title: string; detail: string | null; target_level: number | null; status: string; created_at: string; reviewed_at?: string | null; review_note?: string | null }
 type MembershipPlan = { id: string; level: number; name: string; minimum_amount: number | string; profit_percent: number | string; commission_percent: number | string; active: boolean }
 type CustomerLevelAccess = { user_id: string; level_name: string; is_unlocked: boolean }
-function formatMoney(amount: number | string, currency: Currency) {
+function formatMoney(amount: number | string) {
   const numeric = Number(amount)
-  return new Intl.NumberFormat('en', { style: 'currency', currency, maximumFractionDigits: 2 }).format(Number.isFinite(numeric) ? numeric : 0)
+  return new Intl.NumberFormat('en', { style: 'currency', currency: 'OMR', maximumFractionDigits: 2 }).format(Number.isFinite(numeric) ? numeric : 0)
+}
+function recordedMoney(amount: number | string, currency: Currency) {
+  return currency === 'OMR' ? formatMoney(amount) : 'Legacy non-OMR record (not converted)'
 }
 function formatDate(value: string) {
   const timestamp = Date.parse(value)
@@ -44,8 +46,6 @@ export const Route = createFileRoute('/dashboard')({
 function DashboardPage() {
   const [user, setUser] = useState<User | null>(null)
   const [name, setName] = useState('Member')
-  const [currency, setCurrency] = useState<Currency>('OMR')
-  const [fxRates, setFxRates] = useState<Record<Currency, number>>({ OMR: 1, AED: 0, SAR: 0, KWD: 0, BHD: 0, QAR: 0 })
   const [balance, setBalance] = useState(0)
   const [holdBalance, setHoldBalance] = useState(0)
   const [investments, setInvestments] = useState<Investment[]>([])
@@ -88,7 +88,7 @@ function DashboardPage() {
         }
       }
       const [profile, wallet, pendingWithdrawals, projects, requests, ledger, notices, commissionRows, memberProfile, taskRows, planRows, accessRows] = await Promise.all([
-        client.from('profiles').select('full_name,preferred_currency').eq('id', current.id).maybeSingle(),
+        client.from('profiles').select('full_name').eq('id', current.id).maybeSingle(),
         client.from('wallet_balances').select('balance').eq('user_id', current.id).eq('currency', 'OMR').maybeSingle(),
         client.from('wallet_pending_withdrawals').select('pending_amount').eq('user_id', current.id).eq('currency', 'OMR').maybeSingle(),
         client.from('investments').select('id,amount,currency,status,created_at,reference,property_id').eq('user_id', current.id).order('created_at', { ascending: false }).limit(8),
@@ -103,9 +103,6 @@ function DashboardPage() {
       ])
       for (const result of [profile, wallet, pendingWithdrawals, projects, requests, ledger, notices, commissionRows, memberProfile, taskRows, planRows, accessRows]) if (result.error) throw result.error
       setName(profile.data?.full_name?.trim() || current.user_metadata?.full_name || current.email?.split('@')[0] || 'Member')
-      if (profile.data?.preferred_currency && CURRENCIES.includes(profile.data.preferred_currency as Currency)) setCurrency(profile.data.preferred_currency as Currency)
-      const adminRates = await loadAdminDisplayRates(client)
-      setFxRates(adminRates)
       setBalance(Number(wallet.data?.balance ?? 0))
       setHoldBalance(Number(pendingWithdrawals.data?.pending_amount ?? 0))
       setInvestments((projects.data ?? []) as Investment[])
@@ -123,21 +120,6 @@ function DashboardPage() {
       setLoading(false)
     }
   }, [])
-
-  useEffect(() => {
-    setCurrency(readDisplayCurrency())
-    const sync = (event: Event) => { const value = (event as CustomEvent<unknown>).detail; if (typeof value === 'string' && CURRENCIES.includes(value as Currency)) setCurrency(value as Currency) }
-    window.addEventListener('msheireb-currency-change', sync)
-    return () => window.removeEventListener('msheireb-currency-change', sync)
-  }, [])
-
-  const changeDashboardCurrency = (value: string) => {
-    if (!CURRENCIES.includes(value as Currency)) return
-    const next = value as Currency
-    setCurrency(next)
-    saveDisplayCurrency(next)
-    if (user) void requireSupabase().from('profiles').update({ preferred_currency: next }).eq('id', user.id)
-  }
 
   useEffect(() => {
     let active = true
@@ -192,7 +174,7 @@ function DashboardPage() {
 
   const activeProjects = investments.filter((row) => ['approved', 'funded', 'active', 'completed'].includes(normalizeInvestmentStatus(row.status))).length
   const pendingProjects = investmentRequests.filter((row) => ['pending', 'approved'].includes(normalizeInvestmentStatus(row.status))).length
-  const fundedTotal = investments.filter((row) => ['funded', 'active', 'approved', 'completed'].includes(normalizeInvestmentStatus(row.status))).reduce((total, row) => total + convertDisplayAmount(row.amount, row.currency, currency, fxRates), 0)
+  const fundedTotal = investments.filter((row) => row.currency === 'OMR' && ['funded', 'active', 'approved', 'completed'].includes(normalizeInvestmentStatus(row.status))).reduce((total, row) => total + Number(row.amount), 0)
   const investmentStatus = (value: string) => {
     const status = normalizeInvestmentStatus(value)
     if (status === 'pending') return { label: 'Awaiting review', detail: 'Your application is waiting for the administration team to review it.', tone: 'text-ink-soft' }
@@ -203,8 +185,8 @@ function DashboardPage() {
     return { label: value.replace(/_/g, ' '), detail: 'The administration team may update this status as the request is processed.', tone: 'text-ink-soft' }
   }
 
-  const commissionTotals = commissions.reduce<Record<string, { total: number; pending: number; approved: number; credited: number; rejected: number; count: number; pendingCount: number; approvedCount: number; creditedCount: number; rejectedCount: number }>>((totals, row) => {
-    const key = row.currency
+  const commissionTotals = commissions.filter((row) => row.currency === 'OMR').reduce<Record<string, { total: number; pending: number; approved: number; credited: number; rejected: number; count: number; pendingCount: number; approvedCount: number; creditedCount: number; rejectedCount: number }>>((totals, row) => {
+    const key = 'OMR'
     const current = totals[key] ?? { total: 0, pending: 0, approved: 0, credited: 0, rejected: 0, count: 0, pendingCount: 0, approvedCount: 0, creditedCount: 0, rejectedCount: 0 }
     const amount = Number(row.amount) || 0
     const status = normalizeInvestmentStatus(row.status)
@@ -219,9 +201,9 @@ function DashboardPage() {
   }, {})
   const commissionCurrencyRows = Object.entries(commissionTotals).sort(([a], [b]) => a.localeCompare(b))
   const creditedCommissions = commissions.filter((row) => ['credited', 'paid', 'completed'].includes(normalizeInvestmentStatus(row.status)))
-  const totalCommission = creditedCommissions.reduce((sum, row) => sum + convertDisplayAmount(row.amount, row.currency, currency, fxRates), 0)
+  const totalCommission = creditedCommissions.filter((row) => row.currency === 'OMR').reduce((sum, row) => sum + Number(row.amount), 0)
   const todayKey = new Date().toLocaleDateString('en-CA')
-  const todayCommission = creditedCommissions.filter((row) => new Date(row.created_at).toLocaleDateString('en-CA') === todayKey).reduce((sum, row) => sum + convertDisplayAmount(row.amount, row.currency, currency, fxRates), 0)
+  const todayCommission = creditedCommissions.filter((row) => row.currency === 'OMR' && new Date(row.created_at).toLocaleDateString('en-CA') === todayKey).reduce((sum, row) => sum + Number(row.amount), 0)
 
   return (
     <div className="customer-dashboard dashboard-typography min-h-screen bg-[#f3f6f0] text-[#123c2d]">
@@ -229,7 +211,6 @@ function DashboardPage() {
 
       <header className="fixed inset-x-0 top-0 z-40 flex h-[72px] items-center justify-end border-b border-[#d4e2d7] bg-[#06452f]/98 px-4 pl-20 text-white shadow-lg backdrop-blur sm:px-6 sm:pl-20 lg:left-64 lg:px-7">
         <div className="flex items-center gap-3 sm:gap-5">
-          <label className="sr-only" htmlFor="dashboard-currency">Display currency</label><select id="dashboard-currency" aria-label="Display currency" value={currency} onChange={(event) => changeDashboardCurrency(event.target.value)} className="rounded-lg border border-white/30 bg-[#06452f] px-2 py-2 text-xs font-semibold text-white">{CURRENCIES.map((code) => <option key={code} value={code}>{code}</option>)}</select>
           <Link to="/account" className="flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"><span className="grid h-8 w-8 place-items-center rounded-lg bg-[#d8b56d] font-semibold text-[#123c2d]">{name.slice(0,1).toUpperCase()}</span><span className="hidden text-left sm:block"><strong className="block">{name.split(' ')[0]}</strong><span className="text-[10px] text-white/55">Member</span></span></Link>
         </div>
       </header>
@@ -276,15 +257,15 @@ function DashboardPage() {
             <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Account overview">
               <Link to="/wallet" className="group rounded-2xl border border-[#dce7dd] bg-white p-5 shadow-[0_8px_24px_rgba(18,60,45,.07)] transition hover:-translate-y-0.5 hover:border-[#c8ad68]">
                 <div className="flex items-center justify-between"><span className="text-xs font-semibold text-[#62766a]">Wallet balance</span><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e7f1e9] text-xl text-[#0b5a3c]">▣</span></div>
-                <p data-testid="dashboard-balance" className="mt-3 text-2xl font-bold tracking-tight text-[#123c2d]">{formatMoney(convertDisplayAmount(balance, 'OMR', currency, fxRates), currency)}</p><p className="mt-1 text-xs font-semibold text-[#718477]">Available funds</p>
+                <p data-testid="dashboard-balance" className="mt-3 text-2xl font-bold tracking-tight text-[#123c2d]">{formatMoney(balance)}</p><p className="mt-1 text-xs font-semibold text-[#718477]">Available funds</p>
               </Link>
               <Link to="/wallet#withdrawals" className="group rounded-2xl border border-[#dce7dd] bg-white p-5 shadow-[0_8px_24px_rgba(18,60,45,.07)] transition hover:-translate-y-0.5 hover:border-[#c8ad68]">
                 <div className="flex items-center justify-between"><span className="text-xs font-semibold text-[#62766a]">Pending withdrawals</span><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e7f1e9] text-xl text-[#0b5a3c]">◈</span></div>
-                <p className="mt-3 text-2xl font-bold tracking-tight text-[#123c2d]">{formatMoney(convertDisplayAmount(holdBalance, 'OMR', currency, fxRates), currency)}</p><p className="mt-1 text-xs font-semibold text-[#718477]">Awaiting processing</p>
+                <p className="mt-3 text-2xl font-bold tracking-tight text-[#123c2d]">{formatMoney(holdBalance)}</p><p className="mt-1 text-xs font-semibold text-[#718477]">Awaiting processing</p>
               </Link>
               <Link to="/wallet#commissions" className="group rounded-2xl border border-[#c8ad68] bg-gradient-to-br from-[#f7e8bd] to-[#e7cb83] p-5 shadow-[0_8px_24px_rgba(18,60,45,.08)] transition hover:-translate-y-0.5">
                 <div className="flex items-center justify-between"><span className="text-xs font-bold text-[#624b1e]">Total commission</span><span className="grid h-10 w-10 place-items-center rounded-xl bg-white/55 text-xl text-[#775b20]">↗</span></div>
-                <p className="mt-3 text-2xl font-bold tracking-tight text-[#3e321b]">{formatMoney(totalCommission, currency)}</p><p className="mt-1 text-xs font-semibold text-[#705a2b]">Credited commissions</p>
+                <p className="mt-3 text-2xl font-bold tracking-tight text-[#3e321b]">{formatMoney(totalCommission)}</p><p className="mt-1 text-xs font-semibold text-[#705a2b]">Credited commissions</p>
               </Link>
               <Link to="/wallet#commissions" className="group rounded-2xl border border-[#dce7dd] bg-white p-5 shadow-[0_8px_24px_rgba(18,60,45,.07)] transition hover:-translate-y-0.5 hover:border-[#c8ad68]">
                 <div className="flex items-center justify-between"><span className="text-xs font-semibold text-[#62766a]">Investment requests</span><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e7f1e9] text-xl text-[#0b5a3c]">⌂</span></div>
@@ -337,7 +318,7 @@ function DashboardPage() {
 
             <section id="commissions" className="border border-border bg-card">
               <div className="flex items-center justify-between gap-3 border-b border-border px-6 py-5"><h2 className="display text-xl">Your commissions</h2><Link to="/wallet" className="eyebrow text-[0.5rem]">Open wallet <ArrowRight /></Link></div>
-              {commissionCurrencyRows.length > 0 ? <div className="grid gap-3 border-b border-border p-5 sm:grid-cols-2">{commissionCurrencyRows.map(([code, totals]) => <div key={code} className="border border-border/70 p-4"><div className="flex items-center justify-between gap-3"><p className="eyebrow text-[0.5rem] text-brass">Commission summary · {currency}</p><span className="text-[0.65rem] text-ink-soft">{totals.count} records</span></div><p className="display mt-2 text-xl">{formatMoney(convertDisplayAmount(totals.total, code as Currency, currency, fxRates), currency)}</p><div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs"><div><p className="text-ink-soft">Pending review · {totals.pendingCount}</p><p className="mt-1">{formatMoney(convertDisplayAmount(totals.pending, code as Currency, currency, fxRates), currency)}</p></div><div><p className="text-ink-soft">Approved, not yet credited · {totals.approvedCount}</p><p className="mt-1">{formatMoney(convertDisplayAmount(totals.approved, code as Currency, currency, fxRates), currency)}</p></div><div><p className="text-ink-soft">Credited to wallet · {totals.creditedCount}</p><p className="mt-1 text-emerald-700">{formatMoney(convertDisplayAmount(totals.credited, code as Currency, currency, fxRates), currency)}</p></div><div><p className="text-ink-soft">Rejected · {totals.rejectedCount}</p><p className="mt-1 text-red-700">{formatMoney(convertDisplayAmount(totals.rejected, code as Currency, currency, fxRates), currency)}</p></div></div></div>)}</div> : null}
+              {commissionCurrencyRows.length > 0 ? <div className="grid gap-3 border-b border-border p-5 sm:grid-cols-2">{commissionCurrencyRows.map(([code, totals]) => <div key={code} className="border border-border/70 p-4"><div className="flex items-center justify-between gap-3"><p className="eyebrow text-[0.5rem] text-brass">Commission summary · OMR</p><span className="text-[0.65rem] text-ink-soft">{totals.count} records</span></div><p className="display mt-2 text-xl">{formatMoney(totals.total)}</p><div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs"><div><p className="text-ink-soft">Pending review · {totals.pendingCount}</p><p className="mt-1">{formatMoney(totals.pending)}</p></div><div><p className="text-ink-soft">Approved, not yet credited · {totals.approvedCount}</p><p className="mt-1">{formatMoney(totals.approved)}</p></div><div><p className="text-ink-soft">Credited to wallet · {totals.creditedCount}</p><p className="mt-1 text-emerald-700">{formatMoney(totals.credited)}</p></div><div><p className="text-ink-soft">Rejected · {totals.rejectedCount}</p><p className="mt-1 text-red-700">{formatMoney(totals.rejected)}</p></div></div></div>)}</div> : null}
               {commissions.length === 0 ? <p className="px-6 py-7 text-sm text-ink-soft">No commission records yet. Approved commissions will appear here.</p> : <><p className="px-6 py-3 text-xs text-ink-soft">Amounts are grouped by currency. Pending and approved commissions are not available in your wallet until credited.</p><ul className="divide-y divide-border">{commissions.map((row) => {
                 const status = normalizeInvestmentStatus(row.status)
                 const completed = ['credited', 'paid', 'completed'].includes(status)
@@ -346,7 +327,7 @@ function DashboardPage() {
                 const statusLabel = status === 'pending' ? 'Pending admin approval' : completed ? 'Credited to wallet' : rejected ? 'Rejected' : approved ? 'Approved' : row.status.replace(/_/g, ' ')
                 const statusClass = completed ? 'text-emerald-700' : rejected ? 'text-red-700' : approved ? 'text-brass' : 'text-ink-soft'
                 const statusDetail = status === 'pending' ? 'This commission is waiting for administrator review.' : completed ? 'This commission has been credited. Check your wallet transactions for the entry.' : rejected ? 'This commission was rejected and has not been credited.' : approved ? 'This commission is approved. Check your wallet balance and transaction history for the credit.' : 'The commission status will update when it is reviewed.'
-                return <li key={row.id} className="flex flex-wrap items-start justify-between gap-3 px-6 py-4"><div><p className="text-sm capitalize">{row.commission_type.replace(/_/g, ' ')} commission</p><p className="mt-1 text-xs text-ink-soft">{formatDate(row.created_at)}{row.description ? ` · ${row.description}` : ''}</p><p className={`eyebrow mt-2 text-[0.55rem] ${statusClass}`}>{statusLabel}</p><p className="mt-1 text-[0.65rem] text-ink-soft">{statusDetail}</p></div><p className="display text-base">{formatMoney(convertDisplayAmount(row.amount, row.currency, currency, fxRates), currency)}</p></li>
+                return <li key={row.id} className="flex flex-wrap items-start justify-between gap-3 px-6 py-4"><div><p className="text-sm capitalize">{row.commission_type.replace(/_/g, ' ')} commission</p><p className="mt-1 text-xs text-ink-soft">{formatDate(row.created_at)}{row.description ? ` · ${row.description}` : ''}</p><p className={`eyebrow mt-2 text-[0.55rem] ${statusClass}`}>{statusLabel}</p><p className="mt-1 text-[0.65rem] text-ink-soft">{statusDetail}</p></div><p className="display text-base">{recordedMoney(row.amount, row.currency)}</p></li>
               })}</ul></>}
             </section>
             <section id="investments" className="border border-border bg-card">
@@ -359,20 +340,20 @@ function DashboardPage() {
                   const statusClass = status === 'funded' || status === 'active' ? 'text-emerald-700' : status === 'rejected' ? 'text-red-700' : status === 'approved' ? 'text-brass' : 'text-ink-soft'
                   const stages = [{ label: 'Submitted', done: true }, { label: 'Reviewed', done: ['approved', 'funded', 'active', 'completed'].includes(status) }, { label: 'Funded', done: ['funded', 'active', 'completed'].includes(status) }]
                   return <li key={row.id} className="px-6 py-5">
-                    <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-sm">{row.property_name}</p><p className="mt-1 text-xs text-ink-soft">{formatDate(row.created_at)} · {formatMoney(convertDisplayAmount(row.amount, row.currency, currency, fxRates), currency)}{row.plan_code ? ` · ${row.plan_code}` : ''}</p><p className="mt-1 text-[0.6rem] text-ink-soft">Application reference: {row.id.slice(0, 8).toUpperCase()}</p></div><span className={`eyebrow text-[0.55rem] ${statusClass}`}>{statusLabel}</span></div>
+                    <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-sm">{row.property_name}</p><p className="mt-1 text-xs text-ink-soft">{formatDate(row.created_at)} · {recordedMoney(row.amount, row.currency)}{row.plan_code ? ` · ${row.plan_code}` : ''}</p><p className="mt-1 text-[0.6rem] text-ink-soft">Application reference: {row.id.slice(0, 8).toUpperCase()}</p></div><span className={`eyebrow text-[0.55rem] ${statusClass}`}>{statusLabel}</span></div>
                     <div className="mt-4 grid grid-cols-3 gap-2">{stages.map((stage, index) => <div key={stage.label}><div className={`h-1.5 ${stage.done ? 'bg-brass' : 'bg-border'}`} /><p className={`mt-2 text-[0.6rem] ${stage.done ? 'text-foreground' : 'text-ink-soft'}`}>{stage.label}</p></div>)}</div>
-                    {row.expected_profit !== null && row.expected_profit !== undefined ? <p className="mt-3 text-xs text-ink-soft">Estimated profit: {formatMoney(convertDisplayAmount(row.expected_profit, row.currency, currency, fxRates), currency)}{row.profit_percent !== null ? ` (${row.profit_percent}%)` : ''} · Estimate only, not guaranteed.</p> : null}
+                    {row.expected_profit !== null && row.expected_profit !== undefined ? <p className="mt-3 text-xs text-ink-soft">Estimated profit: {recordedMoney(row.expected_profit, row.currency)}{row.profit_percent !== null ? ` (${row.profit_percent}%)` : ''} · Estimate only, not guaranteed.</p> : null}
                     <p className="mt-2 text-[0.65rem] leading-5 text-ink-soft">{status === 'pending' ? 'Your application has been submitted and is waiting for an administrator to review it.' : status === 'approved' ? 'Your application is approved. The next step is separate wallet funding; approval alone does not deduct funds.' : status === 'funded' || status === 'active' ? 'Your investment has been funded and recorded. Check your funded investment history for updates.' : status === 'rejected' ? 'This application was not approved and will not be funded. Contact customer support if you need clarification.' : status === 'completed' ? 'This investment record is marked completed.' : 'Your application status is shown above. Contact customer support if you need help.'}</p>
                   </li>
                 })}</ul></>}
             </section>
             <section className="grid gap-6 lg:grid-cols-2">
               <div className="border border-border bg-card"><div className="flex items-center justify-between gap-3 border-b border-border px-6 py-5"><div><h2 className="display text-xl">Funded investments & property records</h2><p className="mt-1 text-xs text-ink-soft">Recorded investment entries and their current processing status.</p></div><Link to="/residences" className="eyebrow text-[0.5rem]">Explore projects <ArrowRight /></Link></div>
-                <div className="border-b border-border px-6 py-4"><p className="eyebrow text-[0.5rem] text-ink-soft">Approved / funded record total · {currency}</p><p className="display mt-2 text-2xl">{formatMoney(fundedTotal, currency)}</p><p className="mt-1 text-xs text-ink-soft">Sum of approved, funded, active and completed investment records shown below. This is a platform record, not a guarantee of value or return.</p></div>
-                {investments.length === 0 ? <div className="px-6 py-8"><p className="text-sm text-ink-soft">No funded investment records are available yet.</p><Link to="/residences" className="eyebrow mt-4 inline-flex items-center gap-2 text-[0.55rem]">Browse properties <ArrowRight /></Link></div> : <ul className="divide-y divide-border">{investments.map((row) => { const state = investmentStatus(row.status); return <li key={row.id} className="flex flex-col gap-2 px-6 py-4 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><p className="text-sm font-medium">{row.reference || 'Property investment'}</p><p className="mt-1 text-xs text-ink-soft">{formatDate(row.created_at)} · Record ID: {row.id.slice(0, 8)}</p><p className="mt-2 text-xs text-ink-soft">{state.detail}</p></div><div className="shrink-0 sm:text-right"><p className="display text-base">{formatMoney(convertDisplayAmount(row.amount, row.currency, currency, fxRates), currency)}</p><p className={`eyebrow mt-2 text-[0.52rem] ${state.tone}`}>{state.label}</p></div></li> })}</ul>}
+                <div className="border-b border-border px-6 py-4"><p className="eyebrow text-[0.5rem] text-ink-soft">Approved / funded record total · OMR</p><p className="display mt-2 text-2xl">{formatMoney(fundedTotal)}</p><p className="mt-1 text-xs text-ink-soft">Sum of approved, funded, active and completed investment records shown below. This is a platform record, not a guarantee of value or return.</p></div>
+                {investments.length === 0 ? <div className="px-6 py-8"><p className="text-sm text-ink-soft">No funded investment records are available yet.</p><Link to="/residences" className="eyebrow mt-4 inline-flex items-center gap-2 text-[0.55rem]">Browse properties <ArrowRight /></Link></div> : <ul className="divide-y divide-border">{investments.map((row) => { const state = investmentStatus(row.status); return <li key={row.id} className="flex flex-col gap-2 px-6 py-4 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><p className="text-sm font-medium">{row.reference || 'Property investment'}</p><p className="mt-1 text-xs text-ink-soft">{formatDate(row.created_at)} · Record ID: {row.id.slice(0, 8)}</p><p className="mt-2 text-xs text-ink-soft">{state.detail}</p></div><div className="shrink-0 sm:text-right"><p className="display text-base">{recordedMoney(row.amount, row.currency)}</p><p className={`eyebrow mt-2 text-[0.52rem] ${state.tone}`}>{state.label}</p></div></li> })}</ul>}
               </div>
               <div className="border border-border bg-card"><div className="border-b border-border px-6 py-5"><h2 className="display text-xl">Recent wallet activity</h2></div>
-                {activity.length === 0 ? <p className="px-6 py-8 text-sm text-ink-soft">No posted wallet transactions yet.</p> : <ul className="divide-y divide-border">{activity.map((row) => <li key={row.id} className="flex items-center justify-between gap-4 px-6 py-4"><div><p className="text-sm">{row.description || row.transaction_type}</p><p className="mt-1 text-xs text-ink-soft">{formatDate(row.created_at)} · {row.status}</p></div><p className="display text-base">{row.direction === 'debit' ? '−' : '+'}{formatMoney(convertDisplayAmount(row.amount, row.currency, currency, fxRates), currency)}</p></li>)}</ul>}
+                {activity.length === 0 ? <p className="px-6 py-8 text-sm text-ink-soft">No posted wallet transactions yet.</p> : <ul className="divide-y divide-border">{activity.map((row) => <li key={row.id} className="flex items-center justify-between gap-4 px-6 py-4"><div><p className="text-sm">{row.description || row.transaction_type}</p><p className="mt-1 text-xs text-ink-soft">{formatDate(row.created_at)} · {row.status}</p></div><p className="display text-base">{row.direction === 'debit' ? '−' : '+'}{recordedMoney(row.amount, row.currency)}</p></li>)}</ul>}
                 <div className="border-t border-border px-6 py-4"><Link to="/wallet" className="eyebrow inline-flex items-center gap-2 text-[0.55rem]">View wallet and requests <ArrowRight /></Link></div>
               </div>
             </section>
