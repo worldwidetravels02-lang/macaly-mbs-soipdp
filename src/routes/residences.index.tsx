@@ -206,7 +206,8 @@ function ResidencesPage() {
     ? Math.max(0, Math.min(100, fundedPropertyIds.size / 20 * 100))
     : Math.max(0, Math.min(100, Number(customerSetAccess.find((item) => item.user_id === currentUserId && item.level_name === selectedLevel && item.set_number === selectedSet)?.progress_percent ?? 0)))
   const remainingProjects = useMemo(() => visibleProjects.filter((project) => !orderedPropertyIds.has(project.id)), [visibleProjects, orderedPropertyIds])
-  const projectCards: Project[] = remainingProjects
+  // Show only the next un-ordered property in the progression, never the full remaining catalogue.
+  const projectCards: Project[] = remainingProjects.slice(0, 1)
   useEffect(() => {
     setCurrentProjectIndex(Math.min(orderedPropertyIds.size, 20))
   }, [orderedPropertyIds])
