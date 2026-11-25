@@ -807,6 +807,20 @@ function AdminPage() {
     }, 'Premium Project assignment created.')
   }
 
+  const setPremiumAssignmentStatus = async (id: string, status: 'completed' | 'cancelled') => {
+    await run(async () => {
+      const { data, error: updateError } = await requireSupabase()
+        .from('premium_project_assignments')
+        .update({ status })
+        .eq('id', id)
+        .in('status', ['active', 'presented'])
+        .select('id')
+        .maybeSingle()
+      if (updateError) throw updateError
+      if (!data) throw new Error('This assignment is no longer unresolved. Refresh and check its current status.')
+    }, status === 'completed' ? 'Premium Project assignment marked completed.' : 'Premium Project assignment cancelled.')
+  }
+
   const savePromotion = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const title = promotionDraft.title.trim()
@@ -1382,7 +1396,7 @@ function AdminPage() {
                   <label className="grid gap-1 text-xs">Commission (%)<input required type="number" min="0" max="100" step="0.01" className={inputClass} value={premiumDraft.commission_percent} onChange={(e) => setPremiumDraft({ ...premiumDraft, commission_percent: e.target.value })} /></label>
                   <button disabled={busy} className={buttonClass}>Create Premium assignment <ArrowRight /></button>
                 </form>
-                <section className="border border-border bg-card p-5"><h2 className="display text-xl">Premium Project assignments</h2><DataTable title="Premium Project assignments" rows={(rows.premiumAssignments ?? []).map((item) => ({ ...item, customer: customerLabel(item.user_id) }))} columns={['customer','level_name','badge_number','position','project_name','deposit_amount','currency','commission_percent','status','created_at']} /></section>
+                <section className="border border-border bg-card p-5"><h2 className="display text-xl">Premium Project assignments</h2><div className="mt-4 grid gap-3">{(rows.premiumAssignments ?? []).map((item) => { const status = normalizeAdminStatus(item.status); const unresolved = status === 'active' || status === 'presented'; return <article key={text(item.id)} className="grid gap-3 border border-border p-4 sm:grid-cols-[1fr_auto] sm:items-center"><div className="grid gap-1 text-xs"><strong className="text-sm">{customerLabel(item.user_id)} · {text(item.project_name)}</strong><span>{text(item.level_name)} · Badge {text(item.badge_number)} · Position {text(item.position)}</span><span>Deposit: {money(item.deposit_amount, text(item.currency) || 'OMR')} · Commission: {text(item.commission_percent)}%</span><span>Status: <strong>{status || 'unknown'}</strong> · Created: {date(item.created_at)}</span>{item.presented_at ? <span>Presented: {date(item.presented_at)}</span> : null}</div>{unresolved ? <div className="flex flex-wrap gap-2"><button type="button" disabled={busy} className={softButton} onClick={() => void setPremiumAssignmentStatus(text(item.id), 'completed')}>Mark completed</button><button type="button" disabled={busy} className={softButton} onClick={() => void setPremiumAssignmentStatus(text(item.id), 'cancelled')}>Cancel assignment</button></div> : null}</article>})}{!(rows.premiumAssignments ?? []).length ? <p className="text-sm text-ink-soft">No Premium Project assignments yet.</p> : null}</div></section>
               </section> : null}
 
             </section> : null}
