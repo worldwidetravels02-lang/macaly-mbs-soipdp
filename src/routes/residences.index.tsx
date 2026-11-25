@@ -184,7 +184,7 @@ function ResidencesPage() {
     if (nextBadge && selectedSet !== nextBadge.setNumber) setSelectedSet(nextBadge.setNumber)
   }, [selectedLevel, selectedSet, customerSetAccess, projects, requests, currentUserId])
 
-  const currentLevelUnlocked = selectedLevel === 'Junior Trial' || ((customerLevelAccess.find((item) => item.user_id === currentUserId && item.level_name === selectedLevel)?.is_unlocked ?? false) && (customerSetAccess.find((item) => item.user_id === currentUserId && item.level_name === selectedLevel && item.set_number === selectedSet)?.is_unlocked ?? selectedSet === 1))
+  const currentLevelUnlocked = (customerLevelAccess.find((item) => item.user_id === currentUserId && item.level_name === selectedLevel)?.is_unlocked ?? false) && (selectedLevel === 'Junior Trial' || (customerSetAccess.find((item) => item.user_id === currentUserId && item.level_name === selectedLevel && item.set_number === selectedSet)?.is_unlocked ?? selectedSet === 1))
   const levelProjects = useMemo(() => {
     const matching = projects.filter((project) => project.project_level === selectedLevel && (selectedLevel === 'Junior Trial' ? Number(project.set_number) === 1 : Number(project.set_number) === selectedSet))
     // Keep Junior Trial to 20 properties, in the original database-returned order.
