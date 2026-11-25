@@ -191,13 +191,9 @@ function ResidencesPage() {
     return selectedLevel === 'Junior Trial' ? matching.slice(0, 20) : matching
   }, [projects, selectedLevel, selectedSet])
   const visibleProjects = useMemo(() => {
-    // Junior Trial follows the database-returned property order; do not sort it.
-    if (selectedLevel === 'Junior Trial') return levelProjects
-    const rows = [...levelProjects]
-    if (projectSort === 'name') rows.sort((a, b) => a.name.localeCompare(b.name))
-    if (projectSort === 'price') rows.sort((a, b) => Number(a.price_amount ?? 0) - Number(b.price_amount ?? 0))
-    return rows
-  }, [levelProjects, projectSort, selectedLevel])
+    // Property progression must follow the admin-configured sequence, never name/price sorting.
+    return [...levelProjects].sort((a, b) => Number(a.sort_order ?? 0) - Number(b.sort_order ?? 0) || a.name.localeCompare(b.name))
+  }, [levelProjects])
   const orderedPropertyIds = useMemo(() => new Set(requests
     .filter((request) => request.user_id === currentUserId && request.property_id && !['rejected', 'cancelled'].includes(String(request.status).toLowerCase()))
     .filter((request) => levelProjects.some((project) => project.id === request.property_id))
