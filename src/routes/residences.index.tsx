@@ -129,7 +129,7 @@ function ResidencesPage() {
         client.from('trial_bonus_transactions').select('id,direction,amount,currency,popup_seen_at,reference_type').eq('user_id', userResult.data.user.id),
         client.from('fortune_box_assignments').select('id,level_name,badge_number,position,rewards,status').eq('user_id', userResult.data.user.id).eq('status', 'active'),
         client.from('fortune_reward_transactions').select('id,amount,currency,description,created_at').eq('user_id', userResult.data.user.id).order('created_at', { ascending: false }).limit(30),
-        client.from('premium_project_assignments').select('id,level_name,badge_number,position,project_name,deposit_amount,commission_percent,status').eq('user_id', userResult.data.user.id).eq('status', 'active'),
+        client.from('premium_project_assignments').select('id,level_name,badge_number,position,project_name,deposit_amount,commission_percent,status,presented_at').eq('user_id', userResult.data.user.id).in('status', ['active', 'presented']),
         client.from('member_project_completion_dismissals').select('level_name,set_number').eq('user_id', userResult.data.user.id),
       ])
       if (requestResult.error) throw requestResult.error
@@ -243,9 +243,17 @@ function ResidencesPage() {
   }
 
   async function requestProject(project: Project) {
-    const premiumAssignment = selectedLevel === 'Junior Trial' ? null : premiumAssignments.find((item) => item.level_name === selectedLevel && Number(item.badge_number) === selectedSet && Number(item.position) === currentProjectIndex + 1 && item.status === 'active')
+    const premiumAssignment = selectedLevel === 'Junior Trial' ? null : premiumAssignments.find((item) => item.level_name === selectedLevel && Number(item.badge_number) === selectedSet && Number(item.position) === currentProjectIndex + 1 && ['active', 'presented'].includes(String(item.status).toLowerCase()))
     if (premiumAssignment) {
-      setPremiumAssignments((current) => current.filter((item) => item.id !== premiumAssignment.id))
+      if (premiumAssignment.status === 'active') {
+        const { error: presentedError } = await requireSupabase()
+          .from('premium_project_assignments')
+          .update({ status: 'presented', presented_at: new Date().toISOString() })
+          .eq('id', premiumAssignment.id)
+          .eq('status', 'active')
+        if (presentedError) setError('The assignment is still protected from ordering, but its presentation status could not be saved. Please contact support.')
+        else setPremiumAssignments((current) => current.map((item) => item.id === premiumAssignment.id ? { ...item, status: 'presented', presented_at: new Date().toISOString() } : item))
+      }
       setActivePremiumPopup(premiumAssignment)
       return
     }
