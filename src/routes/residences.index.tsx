@@ -50,6 +50,7 @@ function ResidencesPage() {
   const [selectedSet, setSelectedSet] = useState(1)
   const [currentUserId, setCurrentUserId] = useState('')
   const [requests, setRequests] = useState<ProjectRequest[]>([])
+  const [completionDismissals, setCompletionDismissals] = useState<string[]>([])
   const [selectedLevel, setSelectedLevel] = useState<string>(search.level ?? 'Junior Trial')
   const [groupSearch, setGroupSearch] = useState('')
   const [groupFilter, setGroupFilter] = useState<'all' | 'trial'>('all')
@@ -108,7 +109,7 @@ function ResidencesPage() {
     ;(async () => {
       const client = requireSupabase()
       const [propertyResult, userResult, accessResult, setAccessResult] = await Promise.all([
-        client.from('properties').select('id,slug,name,location,description,price_label,price_amount,order_percentages,cover_image_url,project_level,set_number,sort_order').eq('status', 'published').not('project_level', 'is', null),
+        client.from('properties').select('id,slug,name,location,description,price_label,price_amount,order_percentages,cover_image_url,project_level,set_number,sort_order').eq('status', 'published').not('project_level', 'is', null).order('sort_order', { ascending: true }).order('created_at', { ascending: true }),
         client.auth.getUser(),
         client.from('customer_project_level_access').select('user_id,level_name,is_unlocked'),
         client.from('customer_project_set_access').select('user_id,level_name,set_number,is_unlocked'),
@@ -120,7 +121,7 @@ function ResidencesPage() {
       if (!userResult.data.user) throw new Error('Please sign in to view the project catalogue.')
       const { error: bonusEnsureError } = await client.rpc('ensure_member_trial_bonus')
       if (bonusEnsureError) console.warn('Welcome Trial Bonus is not available:', bonusEnsureError.message)
-      const [requestResult, walletResult, trialBonusResult, fortuneResult, fortuneRewardResult, premiumResult] = await Promise.all([
+      const [requestResult, walletResult, trialBonusResult, fortuneResult, fortuneRewardResult, premiumResult, completionDismissalResult] = await Promise.all([
         client.from('investment_requests').select('user_id,property_id,status').eq('user_id', userResult.data.user.id).order('created_at', { ascending: false }),
         client.from('wallet_balances').select('balance').eq('user_id', userResult.data.user.id).eq('currency', 'OMR').maybeSingle(),
         // Trial Bonus is optional for catalogue rendering. A missing or unavailable
@@ -129,12 +130,15 @@ function ResidencesPage() {
         client.from('fortune_box_assignments').select('id,level_name,badge_number,position,rewards,status').eq('user_id', userResult.data.user.id).eq('status', 'active'),
         client.from('fortune_reward_transactions').select('id,amount,currency,description,created_at').eq('user_id', userResult.data.user.id).order('created_at', { ascending: false }).limit(30),
         client.from('premium_project_assignments').select('id,level_name,badge_number,position,project_name,deposit_amount,commission_percent,status').eq('user_id', userResult.data.user.id).eq('status', 'active'),
+        client.from('member_project_completion_dismissals').select('level_name,set_number').eq('user_id', userResult.data.user.id),
       ])
       if (requestResult.error) throw requestResult.error
       if (walletResult.error) throw walletResult.error
+      if (completionDismissalResult.error) throw completionDismissalResult.error
       if (!active) return
       setProjects((propertyResult.data ?? []) as Project[])
       setRequests((requestResult.data ?? []) as ProjectRequest[])
+      setCompletionDismissals((completionDismissalResult.data ?? []).map((row) => `${row.level_name}:${row.set_number}`))
       setCurrentUserId(userResult.data.user.id)
       setCurrentUserName(String(userResult.data.user.user_metadata?.full_name || userResult.data.user.email?.split('@')[0] || 'Member'))
       setCustomerLevelAccess((accessResult.data ?? []) as { user_id: string; level_name: string; is_unlocked: boolean }[])
@@ -212,8 +216,9 @@ function ResidencesPage() {
   }, [orderedPropertyIds])
 
   useEffect(() => {
-    if (orderedPropertyIds.size < 20 || completionShownRef.current === `${selectedLevel}:${selectedSet}`) return
-    completionShownRef.current = `${selectedLevel}:${selectedSet}`
+    const completionKey = `${selectedLevel}:${selectedSet}`
+    if (orderedPropertyIds.size < 20 || completionDismissals.includes(completionKey) || completionShownRef.current === completionKey) return
+    completionShownRef.current = completionKey
     setCompletedLevel(selectedLevel)
     const nextStep = selectedSet < 3
       ? `Badge ${selectedSet + 1}`
@@ -226,7 +231,19 @@ function ResidencesPage() {
       ? 'Congratulations! You have achieved the Junior Trial Project. Contact Customer Support to request Senior Level access.'
       : `Congratulations! You have completed ${selectedLevel} Badge ${selectedSet}. Contact Customer Support to request ${nextStep} unlock.`)
     setSuccessPopup(true)
-  }, [orderedPropertyIds, selectedLevel, selectedSet])
+  }, [orderedPropertyIds, selectedLevel, selectedSet, completionDismissals])
+
+  async function dismissCompletionPopup() {
+    const key = `${completedLevel}:${selectedSet}`
+    try {
+      const { error: dismissError } = await requireSupabase().rpc('dismiss_member_project_completion_popup', { p_level_name: completedLevel, p_set_number: selectedSet })
+      if (dismissError) throw dismissError
+      setCompletionDismissals((current) => current.includes(key) ? current : [...current, key])
+      setSuccessPopup(false)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not save the completion message status. Please try again.')
+    }
+  }
 
   async function requestProject(project: Project) {
     const premiumAssignment = selectedLevel === 'Junior Trial' ? null : premiumAssignments.find((item) => item.level_name === selectedLevel && Number(item.badge_number) === selectedSet && Number(item.position) === currentProjectIndex + 1 && item.status === 'active')
@@ -338,7 +355,7 @@ function ResidencesPage() {
             <p className="mt-5 text-sm font-semibold tracking-wide text-[#9a793b]">BADGE {selectedSet} · 20 / 20 PROPERTIES COMPLETED</p>
             <Link to="/support" className="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-[#071b38] px-6 py-4 text-sm font-semibold text-[#f1d28d]">Contact Customer Support</Link>
           </>}
-          <button type="button" onClick={() => setSuccessPopup(false)} className="mt-5 text-xs font-semibold text-[#666] underline underline-offset-4">Close</button>
+          <button type="button" onClick={() => void dismissCompletionPopup()} className="mt-5 text-xs font-semibold text-[#666] underline underline-offset-4">Close</button>
         </section>
         <style>{'@keyframes orderPop { 0% { opacity: 0; transform: scale(.82) translateY(18px); } 100% { opacity: 1; transform: scale(1) translateY(0); } } @keyframes juniorConfetti { 0% { transform: translate3d(0,-5vh,0) rotate(0deg); opacity: 0; } 12% { opacity: 1; } 100% { transform: translate3d(35px,110vh,0) rotate(720deg); opacity: 0; } } @keyframes juniorCelebrate { 0% { opacity: 0; transform: scale(.35) rotate(-25deg); } 65% { opacity: 1; transform: scale(1.12) rotate(8deg); } 100% { transform: scale(1) rotate(0); } } @keyframes juniorGlow { 0%,100% { transform: scale(.92); opacity: .5; } 50% { transform: scale(1.12); opacity: 1; } } @keyframes juniorProgress { from { transform: scaleX(0); } to { transform: scaleX(1); } } @media (prefers-reduced-motion: reduce) { .animate-\\[juniorConfetti_2\\.8s_ease-in_forwards\\], .animate-\\[juniorGlow_3s_ease-in-out_infinite\\], .animate-\\[juniorCelebrate_\\.8s_ease-out_both\\], .animate-\\[juniorProgress_\\.9s_ease-out_both\\], .animate-\\[orderPop_\\.55s_cubic-bezier\\(\\.2\\,\\.8\\,\\.2\\,1\\)\\] { animation: none !important; } }'}</style>
       </div> : null}
