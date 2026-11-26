@@ -70,6 +70,36 @@ Deno.serve(async (req) => {
       return json({ error: "Mobile number or password is incorrect." }, 401)
     }
 
+    // Existing customers without an account-request row remain able to sign in.
+    // New registrations are blocked until an administrator approves their request.
+    const userId = typeof tokenData.user?.id === "string" ? tokenData.user.id : ""
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
+    if (!userId || !serviceRoleKey) {
+      console.error("Phone login approval check is missing user identity or service-role configuration.")
+      return json({ error: "Login is temporarily unavailable." }, 500)
+    }
+    const approvalResponse = await fetch(
+      `${supabaseUrl}/rest/v1/account_requests?user_id=eq.${encodeURIComponent(userId)}&select=status&limit=1`,
+      {
+        headers: {
+          apikey: serviceRoleKey,
+          Authorization: `Bearer ${serviceRoleKey}`,
+        },
+      },
+    )
+    if (!approvalResponse.ok) {
+      console.error("Could not verify customer account approval status:", approvalResponse.status)
+      return json({ error: "Login is temporarily unavailable." }, 500)
+    }
+    const approvalRows = await approvalResponse.json()
+    const approvalStatus = Array.isArray(approvalRows) ? approvalRows[0]?.status : null
+    if (approvalStatus === "pending") {
+      return json({ error: "Your registration is awaiting administrator approval. Please try again after it is approved." }, 403)
+    }
+    if (approvalStatus === "rejected") {
+      return json({ error: "Your registration request was not approved. Please contact customer support." }, 403)
+    }
+
     return json({
       access_token: tokenData.access_token,
       refresh_token: tokenData.refresh_token,
