@@ -67,11 +67,11 @@ export function AuthPanel({ mode, adminOnly = false }: { mode: 'login' | 'regist
     event.preventDefault()
     clearMessages()
     const phoneDigits = mobile.replace(/\D/g, '')
+    if (!adminOnly && referralCode.trim().toUpperCase() !== 'AA234') return setError('Enter the valid referral code AA234 to continue.')
     if (view === 'signup') {
       const cleanName = fullName.trim().replace(/\s+/g, ' ')
       if (cleanName.length < 2 || cleanName.length > 120 || /[\u0000-\u001f<>]/.test(cleanName)) return setError('Enter a valid full name between 2 and 120 characters.')
       if (phoneDigits.length < 7 || phoneDigits.length > 15 || !/^[+()\d\s.-]+$/.test(mobile.trim())) return setError('Please enter a valid mobile number with 7–15 digits.')
-      if (referralCode.trim().length > 64) return setError('Referral code must be 64 characters or fewer.')
       if (password.length < 8 || password.length > 72) return setError('Your password must be between 8 and 72 characters.')
       if (password !== confirmPassword) return setError('The two passwords do not match.')
     }
@@ -250,6 +250,9 @@ export function AuthPanel({ mode, adminOnly = false }: { mode: 'login' | 'regist
               </select>
               <input type="tel" required autoComplete="tel-national" value={loginIdentifier} onChange={e => { setLoginIdentifier(e.target.value); clearMessages() }} disabled={busy} placeholder="50 000 0000" data-testid="login-identifier" className="min-w-0 border border-input bg-background px-4 py-3 text-[0.95rem] outline-none transition-colors placeholder:text-ink-soft/60 focus:border-brass disabled:opacity-60" />
             </div>
+          </label>
+          <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Referral code</span>
+            <input type="text" required autoComplete="off" value={referralCode} onChange={e => { setReferralCode(e.target.value); clearMessages() }} disabled={busy} placeholder="Enter referral code" data-testid="login-referral" className={inputClass} />
           </label>
           <label className="block"><span className="eyebrow text-[0.5rem] text-ink-soft">Password</span>
             <input type="password" required autoComplete="current-password" value={password} onChange={e => { setPassword(e.target.value); clearMessages() }} disabled={busy} placeholder="Your password" data-testid="login-password" className={inputClass} />
