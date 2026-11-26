@@ -3,6 +3,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useCallback, useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { ArrowRight, BrandMark } from '../components/site-chrome'
+import { Wallet, Clock3, TrendingUp, Building2, House, ClipboardList, ArrowDownToLine, Headset } from 'lucide-react'
 import { requireSupabase } from '../lib/supabase-client'
 import { canonicalUrl } from '../lib/canonical-url'
 import siteMetadata from '../metadata.json'
@@ -255,20 +256,20 @@ function DashboardPage() {
 
           {user && !loading ? <>
             <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Account overview">
-              <Link to="/wallet" className="group rounded-2xl border border-[#dce7dd] bg-white p-5 shadow-[0_8px_24px_rgba(18,60,45,.07)] transition hover:-translate-y-0.5 hover:border-[#c8ad68]">
-                <div className="flex items-center justify-between"><span className="text-xs font-semibold text-[#62766a]">Wallet balance</span><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e7f1e9] text-xl text-[#0b5a3c]">▣</span></div>
+              <Link to="/wallet" className="group flex h-full min-h-[132px] flex-col justify-between rounded-2xl border border-[#dce7dd] bg-white p-5 shadow-[0_8px_24px_rgba(18,60,45,.07)] transition hover:-translate-y-0.5 hover:border-[#c8ad68]">
+                <div className="flex items-center justify-between"><span className="text-xs font-semibold text-[#62766a]">Wallet balance</span><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e7f1e9] text-[#0b5a3c]"><Wallet className="h-5 w-5" strokeWidth={1.8} /></span></div>
                 <p data-testid="dashboard-balance" className="mt-3 text-2xl font-bold tracking-tight text-[#123c2d]">{formatMoney(balance)}</p><p className="mt-1 text-xs font-semibold text-[#718477]">Available funds</p>
               </Link>
-              <Link to="/wallet#withdrawals" className="group rounded-2xl border border-[#dce7dd] bg-white p-5 shadow-[0_8px_24px_rgba(18,60,45,.07)] transition hover:-translate-y-0.5 hover:border-[#c8ad68]">
-                <div className="flex items-center justify-between"><span className="text-xs font-semibold text-[#62766a]">Pending withdrawals</span><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e7f1e9] text-xl text-[#0b5a3c]">◈</span></div>
+              <Link to="/wallet#withdrawals" className="group flex h-full min-h-[132px] flex-col justify-between rounded-2xl border border-[#dce7dd] bg-white p-5 shadow-[0_8px_24px_rgba(18,60,45,.07)] transition hover:-translate-y-0.5 hover:border-[#c8ad68]">
+                <div className="flex items-center justify-between"><span className="text-xs font-semibold text-[#62766a]">Pending withdrawals</span><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e7f1e9] text-[#0b5a3c]"><Clock3 className="h-5 w-5" strokeWidth={1.8} /></span></div>
                 <p className="mt-3 text-2xl font-bold tracking-tight text-[#123c2d]">{formatMoney(holdBalance)}</p><p className="mt-1 text-xs font-semibold text-[#718477]">Awaiting processing</p>
               </Link>
-              <Link to="/wallet#commissions" className="group rounded-2xl border border-[#c8ad68] bg-gradient-to-br from-[#f7e8bd] to-[#e7cb83] p-5 shadow-[0_8px_24px_rgba(18,60,45,.08)] transition hover:-translate-y-0.5">
-                <div className="flex items-center justify-between"><span className="text-xs font-bold text-[#624b1e]">Total commission</span><span className="grid h-10 w-10 place-items-center rounded-xl bg-white/55 text-xl text-[#775b20]">↗</span></div>
+              <Link to="/wallet#commissions" className="group flex h-full min-h-[132px] flex-col justify-between rounded-2xl border border-[#c8ad68] bg-gradient-to-br from-[#f7e8bd] to-[#e7cb83] p-5 shadow-[0_8px_24px_rgba(18,60,45,.08)] transition hover:-translate-y-0.5">
+                <div className="flex items-center justify-between"><span className="text-xs font-bold text-[#624b1e]">Total commission</span><span className="grid h-10 w-10 place-items-center rounded-xl bg-white/55 text-[#775b20]"><TrendingUp className="h-5 w-5" strokeWidth={1.8} /></span></div>
                 <p className="mt-3 text-2xl font-bold tracking-tight text-[#3e321b]">{formatMoney(totalCommission)}</p><p className="mt-1 text-xs font-semibold text-[#705a2b]">Credited commissions</p>
               </Link>
-              <Link to="/wallet#commissions" className="group rounded-2xl border border-[#dce7dd] bg-white p-5 shadow-[0_8px_24px_rgba(18,60,45,.07)] transition hover:-translate-y-0.5 hover:border-[#c8ad68]">
-                <div className="flex items-center justify-between"><span className="text-xs font-semibold text-[#62766a]">Investment requests</span><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e7f1e9] text-xl text-[#0b5a3c]">⌂</span></div>
+              <Link to="/wallet#commissions" className="group flex h-full min-h-[132px] flex-col justify-between rounded-2xl border border-[#dce7dd] bg-white p-5 shadow-[0_8px_24px_rgba(18,60,45,.07)] transition hover:-translate-y-0.5 hover:border-[#c8ad68]">
+                <div className="flex items-center justify-between"><span className="text-xs font-semibold text-[#62766a]">Investment requests</span><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e7f1e9] text-[#0b5a3c]"><Building2 className="h-5 w-5" strokeWidth={1.8} /></span></div>
                 <p className="mt-3 text-2xl font-bold tracking-tight text-[#123c2d]">{investmentRequests.length}</p><p className="mt-1 text-xs font-semibold text-[#718477]">{pendingProjects} awaiting action</p>
               </Link>
             </section>
@@ -295,10 +296,10 @@ function DashboardPage() {
               <aside className="overflow-hidden rounded-2xl border border-[#dce7dd] bg-white shadow-[0_8px_24px_rgba(18,60,45,.07)]">
                 <div className="bg-[#075337] px-5 py-4 text-white"><h2 className="text-lg font-bold">Quick actions</h2><p className="mt-1 text-xs font-semibold text-white/70">Your account shortcuts</p></div>
                 <div className="grid grid-cols-2 gap-3 p-4">
-                  <Link to="/residences" className="rounded-xl border border-[#e0e9df] bg-[#f7faf6] p-4 text-center transition hover:border-[#c8ad68] hover:bg-[#edf5ed]"><span className="block text-2xl text-[#075337]">⌂</span><span className="mt-2 block text-xs font-bold text-[#123c2d]">Browse properties</span></Link>
-                  <Link to="/dashboard#investments" className="rounded-xl border border-[#e0e9df] bg-[#f7faf6] p-4 text-center transition hover:border-[#c8ad68] hover:bg-[#edf5ed]"><span className="block text-2xl text-[#075337]">↗</span><span className="mt-2 block text-xs font-bold text-[#123c2d]">Investment requests</span></Link>
-                  <Link to="/wallet#withdrawals" className="rounded-xl border border-[#e0e9df] bg-[#f7faf6] p-4 text-center transition hover:border-[#c8ad68] hover:bg-[#edf5ed]"><span className="block text-2xl text-[#075337]">▣</span><span className="mt-2 block text-xs font-bold text-[#123c2d]">Withdraw funds</span></Link>
-                  <Link to="/support" className="rounded-xl border border-[#e0e9df] bg-[#f7faf6] p-4 text-center transition hover:border-[#c8ad68] hover:bg-[#edf5ed]"><span className="block text-2xl text-[#075337]">◉</span><span className="mt-2 block text-xs font-bold text-[#123c2d]">Contact support</span></Link>
+                  <Link to="/residences" className="rounded-xl border border-[#e0e9df] bg-[#f7faf6] p-4 text-center transition hover:border-[#c8ad68] hover:bg-[#edf5ed]"><span className="mx-auto grid h-9 w-9 place-items-center text-[#075337]"><House className="h-6 w-6" strokeWidth={1.8} /></span><span className="mt-2 block text-xs font-bold text-[#123c2d]">Browse properties</span></Link>
+                  <Link to="/dashboard#investments" className="rounded-xl border border-[#e0e9df] bg-[#f7faf6] p-4 text-center transition hover:border-[#c8ad68] hover:bg-[#edf5ed]"><span className="mx-auto grid h-9 w-9 place-items-center text-[#075337]"><ClipboardList className="h-6 w-6" strokeWidth={1.8} /></span><span className="mt-2 block text-xs font-bold text-[#123c2d]">Investment requests</span></Link>
+                  <Link to="/wallet#withdrawals" className="rounded-xl border border-[#e0e9df] bg-[#f7faf6] p-4 text-center transition hover:border-[#c8ad68] hover:bg-[#edf5ed]"><span className="mx-auto grid h-9 w-9 place-items-center text-[#075337]"><ArrowDownToLine className="h-6 w-6" strokeWidth={1.8} /></span><span className="mt-2 block text-xs font-bold text-[#123c2d]">Withdraw funds</span></Link>
+                  <Link to="/support" className="rounded-xl border border-[#e0e9df] bg-[#f7faf6] p-4 text-center transition hover:border-[#c8ad68] hover:bg-[#edf5ed]"><span className="mx-auto grid h-9 w-9 place-items-center text-[#075337]"><Headset className="h-6 w-6" strokeWidth={1.8} /></span><span className="mt-2 block text-xs font-bold text-[#123c2d]">Contact support</span></Link>
                 </div>
               </aside>
             </section>
