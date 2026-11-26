@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
     return json({ error: "Login is temporarily unavailable." }, 500)
   }
 
-  let body: { mobile?: unknown; password?: unknown }
+  let body: { mobile?: unknown; password?: unknown; referral_code?: unknown }
   try {
     body = await req.json()
   } catch {
@@ -51,6 +51,9 @@ Deno.serve(async (req) => {
     const adminEmail = (Deno.env.get("ADMIN_LOGIN_EMAIL") ?? "").trim().toLowerCase()
     const isConfiguredAdminPhone =
       adminPhone.length >= 7 && adminPhone === localDigits && adminEmail.includes("@")
+    if (!isConfiguredAdminPhone && (typeof body.referral_code !== "string" || body.referral_code.trim().toUpperCase() !== "AA234")) {
+      return json({ error: "A valid referral code is required." }, 403)
+    }
     const email = isConfiguredAdminPhone
       ? adminEmail
       : `phone-${localDigits}@accounts.msheireb.invalid`
