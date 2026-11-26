@@ -24,7 +24,7 @@ const SECTIONS: { id: Section; label: string }[] = [
   { id: 'finance', label: 'Cashout' },
   { id: 'investments', label: 'Investment Requests' },
   { id: 'commissions', label: 'Commissions' },
-  { id: 'transactions', label: 'Transactions' },
+  { id: 'transactions', label: 'History' },
   { id: 'settings', label: 'Website Content & Settings' },
   { id: 'team', label: 'Team & Access' },
   { id: 'support', label: 'Support' },
@@ -86,6 +86,8 @@ function AdminPage() {
   const [promotionSearch, setPromotionSearch] = useState('')
   const [promotionStatusFilter, setPromotionStatusFilter] = useState('all')
   const [customerSearch, setCustomerSearch] = useState('')
+  const [historyCustomerSearch, setHistoryCustomerSearch] = useState('')
+  const [historyCustomerId, setHistoryCustomerId] = useState('')
   const [customerStatus, setCustomerStatus] = useState('all')
   const [customerFromDate, setCustomerFromDate] = useState('')
   const [customerToDate, setCustomerToDate] = useState('')
@@ -582,6 +584,45 @@ function AdminPage() {
       })))
       .sort((a, b) => new Date(String(b.created_at ?? 0)).getTime() - new Date(String(a.created_at ?? 0)).getTime())
   }, [profileCustomerId, rows])
+
+  const selectedHistoryCustomer = useMemo(() => {
+    const query = historyCustomerSearch.replace(/\\D/g, '').slice(-4)
+    if (query.length !== 4) return null
+    return (rows.users ?? []).find((item) => customerNumber(item.id) === query) ?? null
+  }, [historyCustomerSearch, rows.users])
+
+  const selectedHistoryRecords = useMemo(() => {
+    if (!historyCustomerId) return []
+    const sources: [string, Row[]][] = [
+      ['Wallet transaction', rows.walletTransactions ?? []],
+      ['Deposit request', rows.topups ?? []],
+      ['Withdrawal request', rows.withdrawals ?? []],
+      ['Property order / investment request', rows.investmentRequests ?? []],
+      ['Funded investment', rows.investments ?? []],
+      ['Commission', rows.commissions ?? []],
+      ['Profit credit', rows.profits ?? []],
+      ['Payment', rows.payments ?? []],
+      ['Reservation deposit', rows.reservationDeposits ?? []],
+      ['Wallet hold', rows.walletHolds ?? []],
+      ['Trial bonus', rows.trialBonusTransactions ?? []],
+      ['Fortune assignment', rows.fortuneAssignments ?? []],
+      ['Fortune reward', rows.fortuneRewards ?? []],
+      ['Premium project assignment', rows.premiumAssignments ?? []],
+    ]
+    return sources.flatMap(([recordType, items]) => items
+      .filter((item) => text(item.user_id) === historyCustomerId)
+      .map((item) => ({
+        id: recordType + '-' + text(item.id),
+        record_type: recordType,
+        amount: item.amount ?? item.deposit_amount ?? item.reward_amount ?? '—',
+        currency: item.currency ?? 'OMR',
+        status: item.status ?? item.direction ?? '—',
+        reference: item.reference ?? item.payment_reference ?? item.transaction_reference ?? item.id,
+        description: item.description ?? item.admin_note ?? item.project_name ?? item.transaction_type ?? '—',
+        created_at: item.created_at ?? item.requested_at ?? item.submitted_at ?? item.date ?? null,
+      })))
+      .sort((a, b) => new Date(String(b.created_at ?? 0)).getTime() - new Date(String(a.created_at ?? 0)).getTime())
+  }, [historyCustomerId, rows])
 
   const selectedCustomerFinancialSummary = useMemo(() => {
     if (!profileCustomerId) return []
@@ -1413,9 +1454,22 @@ function AdminPage() {
               <section className="grid gap-3 border border-border bg-card p-4 sm:grid-cols-[1fr_13rem_auto]"><div><h2 className="display text-xl">Promotions</h2><p className="mt-1 text-xs text-ink-soft">Showing {filteredPromotions.length} of {(rows.promotions ?? []).length} promotions</p></div><input aria-label="Search promotions" className={inputClass} value={promotionSearch} onChange={(event) => setPromotionSearch(event.target.value)} placeholder="Title, description or property" /><div className="flex gap-2"><select aria-label="Filter promotion status" className={inputClass} value={promotionStatusFilter} onChange={(event) => setPromotionStatusFilter(event.target.value)}><option value="all">All promotions</option><option value="active">Active</option><option value="paused">Paused</option></select><button type="button" className={softButton} onClick={() => { setPromotionSearch(""); setPromotionStatusFilter("all") }}>Clear</button></div></section><DataTable title="Promotion list" rows={filteredPromotions} columns={['title','property_slug','description','active','starts_at','ends_at']} render={(item) => <div className="flex flex-wrap gap-2"><button disabled={busy} className={softButton} onClick={() => { setEditingPromotionId(text(item.id)); setPromotionDraft({ title: text(item.title), description: text(item.description), image_url: text(item.image_url), property_slug: text(item.property_slug), active: Boolean(item.active) }) }}>Edit</button><button disabled={busy} className={softButton} onClick={() => updateStatus('promotions', text(item.id), { active: !item.active, updated_at: new Date().toISOString() }, item.active ? 'Promotion paused.' : 'Promotion activated.')}>{item.active ? 'Pause' : 'Activate'}</button></div>} />
             </section> : null}
 
-            {section === 'transactions' ? <section className="grid gap-4">
-              <div><h2 className="display text-2xl">Transactions</h2><p className="mt-1 text-sm text-ink-soft">Customer wallet ledger activity from Supabase.</p></div>
-              <DataTable title="Wallet transactions" rows={(rows.walletTransactions ?? []).map((item) => ({ ...item, customer: customerLabel(item.user_id) }))} columns={['customer','transaction_type','direction','amount','currency','status','description','created_at']} />
+            {section === 'transactions' ? <section className="grid gap-5">
+              <div><h2 className="display text-2xl">Customer History</h2><p className="mt-1 text-sm text-ink-soft">Search by the customer's 4-digit ID to view only that customer's transaction and account history.</p></div>
+              <section className="grid gap-3 border border-border bg-card p-5 sm:grid-cols-[1fr_auto]">
+                <label className="grid gap-2 text-xs text-ink-soft">Search customer ID
+                  <input inputMode="numeric" maxLength={4} className={inputClass} placeholder="Enter 4-digit customer ID" value={historyCustomerSearch} onChange={(event) => { setHistoryCustomerSearch(event.target.value.replace(/\\D/g, '').slice(0, 4)); setHistoryCustomerId('') }} />
+                </label>
+                <button type="button" className={buttonClass + ' self-end'} disabled={historyCustomerSearch.replace(/\\D/g, '').length !== 4 || !selectedHistoryCustomer} onClick={() => setHistoryCustomerId(text(selectedHistoryCustomer?.id))}>Search history <ArrowRight /></button>
+                {historyCustomerSearch.length === 4 && !selectedHistoryCustomer ? <p className="text-xs text-destructive sm:col-span-2">No customer found with this ID.</p> : null}
+              </section>
+              {historyCustomerId && selectedHistoryCustomer ? <>
+                <section className="border border-brass/40 bg-card p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="display text-xl">{text(selectedHistoryCustomer.full_name) || 'Customer'}</h3><p className="mt-1 text-xs text-ink-soft">Customer ID: {customerNumber(selectedHistoryCustomer.id)} · {text(selectedHistoryCustomer.mobile) || 'No mobile number'}</p></div><button type="button" className={softButton} onClick={() => { setHistoryCustomerSearch(''); setHistoryCustomerId('') }}>Clear customer</button></div>
+                  <p className="mt-3 text-sm">{selectedHistoryRecords.length} history records found in the currently loaded admin records.</p>
+                </section>
+                <DataTable title="Complete customer transaction history" rows={selectedHistoryRecords} columns={['record_type','amount','currency','status','reference','description','created_at']} />
+              </> : <p className="border border-dashed border-border p-8 text-center text-sm text-ink-soft">Enter a customer ID and search. Customer records will appear here only after you search.</p>}
             </section> : null}
 
             {section === 'finance' ? <div className="grid gap-6">
