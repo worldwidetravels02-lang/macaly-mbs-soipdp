@@ -89,6 +89,7 @@ function AdminPage() {
   const [historyCustomerSearch, setHistoryCustomerSearch] = useState('')
   const [historyCustomerId, setHistoryCustomerId] = useState('')
   const [historyRecords, setHistoryRecords] = useState<Row[]>([])
+  const [historyCustomerProfile, setHistoryCustomerProfile] = useState<Row | null>(null)
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyError, setHistoryError] = useState('')
   const [customerStatus, setCustomerStatus] = useState('all')
@@ -599,8 +600,8 @@ function AdminPage() {
     .sort((a, b) => new Date(String(b.created_at ?? 0)).getTime() - new Date(String(a.created_at ?? 0)).getTime())
 
   const searchCustomerHistory = async () => {
-    if (!selectedHistoryCustomer) return
-    const customerId = text(selectedHistoryCustomer.id)
+    const requestedCustomerNumber = historyCustomerSearch.replace(/\\D/g, '').slice(-4)
+    if (requestedCustomerNumber.length !== 4) return
     const tables = [
       ['Wallet transaction', 'wallet_transactions'],
       ['Deposit request', 'topup_requests'],
@@ -621,8 +622,25 @@ function AdminPage() {
     setHistoryError('')
     setHistoryCustomerId(customerId)
     setHistoryRecords([])
+    setHistoryCustomerProfile(null)
     try {
       const client = requireSupabase()
+      const profiles: Row[] = []
+      for (let from = 0; ; from += 1000) {
+        const { data, error: profileError } = await client.from('profiles').select('id,full_name,mobile,preferred_language,created_at').range(from, from + 999)
+        if (profileError) throw new Error('Customer lookup: ' + profileError.message)
+        const page = (data ?? []) as Row[]
+        profiles.push(...page)
+        if (page.length < 1000) break
+      }
+      const customer = profiles.find((item) => customerNumber(item.id) === requestedCustomerNumber)
+      if (!customer) {
+        setHistoryCustomerId('')
+        setHistoryError('No customer found with this ID.')
+        return
+      }
+      const customerId = text(customer.id)
+      setHistoryCustomerProfile(customer)
       const results = await Promise.all(tables.map(async ([recordType, table]) => {
         const collected: Row[] = []
         const pageSize = 1000
@@ -1486,14 +1504,14 @@ function AdminPage() {
               <div><h2 className="display text-2xl">Customer History</h2><p className="mt-1 text-sm text-ink-soft">Search by the customer's 4-digit ID to view only that customer's transaction and account history.</p></div>
               <section className="grid gap-3 border border-border bg-card p-5 sm:grid-cols-[1fr_auto]">
                 <label className="grid gap-2 text-xs text-ink-soft">Search customer ID
-                  <input inputMode="numeric" maxLength={4} className={inputClass} placeholder="Enter 4-digit customer ID" value={historyCustomerSearch} onChange={(event) => { setHistoryCustomerSearch(event.target.value.replace(/\\D/g, '').slice(0, 4)); setHistoryCustomerId(''); setHistoryRecords([]); setHistoryError('') }} />
+                  <input inputMode="numeric" maxLength={4} className={inputClass} placeholder="Enter 4-digit customer ID" value={historyCustomerSearch} onChange={(event) => { setHistoryCustomerSearch(event.target.value.replace(/\\D/g, '').slice(0, 4)); setHistoryCustomerId(''); setHistoryRecords([]); setHistoryCustomerProfile(null); setHistoryError('') }} />
                 </label>
-                <button type="button" className={buttonClass + ' self-end'} disabled={historyCustomerSearch.replace(/\\D/g, '').length !== 4 || !selectedHistoryCustomer || historyLoading} onClick={() => void searchCustomerHistory()}>{historyLoading ? 'Loading history…' : 'Search history'} <ArrowRight /></button>
+                <button type="button" className={buttonClass + ' self-end'} disabled={historyCustomerSearch.replace(/\\D/g, '').length !== 4 || historyLoading} onClick={() => void searchCustomerHistory()}>{historyLoading ? 'Loading history…' : 'Search history'} <ArrowRight /></button>
                 {historyCustomerSearch.length === 4 && !selectedHistoryCustomer ? <p className="text-xs text-destructive sm:col-span-2">No customer found with this ID.</p> : null}
               </section>
-              {historyCustomerId && selectedHistoryCustomer ? <>
+              {historyCustomerId && historyCustomerProfile ? <>
                 <section className="border border-brass/40 bg-card p-5">
-                  <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="display text-xl">{text(selectedHistoryCustomer.full_name) || 'Customer'}</h3><p className="mt-1 text-xs text-ink-soft">Customer ID: {customerNumber(selectedHistoryCustomer.id)} · {text(selectedHistoryCustomer.mobile) || 'No mobile number'}</p></div><button type="button" className={softButton} onClick={() => { setHistoryCustomerSearch(''); setHistoryCustomerId('') }}>Clear customer</button></div>
+                  <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="display text-xl">{text(historyCustomerProfile.full_name) || 'Customer'}</h3><p className="mt-1 text-xs text-ink-soft">Customer ID: {customerNumber(historyCustomerProfile.id)} · {text(historyCustomerProfile.mobile) || 'No mobile number'}</p></div><button type="button" className={softButton} onClick={() => { setHistoryCustomerSearch(''); setHistoryCustomerId(''); setHistoryRecords([]); setHistoryCustomerProfile(null) }}>Clear customer</button></div>
                   <p className="mt-3 text-sm">{selectedHistoryRecords.length} history records found.</p>
                   {historyError ? <p role="alert" className="mt-2 text-xs text-destructive">{historyError}</p> : null}
                 </section>
