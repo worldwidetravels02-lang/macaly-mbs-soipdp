@@ -1569,7 +1569,40 @@ function AdminPage() {
 }
 
 function DataTable({ title, rows, columns, render }: { title: string; rows: Row[]; columns: string[]; render?: (row: Row) => React.ReactNode }) {
-  return <section className="overflow-hidden border border-border bg-card"><div className="border-b border-border px-5 py-4"><h2 className="display text-xl">{title}</h2><p className="mt-1 text-xs text-ink-soft">{rows.length} records</p></div><div className="overflow-x-auto"><table className="w-full min-w-[42rem] text-left text-xs"><thead className="bg-muted/40 text-ink-soft"><tr>{columns.map((column) => <th key={column} className="px-4 py-3 font-medium">{column.replaceAll('_', ' ')}</th>)}{render ? <th className="px-4 py-3">Action</th> : null}</tr></thead><tbody className="divide-y divide-border">{rows.map((row) => <tr key={text(row.id)}>{columns.map((column) => <td key={column} className="max-w-64 px-4 py-3 align-top"><span className="block break-all">{column.endsWith('_at') ? date(row[column]) : column === 'user_id' || column === 'source_user_id' ? customerNumber(row[column]) : column === 'payout_details' ? (typeof row[column] === 'string' ? row[column] : text(row[column]?.instructions || Object.entries(row[column] ?? {}).map(([key, value]) => `${key}: ${String(value)}`).join(' · ') || '—')) : column === 'currency' && text(row[column]) !== 'OMR' ? 'Legacy non-OMR (not converted)' : text(row[column])}</span></td>)}{render ? <td className="px-4 py-3">{render(row)}</td> : null}</tr>)}</tbody></table>{!rows.length ? <p className="px-5 py-8 text-sm text-ink-soft">No records to display.</p> : null}</div></section>
+  const [selectedRow, setSelectedRow] = useState<Row | null>(null)
+  const visibleColumns = columns.slice(0, 3)
+  const displayValue = (row: Row, column: string) => {
+    const value = row[column]
+    if (column.endsWith('_at')) return date(value)
+    if (column === 'user_id' || column === 'source_user_id' || column === 'actor_id') return customerNumber(value)
+    if (column === 'payout_details') return typeof value === 'string' ? value : text(value?.instructions || Object.entries(value ?? {}).map(([key, item]) => `${key}: ${String(item)}`).join(' · ') || '—')
+    if (column === 'currency' && text(value) !== 'OMR') return 'Legacy non-OMR (not converted)'
+    if (value && typeof value === 'object') return JSON.stringify(value)
+    return text(value) || '—'
+  }
+  return <section className="overflow-hidden border border-border bg-card">
+    <div className="border-b border-border px-4 py-3 sm:px-5"><h2 className="display text-lg">{title}</h2><p className="mt-1 text-xs text-ink-soft">{rows.length} records</p></div>
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[30rem] text-left text-xs">
+        <thead className="bg-muted/40 text-ink-soft"><tr>{visibleColumns.map((column) => <th key={column} className="px-3 py-2.5 font-medium">{column.replaceAll('_', ' ')}</th>)}<th className="px-3 py-2.5">Details</th>{render ? <th className="px-3 py-2.5">Actions</th> : null}</tr></thead>
+        <tbody className="divide-y divide-border">
+          {rows.map((row, index) => <tr key={text(row.id) || index}>
+            {visibleColumns.map((column) => <td key={column} className="max-w-48 px-3 py-3 align-middle"><span className="block max-w-48 truncate" title={displayValue(row, column)}>{displayValue(row, column)}</span></td>)}
+            <td className="px-3 py-2"><button type="button" className={softButton} onClick={() => setSelectedRow(row)}>View details</button></td>
+            {render ? <td className="px-3 py-2">{render(row)}</td> : null}
+          </tr>)}
+        </tbody>
+      </table>
+      {!rows.length ? <p className="px-5 py-8 text-sm text-ink-soft">No records to display.</p> : null}
+    </div>
+    {selectedRow ? <div role="presentation" className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-3 sm:p-6" onClick={() => setSelectedRow(null)}>
+      <section role="dialog" aria-modal="true" aria-label={title + ' details'} className="flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden border border-border bg-card shadow-2xl" onClick={(event) => event.stopPropagation()}>
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-5"><div className="min-w-0"><h3 className="display text-lg">{title}</h3><p className="text-xs text-ink-soft">Record details</p></div><button type="button" className={softButton} onClick={() => setSelectedRow(null)}>Close ×</button></div>
+        <div className="min-h-0 overflow-y-auto p-4 sm:p-5"><dl className="grid gap-2 sm:grid-cols-2">{columns.map((column) => <div key={column} className="min-w-0 border border-border p-3"><dt className="eyebrow text-[0.48rem] text-ink-soft">{column.replaceAll('_', ' ')}</dt><dd className="mt-1 whitespace-pre-wrap break-words text-xs leading-5">{displayValue(selectedRow, column)}</dd></div>)}</dl></div>
+        <div className="shrink-0 border-t border-border px-4 py-3 text-right"><button type="button" className={buttonClass} onClick={() => setSelectedRow(null)}>Done</button></div>
+      </section>
+    </div> : null}
+  </section>
 }
 
 function SupportConversation({ threadId, customerId, status, onStatusChange, onSend, reply, setReply, busy }: { threadId: string; customerId: string; status: string; onStatusChange: (status: 'open' | 'closed') => void; onSend: (event: FormEvent<HTMLFormElement>) => void; reply: string; setReply: (value: string) => void; busy: boolean }) {
