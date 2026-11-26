@@ -17,15 +17,19 @@ const memberItems = [
 ] as const
 const adminItems = [
   ['overview','Dashboard'],
-  ['users','Users'],
   ['properties','Projects'],
+  ['badges','Badge Management'],
+  ['enquiries','Enquiries'],
+  ['users','Users'],
+  ['promotions','Promotions'],
   ['fortune','Fortune Box'],
   ['finance','Cashout'],
-  ['transactions','Transactions'],
+  ['investments','Investment Requests'],
+  ['commissions','Commissions'],
+  ['transactions','History'],
+  ['settings','Website Content & Settings'],
+  ['team','Team & Access'],
   ['support','Support'],
-  ['fx','FX Rates'],
-  ['settings','Settings'],
-  ['team','Add Admin'],
 ] as const
 
 export function WorkspaceSidebar({ mode, active, onSelect, isOwner = false }: Props) {
