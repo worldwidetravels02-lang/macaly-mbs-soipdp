@@ -86,6 +86,7 @@ function AdminPage() {
   const [promotionSearch, setPromotionSearch] = useState('')
   const [promotionStatusFilter, setPromotionStatusFilter] = useState('all')
   const [customerSearch, setCustomerSearch] = useState('')
+  const [usersView, setUsersView] = useState<'search' | 'requests'>('search')
   const [historyCustomerSearch, setHistoryCustomerSearch] = useState('')
   const [historyCustomerId, setHistoryCustomerId] = useState('')
   const [historyRecords, setHistoryRecords] = useState<Row[]>([])
@@ -194,7 +195,8 @@ function AdminPage() {
         customerLevelAccess: client.from('customer_project_level_access').select('*'),
         customerProjectSetAccess: client.from('customer_project_set_access').select('*'),
         enquiries: client.from('enquiries').select('*,properties(name)').order('created_at', { ascending: false }).limit(100),
-        users: client.from('profiles').select('id,full_name,mobile,preferred_language,created_at').order('created_at', { ascending: false }).limit(200),
+        users: client.from('profiles').select('id,member_code,full_name,mobile,preferred_language,created_at').order('created_at', { ascending: false }).limit(1000),
+        accountRequests: client.from('account_requests').select('*').order('created_at', { ascending: false }).limit(500),
         promotions: client.from('promotions').select('*').order('created_at', { ascending: false }),
         topups: client.from('topup_requests').select('*').order('created_at', { ascending: false }).limit(100),
         withdrawals: client.from('withdrawal_requests').select('*').order('created_at', { ascending: false }).limit(100),
@@ -450,25 +452,16 @@ function AdminPage() {
     })
   }, [rows.walletTransactions, rows.users, walletSearch, walletDirectionFilter, walletFromDate, walletToDate])
 
-  const customerAccountStatus = (customerId: string) => normalizeAdminStatus((rows.accounts ?? []).find((entry) => entry.user_id === customerId)?.status ?? 'active') || 'active'
+  const customerSearchResult = useMemo(() => {
+    const query = customerSearch.replace(/\D/g, '').slice(0, 4)
+    if (!/^\d{4}$/.test(query)) return []
+    return (rows.users ?? []).filter((item) => String(item.member_code ?? '').padStart(4, '0') === query)
+  }, [rows.users, customerSearch])
 
-  const filteredCustomers = useMemo(() => {
-    const query = customerSearch.trim().toLowerCase()
-    return (rows.users ?? []).filter((item) => {
-      const accountStatus = normalizeAdminStatus((rows.accounts ?? []).find((entry) => entry.user_id === item.id)?.status ?? 'active') || 'active'
-      const profile = (rows.memberProfiles ?? []).find((entry) => entry.user_id === item.id)
-      const matchesQuery = !query || [item.full_name, item.mobile, item.id, item.preferred_language, profile?.address, profile?.interest, profile?.membership_level]
-        .some((value) => text(value).toLowerCase().includes(query))
-      const matchesStatus = customerStatus === 'all' || accountStatus === normalizeAdminStatus(customerStatus)
-      const created = item.created_at ? new Date(item.created_at).getTime() : 0
-      const afterFrom = !customerFromDate || created >= new Date(customerFromDate + 'T00:00:00').getTime()
-      const beforeTo = !customerToDate || created <= new Date(customerToDate + 'T23:59:59.999').getTime()
-      return matchesQuery && matchesStatus && afterFrom && beforeTo
-    }).map((item) => {
-      const profile = (rows.memberProfiles ?? []).find((entry) => entry.user_id === item.id)
-      return { ...item, address: text(profile?.address), property_interest: text(profile?.interest), membership_level: profile?.membership_level ?? 0 }
-    })
-  }, [rows.users, rows.accounts, rows.memberProfiles, customerSearch, customerStatus, customerFromDate, customerToDate])
+  const pendingAccountRequests = useMemo(
+    () => (rows.accountRequests ?? []).filter((item) => normalizeAdminStatus(item.status) === 'pending'),
+    [rows.accountRequests],
+  )
 
   const tasksWithCustomer = useMemo(() => (rows.tasks ?? []).map((item) => ({ ...item, customer_name: customerLabel(item.user_id), customer_mobile: text((rows.users ?? []).find((profile) => profile.id === item.user_id)?.mobile) })), [rows.tasks, rows.users])
   const taskCounts = useMemo(() => tasksWithCustomer.reduce((counts, item) => { const status = normalizeAdminStatus(item.status || 'assigned'); if (['submitted', 'pending', 'under_review'].includes(status)) counts.review += 1; else if (['approved', 'completed'].includes(status)) counts.approved += 1; else if (['rejected', 'returned'].includes(status)) counts.returned += 1; else counts.assigned += 1; return counts }, { review: 0, approved: 0, returned: 0, assigned: 0 }), [tasksWithCustomer])
@@ -1429,35 +1422,40 @@ function AdminPage() {
                   })}</div> : <p className="mt-4 text-xs text-ink-soft">Junior Trial has property progression only. Badge unlocking and badge progress controls do not apply.</p>}</div>
                 })}</div> : <p className="text-xs text-ink-soft">Select a customer to see their level progress and individual unlock controls.</p>}
               </section></section> : null}
-            {section === 'users' ? <section className="grid gap-4"><div className="grid gap-3 sm:grid-cols-3">{(['active','frozen','blocked'] as const).map((status) => <button key={status} type="button" onClick={() => setCustomerStatus(status)} className={customerStatus === status ? 'border border-brass bg-brass/10 p-4 text-left' : 'border border-border bg-card p-4 text-left hover:border-brass'}><p className="eyebrow text-[0.5rem] text-ink-soft">{status} accounts</p><p className="display mt-2 text-2xl">{(rows.users ?? []).filter((customer) => customerAccountStatus(customer.id) === status).length}</p></button>)}</div><div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="display text-xl">Customer accounts</h2><p className="mt-1 text-xs text-ink-soft">Search name, mobile, email, account ID, preferred currency or language. Showing {filteredCustomers.length} of {(rows.users ?? []).length} customers.</p></div><div className="flex flex-col gap-2 sm:flex-row"><input className={`${inputClass} sm:max-w-sm`} value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value)} placeholder="Search customer details" /><select className={inputClass} value={customerStatus} onChange={(event) => setCustomerStatus(event.target.value)}><option value="all">All account statuses</option><option value="active">Active</option><option value="frozen">Frozen</option><option value="blocked">Blocked</option></select><input aria-label="Customers registered from" type="date" className={inputClass} value={customerFromDate} onChange={(event) => setCustomerFromDate(event.target.value)} /><input aria-label="Customers registered to" type="date" min={customerFromDate || undefined} className={inputClass} value={customerToDate} onChange={(event) => setCustomerToDate(event.target.value)} /><button type="button" className={softButton} onClick={() => { setCustomerSearch(''); setCustomerStatus('all'); setCustomerFromDate(''); setCustomerToDate('') }}>Clear filters</button></div></div><section className="grid gap-3">
-                <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="display text-xl">Registered customers</h2><span className="text-xs text-ink-soft">{filteredCustomers.length} records</span></div>
-                {filteredCustomers.map((item) => {
-                  const state = customerAccountStatus(text(item.id))
-                  const profile = (rows.memberProfiles ?? []).find((entry) => entry.user_id === item.id)
-                  return <article key={text(item.id)} className="grid gap-4 rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="min-w-0"><h3 className="break-words text-base font-semibold">{text(item.full_name) || 'Customer'}</h3><p className="mt-1 break-all text-xs text-ink-soft">{text(item.mobile) || 'No mobile number'}</p>{item.email ? <p className="mt-1 break-all text-xs text-ink-soft">{text(item.email)}</p> : null}</div>
-                      <span className={state === 'active' ? 'rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700' : state === 'frozen' ? 'rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800' : 'rounded-full bg-rose-50 px-3 py-1 text-xs font-medium text-rose-700'}>{state.replace(/_/g, ' ')}</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-3">
-                      <div className="min-w-0"><p className="text-ink-soft">Membership</p><p className="mt-1 font-medium">{text(item.membership_level ?? profile?.membership_level ?? 0)}</p></div>
-                      
-                      <div><p className="text-ink-soft">Language</p><p className="mt-1 font-medium">{text(item.preferred_language) || 'en'}</p></div>
-                      <div className="min-w-0"><p className="text-ink-soft">Address</p><p className="mt-1 break-words font-medium">{text(item.address || profile?.address) || 'Not provided'}</p></div>
-                      <div className="min-w-0"><p className="text-ink-soft">Property interest</p><p className="mt-1 break-words font-medium">{text(item.property_interest || profile?.interest) || 'Not provided'}</p></div>
-                      <div className="min-w-0"><p className="text-ink-soft">Registered</p><p className="mt-1 font-medium">{date(item.created_at)}</p></div>
-                    </div>
-                    <div className="border-t border-border pt-3"><p className="mb-2 text-[0.65rem] text-ink-soft">Customer ID</p><p className="font-mono text-sm font-semibold tracking-widest text-ink">{customerNumber(item.id)}</p></div>
-                    <div className="flex flex-wrap gap-2 border-t border-border pt-3">
-                      <button type="button" className={softButton} onClick={() => { setProfileCustomerId(text(item.id)); setLevelAccessCustomerId(text(item.id)); setProfileAddress(text(profile?.address)); setProfileInterest(text(profile?.interest)); setProfileLevel(text(profile?.membership_level ?? 0)); window.scrollTo({ top: 0, behavior: "smooth" }) }}>Manage</button>
-                      <button type="button" className={softButton} onClick={() => { void navigator.clipboard.writeText(text(item.id)).then(() => setNotice('Customer account ID copied.')).catch(() => setError('Could not copy account ID. Please select the ID and copy it manually.')) }}>Copy ID</button>
-                      {state !== 'active' ? <button disabled={busy} className={softButton} onClick={() => setAccountState(text(item.id), 'active')}>Activate</button> : <button disabled={busy} className={softButton} onClick={() => setAccountState(text(item.id), 'frozen')}>Freeze</button>}
-                      <button disabled={busy || state === 'blocked'} className={softButton} onClick={() => setAccountState(text(item.id), 'blocked')}>Block</button>
+            {section === 'users' ? <section className="grid gap-4">
+              <div className="flex flex-wrap gap-2 border-b border-border pb-3">
+                <button type="button" className={usersView === 'search' ? buttonClass : softButton} onClick={() => setUsersView('search')}>Customer Search</button>
+                <button type="button" className={usersView === 'requests' ? buttonClass : softButton} onClick={() => setUsersView('requests')}>Account Requests ({pendingAccountRequests.length})</button>
+              </div>
+              {usersView === 'search' ? <section className="grid gap-4">
+                <div><h2 className="display text-xl">Find Customer</h2><p className="mt-1 text-xs text-ink-soft">Enter the customer's 4-digit ID.</p></div>
+                <input aria-label="4-digit customer ID" inputMode="numeric" maxLength={4} pattern="[0-9]{4}" className={inputClass} value={customerSearch} onChange={(event) => setCustomerSearch(event.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="Enter 4-digit Customer ID" />
+                {customerSearch.length === 4 ? customerSearchResult.length ? customerSearchResult.map((item) => {
+                  const accountStatus = normalizeAdminStatus((rows.accounts ?? []).find((entry) => entry.user_id === item.id)?.status ?? 'active') || 'active'
+                  return <article key={text(item.id)} className="grid gap-2 border border-border bg-card p-4">
+                    <p className="text-xs text-ink-soft">Customer ID</p>
+                    <p className="font-mono text-lg font-semibold tracking-widest">{String(item.member_code ?? '').padStart(4, '0')}</p>
+                    <p className="text-sm font-semibold">{text(item.full_name) || 'Customer'}</p>
+                    <p className="text-sm text-ink-soft">{text(item.mobile) || 'No mobile number'}</p>
+                    <p className="text-xs capitalize text-ink-soft">Account status: {accountStatus.replace(/_/g, ' ')}</p>
+                  </article>
+                }) : <p className="border border-dashed border-border p-5 text-sm text-ink-soft">No customer found with this ID.</p> : null}
+              </section> : <section className="grid gap-3">
+                <div><h2 className="display text-xl">New Account Requests</h2><p className="mt-1 text-xs text-ink-soft">Review new customer registrations before allowing sign-in.</p></div>
+                {pendingAccountRequests.map((request) => {
+                  const customer = (rows.users ?? []).find((profile) => profile.id === request.user_id)
+                  return <article key={text(request.id)} className="grid gap-3 border border-border bg-card p-4">
+                    <div><p className="text-xs text-ink-soft">Customer ID</p><p className="font-mono text-lg font-semibold tracking-widest">{customer?.member_code ? String(customer.member_code).padStart(4, '0') : 'Pending profile'}</p></div>
+                    <div><p className="font-semibold">{text(customer?.full_name) || 'New customer'}</p><p className="text-sm text-ink-soft">{text(customer?.mobile) || 'Mobile number unavailable'}</p><p className="mt-1 text-xs text-ink-soft">Submitted: {date(request.created_at)}</p></div>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" disabled={busy} className={buttonClass} onClick={() => void run(async () => { const { error: reviewError } = await requireSupabase().from('account_requests').update({ status: 'approved', reviewed_at: new Date().toISOString(), reviewed_by: user?.id ?? null }).eq('id', request.id).eq('status', 'pending'); if (reviewError) throw reviewError }, 'Customer account approved.')}>Approve</button>
+                      <button type="button" disabled={busy} className={softButton} onClick={() => void run(async () => { const { error: reviewError } = await requireSupabase().from('account_requests').update({ status: 'rejected', reviewed_at: new Date().toISOString(), reviewed_by: user?.id ?? null }).eq('id', request.id).eq('status', 'pending'); if (reviewError) throw reviewError }, 'Customer account request rejected.')}>Reject</button>
                     </div>
                   </article>
                 })}
-                {!filteredCustomers.length ? <p className="rounded-xl border border-dashed border-border p-6 text-sm text-ink-soft">No customers match these filters.</p> : null}
-              </section></section> : null}
+                {!pendingAccountRequests.length ? <p className="border border-dashed border-border p-5 text-sm text-ink-soft">There are no pending account requests.</p> : null}
+              </section>}
+            </section> : null}
             {section === 'fortune' ? <section className="grid gap-6">
               <div className="flex flex-wrap gap-2"><button type="button" className={fortuneMode === 'fortune' ? buttonClass : softButton} onClick={() => setFortuneMode('fortune')}>Fortune Box</button><button type="button" className={fortuneMode === 'premium' ? buttonClass : softButton} onClick={() => setFortuneMode('premium')}>Premium Project</button></div>
               {fortuneMode === 'fortune' ? <section className="grid gap-6 xl:grid-cols-[minmax(18rem,0.8fr)_1.2fr]">
