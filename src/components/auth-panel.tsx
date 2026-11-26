@@ -105,7 +105,7 @@ export function AuthPanel({ mode, adminOnly = false }: { mode: 'login' | 'regist
       } else {
         let signedInUserId = ''
         const { data, error: invokeError } = await supabase.functions.invoke('phone-password-login', {
-          body: { mobile: phoneCountryCode + ' ' + loginIdentifier.replace(/\D/g, ''), password },
+          body: { mobile: phoneCountryCode + ' ' + loginIdentifier.replace(/\D/g, ''), password, referral_code: referralCode.trim().toUpperCase() },
         })
         if (invokeError) throw invokeError
         if (!data?.access_token || !data?.refresh_token) throw new Error('Invalid login details.')
