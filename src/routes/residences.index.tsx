@@ -187,9 +187,12 @@ function ResidencesPage() {
 
   const currentLevelUnlocked = (customerLevelAccess.find((item) => item.user_id === currentUserId && item.level_name === selectedLevel)?.is_unlocked ?? false) && (selectedLevel === 'Junior Trial' || (customerSetAccess.find((item) => item.user_id === currentUserId && item.level_name === selectedLevel && item.set_number === selectedSet)?.is_unlocked ?? selectedSet === 1))
   const levelProjects = useMemo(() => {
-    const matching = projects.filter((project) => project.project_level === selectedLevel && (selectedLevel === 'Junior Trial' ? Number(project.set_number) === 1 : Number(project.set_number) === selectedSet))
-    // Keep Junior Trial to 20 properties, in the original database-returned order.
-    return selectedLevel === 'Junior Trial' ? matching.slice(0, 20) : matching
+    const matching = projects
+      .filter((project) => project.project_level === selectedLevel && (selectedLevel === 'Junior Trial' ? Number(project.set_number) === 1 : Number(project.set_number) === selectedSet))
+      .sort((a, b) => Number(a.sort_order ?? 0) - Number(b.sort_order ?? 0) || a.name.localeCompare(b.name))
+    // Every progression is exactly 20 properties. Extra legacy rows in a badge
+    // remain untouched in the database and are excluded from customer calculations.
+    return matching.slice(0, 20)
   }, [projects, selectedLevel, selectedSet])
   const visibleProjects = useMemo(() => {
     // Property progression must follow the admin-configured sequence, never name/price sorting.
