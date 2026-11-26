@@ -95,11 +95,22 @@ export function AuthPanel({ mode, adminOnly = false }: { mode: 'login' | 'regist
         if (authError) throw authError
         setPassword('')
         setConfirmPassword('')
-        if (signUpData.session) {
-          await navigate({ to: '/residences' })
+        if (!signUpData.user?.id || !signUpData.session) {
+          setNotice('Your registration was created but could not be submitted for administrator review. Please contact customer support before trying to sign in.')
+          setView('signin')
           return
         }
-        setNotice('Your account was created, but Supabase is requiring email confirmation. Disable email confirmation in Supabase Authentication settings to allow immediate access.')
+        const { error: requestError } = await supabase.from('account_requests').insert({
+          user_id: signUpData.user.id,
+          status: 'pending',
+        })
+        if (requestError) {
+          await supabase.auth.signOut()
+          throw new Error('Your account was created, but the approval request could not be submitted. Please contact customer support.')
+        }
+        const { error: signOutError } = await supabase.auth.signOut()
+        if (signOutError) throw signOutError
+        setNotice('Your registration request has been submitted. You can sign in after an administrator approves your account.')
         setView('signin')
         return
       } else {
