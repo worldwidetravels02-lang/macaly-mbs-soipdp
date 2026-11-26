@@ -100,7 +100,7 @@ Deno.serve(async (req) => {
       return json({ error: "Your registration request was not approved. Please contact customer support." }, 403)
     }
     const createdAt = Date.parse(String(tokenData.user?.created_at ?? ""))
-    const approvalRolloutAt = Date.parse("2026-11-26T11:00:00Z")
+    const approvalRolloutAt = Date.parse("2026-11-26T11:58:00Z")
     if (!approvalStatus && Number.isFinite(createdAt) && createdAt >= approvalRolloutAt) {
       return json({ error: "Your registration approval request could not be found. Please contact customer support." }, 403)
     }
