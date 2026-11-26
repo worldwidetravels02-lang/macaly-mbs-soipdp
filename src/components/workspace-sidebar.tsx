@@ -99,11 +99,5 @@ export function WorkspaceSidebar({ mode, active, onSelect, isOwner = false }: Pr
       </nav>
       <div className={["border-t px-5 py-4", "border-white/10"].join(" ")}>{isAdmin ? <p className="text-[10px] tracking-widest text-white/45">MUSCAT · SULTANATE OF OMAN</p> : <button type="button" onClick={() => void signOut()} className="flex w-full items-center gap-3 py-2 text-left text-sm text-white/65 transition hover:text-[#e7c77f]"><span aria-hidden="true">↪</span>Log out</button>}</div>
     </aside>
-    {isAdmin ? <nav aria-label="Admin quick navigation" className="fixed inset-x-0 bottom-0 z-[80] grid grid-cols-9 border-t border-[#d9e5dc] bg-[#f8faf6] px-1 pb-[max(env(safe-area-inset-bottom),0.35rem)] pt-2 shadow-[0_-4px_18px_rgba(0,0,0,0.08)] lg:hidden">
-      {adminItems.map(([id, label]) => <button key={id} type="button" onClick={() => onSelect?.(id)} className={['flex min-w-0 flex-col items-center justify-center gap-1 py-1 text-[0.62rem]', active === id ? 'font-semibold text-[#14532d]' : 'text-[#64756a]'].join(' ')}>
-        <span aria-hidden="true" className="text-lg leading-5">{id === 'overview' ? '⌂' : id === 'users' ? '♙' : id === 'properties' ? '▦' : id === 'finance' ? '▱' : id === 'transactions' ? '≡' : id === 'support' ? '✉' : id === 'fx' ? '¤' : id === 'team' ? '＋' : '☼'}</span>
-        <span className="truncate">{label}</span>
-      </button>)}
-    </nav> : null}
   </>
 }
