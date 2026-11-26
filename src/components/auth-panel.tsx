@@ -70,7 +70,7 @@ export function AuthPanel({ mode, adminOnly = false }: { mode: 'login' | 'regist
     event.preventDefault()
     clearMessages()
     const phoneDigits = mobile.replace(/\D/g, '')
-    if (view === 'signup' && !adminOnly && referralCode.trim().toUpperCase() !== 'AA234') return setError('Enter the valid referral code AA234 to continue.')
+    if (view === 'signup' && !adminOnly && referralCode.trim().toUpperCase() !== 'AA234') return setError('Enter a valid referral code to continue.')
     if (view === 'signup') {
       const cleanName = fullName.trim().replace(/\s+/g, ' ')
       if (cleanName.length < 2 || cleanName.length > 120 || /[\u0000-\u001f<>]/.test(cleanName)) return setError('Enter a valid full name between 2 and 120 characters.')
@@ -98,21 +98,16 @@ export function AuthPanel({ mode, adminOnly = false }: { mode: 'login' | 'regist
         if (authError) throw authError
         setPassword('')
         setConfirmPassword('')
-        if (!signUpData.user?.id || !signUpData.session) {
-          setNotice('Your registration was created but could not be submitted for administrator review. Please contact customer support before trying to sign in.')
-          setView('signin')
-          return
+        if (!signUpData.user?.id) {
+          throw new Error('Your registration could not be created. Please try again.')
         }
-        const { error: requestError } = await supabase.from('account_requests').insert({
-          user_id: signUpData.user.id,
-          status: 'pending',
-        })
-        if (requestError) {
-          await supabase.auth.signOut()
-          throw new Error('Your account was created, but the approval request could not be submitted. Please contact customer support.')
+        // A database trigger creates the pending account request for every new
+        // Auth user, including sign-ups where email confirmation means no
+        // browser session is returned.
+        if (signUpData.session) {
+          const { error: signOutError } = await supabase.auth.signOut()
+          if (signOutError) throw signOutError
         }
-        const { error: signOutError } = await supabase.auth.signOut()
-        if (signOutError) throw signOutError
         setNotice('Your registration request has been submitted. You can sign in after an administrator approves your account.')
         setView('signin')
         return
