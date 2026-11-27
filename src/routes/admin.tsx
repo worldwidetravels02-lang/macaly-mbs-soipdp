@@ -121,6 +121,7 @@ function AdminPage() {
   const [cashoutProfitCustomerId, setCashoutProfitCustomerId] = useState('')
   const [cashoutAuditCustomerId, setCashoutAuditCustomerId] = useState('')
   const [cashoutInvestmentCustomerId, setCashoutInvestmentCustomerId] = useState('')
+  const [cashoutHistorySearch, setCashoutHistorySearch] = useState('')
   const [walletHistoryExpanded, setWalletHistoryExpanded] = useState(false)
   const [profitHistoryExpanded, setProfitHistoryExpanded] = useState(false)
   const [auditHistoryExpanded, setAuditHistoryExpanded] = useState(false)
@@ -312,6 +313,28 @@ function AdminPage() {
   }
   const filteredTopupRequests = useMemo(() => topupRequestsWithCustomer.filter(financeRequestMatches), [topupRequestsWithCustomer, financeSearch, financeStatus, financeFromDate, financeToDate])
   const filteredWithdrawalRequests = useMemo(() => withdrawalRequestsWithCustomer.filter(financeRequestMatches), [withdrawalRequestsWithCustomer, financeSearch, financeStatus, financeFromDate, financeToDate])
+
+  const cashoutHistoryFiltered = useMemo(() => {
+    const query = cashoutHistorySearch.replace(/\\D/g, '').slice(0, 4)
+    return withdrawalRequestsWithCustomer
+      .filter((item) => !query || customerNumber(item.user_id) === query)
+      .sort((a, b) => new Date(text(b.created_at)).getTime() - new Date(text(a.created_at)).getTime())
+  }, [withdrawalRequestsWithCustomer, cashoutHistorySearch, rows.users])
+
+  const pendingCashoutsByCustomer = useMemo(() => {
+    const groups = new Map<string, Row[]>()
+    for (const item of filteredWithdrawalRequests.filter((request) => ['pending', 'submitted', 'under_review'].includes(normalizeAdminStatus(request.status)))) {
+      const key = text(item.user_id)
+      groups.set(key, [...(groups.get(key) ?? []), item])
+    }
+    return [...groups.entries()].map(([userId, requests]) => ({
+      userId,
+      customerName: text(requests[0]?.customer_name) || 'Customer',
+      customerMobile: text(requests[0]?.customer_mobile),
+      customerId: customerNumber(userId),
+      requests,
+    }))
+  }, [filteredWithdrawalRequests, rows.users])
 
   const notificationsWithCustomer = useMemo(() => (rows.notifications ?? []).map((item) => {
     const profile = (rows.users ?? []).find((customer) => customer.id === item.user_id)
@@ -1547,7 +1570,56 @@ function AdminPage() {
               </section>
               <section className="grid gap-3 border border-border bg-card p-4 sm:grid-cols-[minmax(0,1fr)_14rem]"><div><label className="eyebrow text-[0.55rem] text-ink-soft" htmlFor="finance-request-search">Find a deposit or withdrawal</label><input id="finance-request-search" className={inputClass} value={financeSearch} onChange={(event) => setFinanceSearch(event.target.value)} placeholder="Customer, account ID, amount or reference" /></div><div><label className="eyebrow text-[0.55rem] text-ink-soft" htmlFor="finance-request-status">Request status</label><select id="finance-request-status" className={inputClass} value={financeStatus} onChange={(event) => setFinanceStatus(event.target.value)}><option value="all">All statuses</option><option value="pending">Pending</option><option value="submitted">Submitted</option><option value="under_review">Under review</option><option value="approved">Approved</option><option value="processing">Processing</option><option value="in_progress">In progress</option><option value="paid">Paid</option><option value="completed">Completed</option><option value="rejected">Rejected</option></select></div><div><label className="eyebrow text-[0.55rem] text-ink-soft" htmlFor="finance-from-date">From date</label><input id="finance-from-date" type="date" className={inputClass} value={financeFromDate} max={financeToDate || undefined} onChange={(event) => setFinanceFromDate(event.target.value)} /></div><div><label className="eyebrow text-[0.55rem] text-ink-soft" htmlFor="finance-to-date">To date</label><input id="finance-to-date" type="date" className={inputClass} value={financeToDate} min={financeFromDate || undefined} onChange={(event) => setFinanceToDate(event.target.value)} /></div><div className="flex flex-wrap items-center justify-between gap-3 sm:col-span-2"><p className="text-xs text-ink-soft">Showing {filteredTopupRequests.length} of {topupRequestsWithCustomer.length} deposit requests and {filteredWithdrawalRequests.length} of {withdrawalRequestsWithCustomer.length} withdrawal requests. The same search and status filter apply to both lists.</p><button type="button" className={softButton} onClick={() => { setFinanceSearch(''); setFinanceStatus('all'); setFinanceFromDate(''); setFinanceToDate('') }} disabled={!financeSearch && financeStatus === 'all' && !financeFromDate && !financeToDate}>Clear finance filters</button></div><p className="text-xs text-ink-soft sm:col-span-2">Approving a withdrawal deducts the amount from the customer’s internal wallet immediately. Complete the external bank transfer separately, then mark the request paid.</p></section>
               <DataTable profiles={rows.users ?? []} title="Top-up requests" rows={filteredTopupRequests} columns={['customer_name','customer_mobile','user_id','amount','currency','payment_method','payment_reference','status','admin_note','created_at']} render={(item) => ['pending','submitted','under_review'].includes(normalizeAdminStatus(item.status)) ? <div className="flex gap-2"><button disabled={busy} className={softButton} onClick={() => reviewTopup(text(item.id), true)}>Approve</button><button disabled={busy} className={softButton} onClick={() => reviewTopup(text(item.id), false)}>Reject</button></div> : null} />
-              <DataTable profiles={rows.users ?? []} title="Withdrawal requests" rows={filteredWithdrawalRequests} columns={['customer_name','customer_mobile','user_id','amount','currency','payout_method','payout_details','status','admin_note','created_at']} render={(item) => ['pending','submitted','under_review'].includes(normalizeAdminStatus(item.status)) ? <div className="flex flex-wrap gap-2"><button disabled={busy} className={softButton} onClick={() => reviewWithdrawal(text(item.id), 'approve')}>Approve</button><button disabled={busy} className={softButton} onClick={() => reviewWithdrawal(text(item.id), 'reject')}>Reject</button></div> : ['approved','processing','in_progress'].includes(normalizeAdminStatus(item.status)) ? <button disabled={busy} className={softButton} onClick={() => reviewWithdrawal(text(item.id), 'pay')}>Mark paid after transfer</button> : null} />
+              <section className="grid gap-4">
+                <div className="flex flex-wrap items-end justify-between gap-3">
+                  <div><h2 className="display text-xl">Pending cashout requests</h2><p className="mt-1 text-xs text-ink-soft">Each customer has a separate request panel. Review the requested amount and payout bank details before approving or rejecting.</p></div>
+                  <span className="text-xs text-ink-soft">{pendingCashoutsByCustomer.reduce((total, group) => total + group.requests.length, 0)} pending requests</span>
+                </div>
+                {pendingCashoutsByCustomer.map((group) => <section key={group.userId} className="grid gap-3 border border-border bg-card p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
+                    <div><h3 className="font-semibold">{group.customerName}</h3><p className="mt-1 text-xs text-ink-soft">Customer ID: <span className="font-mono tracking-wider">{group.customerId}</span>{group.customerMobile ? ' · ' + group.customerMobile : ''}</p></div>
+                    <span className="border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-700">Pending · {group.requests.length}</span>
+                  </div>
+                  {group.requests.map((item) => {
+                    const details = item.payout_details
+                    let bankDetails = 'No bank account details provided'
+                    if (typeof details === 'string') {
+                      try {
+                        const parsed = JSON.parse(details)
+                        bankDetails = parsed && typeof parsed === 'object'
+                          ? Object.entries(parsed).map(([key, value]) => key.replaceAll('_', ' ') + ': ' + text(value)).join(' · ')
+                          : details
+                      } catch { bankDetails = details }
+                    } else if (details && typeof details === 'object') {
+                      bankDetails = Object.entries(details).map(([key, value]) => key.replaceAll('_', ' ') + ': ' + text(value)).join(' · ')
+                    }
+                    return <article key={text(item.id)} className="grid gap-3 border border-border/70 p-4">
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div><p className="text-[0.65rem] text-ink-soft">Requested amount</p><p className="display mt-1 text-2xl">{money(item.amount, text(item.currency) || 'OMR')}</p></div>
+                        <div><p className="text-[0.65rem] text-ink-soft">Request date</p><p className="mt-1 text-sm">{date(item.created_at)}</p></div>
+                      </div>
+                      <div className="grid gap-1"><p className="text-[0.65rem] font-semibold uppercase tracking-wider text-ink-soft">Bank account details</p><p className="break-words text-sm leading-6">{text(item.payout_method) ? text(item.payout_method) + ' · ' : ''}{bankDetails}</p></div>
+                      {item.admin_note ? <p className="text-xs text-ink-soft">Admin note: {text(item.admin_note)}</p> : null}
+                      <div className="flex flex-wrap gap-2 border-t border-border pt-3">
+                        <button type="button" disabled={busy} className={buttonClass} onClick={() => reviewWithdrawal(text(item.id), 'approve')}>Approve</button>
+                        <button type="button" disabled={busy} className={softButton + ' border-red-500/40 text-red-600'} onClick={() => reviewWithdrawal(text(item.id), 'reject')}>Reject</button>
+                      </div>
+                    </article>
+                  })}
+                </section>)}
+                {!pendingCashoutsByCustomer.length ? <p className="border border-dashed border-border p-6 text-center text-sm text-ink-soft">No pending cashout requests match the current filters.</p> : null}
+              </section>
+              <details className="overflow-hidden border border-border bg-card">
+                <summary className="cursor-pointer list-none border-b border-border px-5 py-4 font-semibold marker:hidden">
+                  <span className="flex flex-wrap items-center justify-between gap-3"><span>Cashout request history</span><span className="text-xs font-normal text-ink-soft">{cashoutHistoryFiltered.length} records · tap to expand or collapse</span></span>
+                </summary>
+                <div className="grid gap-4 p-4">
+                  <label className="grid gap-2 text-xs text-ink-soft">Search history by customer ID
+                    <input inputMode="numeric" maxLength={4} className={inputClass} value={cashoutHistorySearch} onChange={(event) => setCashoutHistorySearch(event.target.value.replace(/\\D/g, '').slice(0, 4))} placeholder="Enter 4-digit customer ID" />
+                  </label>
+                  <DataTable profiles={rows.users ?? []} title="All cashout requests" rows={cashoutHistoryFiltered} columns={['customer_name','customer_mobile','user_id','amount','currency','payout_method','payout_details','status','admin_note','created_at']} />
+                </div>
+              </details>
               <section className="grid gap-4 border border-brass/40 bg-card p-6">
                 <div><h2 className="display text-xl">Hold customer wallet amount</h2><p className="mt-2 text-xs leading-6 text-ink-soft">Place a temporary restriction on available wallet funds without removing or debiting them. Customers cannot withdraw the held amount. You can release all or part of a hold below.</p></div>
                 <form onSubmit={holdWalletBalance} className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
