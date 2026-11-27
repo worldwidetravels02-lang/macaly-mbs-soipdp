@@ -67,6 +67,7 @@ function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [welcomeBonus, setWelcomeBonus] = useState<WelcomeTrialBonus | null>(null)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const load = useCallback(async () => {
     setError('')
@@ -126,6 +127,14 @@ function DashboardPage() {
     } finally {
       setLoading(false)
     }
+  }, [])
+
+  useEffect(() => {
+    const desktop = window.matchMedia('(min-width: 1024px)')
+    const syncSidebar = () => setSidebarOpen(desktop.matches)
+    syncSidebar()
+    desktop.addEventListener('change', syncSidebar)
+    return () => desktop.removeEventListener('change', syncSidebar)
   }, [])
 
   useEffect(() => {
@@ -214,15 +223,18 @@ function DashboardPage() {
 
   return (
     <div className="customer-dashboard dashboard-typography min-h-screen text-[#123c2d]" style={{ backgroundImage: `linear-gradient(rgba(8, 36, 25, 0.38), rgba(8, 36, 25, 0.48)), url("${CUSTOMER_BACKGROUND}")`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed' }}>
-      <WorkspaceSidebar mode="member" />
+      <WorkspaceSidebar mode="member" open={sidebarOpen} onOpenChange={setSidebarOpen} />
 
-      <header className="fixed inset-x-0 top-0 z-40 flex h-[72px] items-center justify-end border-b border-[#d4e2d7] bg-[#06452f]/98 px-4 pl-20 text-white shadow-lg backdrop-blur sm:px-6 sm:pl-20 lg:left-64 lg:px-7">
+      <header className={`fixed inset-x-0 top-0 z-40 flex h-[72px] items-center justify-between border-b border-[#d8b56d]/70 bg-[#06452f]/98 px-4 text-white shadow-lg backdrop-blur transition-[left] duration-200 sm:px-6 ${sidebarOpen ? "lg:left-64" : "lg:left-0"}`}>
+        <button type="button" onClick={() => setSidebarOpen((value) => !value)} aria-label={sidebarOpen ? "Close customer sidebar" : "Open customer sidebar"} aria-expanded={sidebarOpen} aria-controls="customer-sidebar" className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-[#d8b56d]/75 bg-[#0b5a3c] text-[#f0d28a] shadow-md transition hover:border-[#f0d28a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f0d28a]">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-6 w-6"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
+        </button>
         <div className="flex items-center gap-3 sm:gap-5">
           <Link to="/account" className="flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"><span className="grid h-8 w-8 place-items-center rounded-lg bg-[#d8b56d] font-semibold text-[#123c2d]">{name.slice(0,1).toUpperCase()}</span><span className="hidden text-left sm:block"><strong className="block">{name.split(' ')[0]}</strong><span className="text-[10px] text-white/55">Member</span></span></Link>
         </div>
       </header>
 
-      <main id="main" className="pb-20 pt-24 lg:ml-64">
+      <main id="main" className={`pb-20 pt-24 transition-[margin] duration-200 ${sidebarOpen ? "lg:ml-64" : "lg:ml-0"}`}>
         <div className="mx-auto grid w-full max-w-[1500px] gap-5 px-5 sm:px-7">
           <section className="relative overflow-hidden rounded-2xl border border-[#d8b56d]/55 bg-white/82 px-7 py-8 shadow-xl backdrop-blur-xl sm:px-10 sm:py-10">
             <div className="pointer-events-none absolute -right-12 -top-16 h-72 w-72 rounded-full border border-[#d8b56d]/35 bg-[#d8b56d]/10" /><div className="pointer-events-none absolute bottom-0 right-0 h-1 w-2/5 bg-gradient-to-l from-[#b9974e] to-transparent" />
