@@ -7,6 +7,8 @@ type Props = {
   active?: string
   onSelect?: (id: string) => void
   isOwner?: boolean
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 const memberItems = [
   ['dashboard','Dashboard','/dashboard'],
@@ -31,8 +33,10 @@ const adminItems = [
   ['support','Support'],
 ] as const
 
-export function WorkspaceSidebar({ mode, active, onSelect, isOwner = false }: Props) {
-  const [open, setOpen] = useState(false)
+export function WorkspaceSidebar({ mode, active, onSelect, isOwner = false, open: controlledOpen, onOpenChange }: Props) {
+  const [internalOpen, setInternalOpen] = useState(false)
+  const open = controlledOpen ?? internalOpen
+  const setOpen = (value: boolean) => { if (controlledOpen === undefined) setInternalOpen(value); onOpenChange?.(value) }
   const [authReady, setAuthReady] = useState(mode === 'admin')
   const [authenticated, setAuthenticated] = useState(mode === 'admin')
   const location = useLocation()
@@ -74,16 +78,16 @@ export function WorkspaceSidebar({ mode, active, onSelect, isOwner = false }: Pr
 
   const items = isAdmin ? adminItems : memberItems
   return <>
-    <button type="button" aria-label="Open workspace navigation" onClick={() => setOpen(true)}
-      className="fixed left-4 top-4 z-[70] flex h-11 w-11 items-center justify-center rounded-md border border-[#d8b56d]/70 bg-[#123c2d] text-xl leading-none text-[#d8b56d] shadow-lg transition-colors hover:border-[#e7c77f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d8b56d]/70">☰</button>
-    {open ? <button aria-label="Close navigation overlay" onClick={() => setOpen(false)} className="fixed inset-0 z-[60] bg-black/55" /> : null}
-    <aside className={['fixed inset-y-0 left-0 z-[65] flex w-64 flex-col border-r shadow-sm transition-transform duration-200', 'border-white/10 bg-[#123c2d] text-white shadow-2xl', open ? 'translate-x-0' : '-translate-x-full'].join(' ')}>
-      <div className={["flex min-h-24 items-center justify-between border-b px-4 py-3", "border-white/10"].join(" ")}>
+    {controlledOpen === undefined ? <button type="button" aria-label="Open workspace navigation" aria-expanded={open} onClick={() => setOpen(!open)}
+      className="fixed left-4 top-4 z-[70] flex h-11 w-11 items-center justify-center rounded-lg border border-[#d8b56d]/70 bg-[#123c2d] text-xl leading-none text-[#d8b56d] shadow-lg transition-colors hover:border-[#e7c77f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d8b56d]/70">☰</button> : null}
+    {open ? <button aria-label="Close navigation overlay" onClick={() => setOpen(false)} className="fixed inset-0 z-[60] bg-black/55 lg:hidden" /> : null}
+    <aside id={!isAdmin ? 'customer-sidebar' : undefined} className={['fixed inset-y-0 left-0 z-[65] flex w-64 flex-col border-r border-[#d8b56d]/65 bg-gradient-to-b from-[#06452f] via-[#075136] to-[#063b2b] text-white shadow-2xl transition-transform duration-200', open ? 'translate-x-0' : '-translate-x-full'].join(' ')}>
+      <div className="flex min-h-24 items-center justify-between border-b border-[#d8b56d]/55 px-4 py-3">
         <Link to={isAdmin ? "/admin" : "/dashboard"} aria-label="Msheireb Properties home" className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1.5">
           <img src="/msheireb-logo-hd(1).png" alt="Msheireb Properties" className="block h-auto max-h-14 w-full max-w-[210px] object-contain object-center" width="1696" height="444" decoding="async" />
           {isAdmin ? <span className="text-center text-[8px] font-semibold tracking-[0.18em] text-[#d8b56d]">ADMINISTRATION</span> : null}
         </Link>
-        <button type="button" onClick={() => setOpen(false)} aria-label="Close navigation" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-[#d8b56d]/55 text-xl leading-none text-[#d8b56d] transition-colors hover:border-[#e7c77f] hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d8b56d]/70">×</button>
+        <button type="button" onClick={() => setOpen(false)} aria-label="Close navigation" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[#d8b56d]/70 bg-white/5 text-xl leading-none text-[#f0d28a] transition-colors hover:border-[#f0d28a] hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d8b56d]/70">×</button>
       </div>
       <nav aria-label={isAdmin ? 'Admin navigation' : 'Customer navigation'} className="flex-1 space-y-1 overflow-y-auto px-3 py-5">
         {items.map((item) => {
@@ -96,7 +100,7 @@ export function WorkspaceSidebar({ mode, active, onSelect, isOwner = false }: Pr
             : <Link key={id} to={href as any} onClick={() => setOpen(false)} className={cls}><span className="w-5 text-center text-[#d8b56d]">◇</span>{label}</Link>
         })}
       </nav>
-      <div className={["border-t px-5 py-4", "border-white/10"].join(" ")}>{isAdmin ? <p className="text-[10px] tracking-widest text-white/45">MUSCAT · SULTANATE OF OMAN</p> : <button type="button" onClick={() => void signOut()} className="flex w-full items-center gap-3 py-2 text-left text-sm text-white/65 transition hover:text-[#e7c77f]"><span aria-hidden="true">↪</span>Log out</button>}</div>
+      <div className="border-t border-[#d8b56d]/45 px-5 py-4">{isAdmin ? <p className="text-[10px] tracking-widest text-white/45">MUSCAT · SULTANATE OF OMAN</p> : <button type="button" onClick={() => void signOut()} className="flex w-full items-center gap-3 py-2 text-left text-sm text-white/65 transition hover:text-[#e7c77f]"><span aria-hidden="true">↪</span>Log out</button>}</div>
     </aside>
   </>
 }
