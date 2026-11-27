@@ -46,6 +46,7 @@ function ResidencesPage() {
   const [checkingSession, setCheckingSession] = useState(true)
   const [signedIn, setSignedIn] = useState(false)
   const [projects, setProjects] = useState<Project[]>([])
+  const [projectLevelSettings, setProjectLevelSettings] = useState<{ level_name: string; commission_rate: number | string | null }[]>([])
   const [customerLevelAccess, setCustomerLevelAccess] = useState<{ user_id: string; level_name: string; is_unlocked: boolean }[]>([])
   const [customerSetAccess, setCustomerSetAccess] = useState<CustomerBadgeAccess[]>([])
   const [selectedSet, setSelectedSet] = useState(1)
@@ -109,16 +110,18 @@ function ResidencesPage() {
     setLoadingProjects(true)
     ;(async () => {
       const client = requireSupabase()
-      const [propertyResult, userResult, accessResult, setAccessResult] = await Promise.all([
+      const [propertyResult, userResult, accessResult, setAccessResult, levelSettingsResult] = await Promise.all([
         client.from('properties').select('id,slug,name,location,description,price_label,price_amount,order_percentages,cover_image_url,project_level,set_number,sort_order').eq('status', 'published').not('project_level', 'is', null).order('sort_order', { ascending: true }).order('created_at', { ascending: true }),
         client.auth.getUser(),
         client.from('customer_project_level_access').select('user_id,level_name,is_unlocked'),
         client.from('customer_project_set_access').select('user_id,level_name,set_number,is_unlocked'),
+        client.from('project_level_settings').select('level_name,commission_rate').in('level_name', ['Senior', 'Master', 'Expert']),
       ])
       if (propertyResult.error) throw propertyResult.error
       if (userResult.error) throw userResult.error
       if (accessResult.error) throw accessResult.error
       if (setAccessResult.error) throw setAccessResult.error
+      if (levelSettingsResult.error) throw levelSettingsResult.error
       if (!userResult.data.user) throw new Error('Please sign in to view the project catalogue.')
       const { error: bonusEnsureError } = await client.rpc('ensure_member_trial_bonus')
       if (bonusEnsureError) console.warn('Welcome Trial Bonus is not available:', bonusEnsureError.message)
@@ -138,6 +141,7 @@ function ResidencesPage() {
       if (completionDismissalResult.error) throw completionDismissalResult.error
       if (!active) return
       setProjects((propertyResult.data ?? []) as Project[])
+      setProjectLevelSettings((levelSettingsResult.data ?? []) as { level_name: string; commission_rate: number | string | null }[])
       setRequests((requestResult.data ?? []) as ProjectRequest[])
       setCompletionDismissals((completionDismissalResult.data ?? []).map((row) => `${row.level_name}:${row.set_number}`))
       setCurrentUserId(userResult.data.user.id)
@@ -261,15 +265,16 @@ function ResidencesPage() {
       setActivePremiumPopup(premiumAssignment)
       return
     }
-    const selection = { quantity: 1, percentage: Number(project.order_percentages?.[0] ?? 0) }
+    const configuredLevelRate = selectedLevel === 'Junior Trial' ? null : projectLevelSettings.find((item) => item.level_name === selectedLevel)?.commission_rate
+    const selection = { quantity: 1, percentage: selectedLevel === 'Junior Trial' ? Number(project.order_percentages?.[0] ?? 0) : Number(configuredLevelRate ?? NaN) }
     const basePrice = Number(project.price_amount || 0)
     const amount = Math.round(basePrice * selection.quantity * 100) / 100
     if (!basePrice || !Number.isFinite(basePrice) || basePrice <= 0 || !Number.isFinite(amount) || amount <= 0) {
       setError('This project is not ready for orders. Ask the administrator to set its confirmed numeric price first.')
       return
     }
-    if (!project.order_percentages?.length || !Number.isFinite(selection.percentage)) {
-      setError('This property is not ready for orders. Ask the administrator to set its percentage first.')
+    if ((selectedLevel === 'Junior Trial' && !project.order_percentages?.length) || !Number.isFinite(selection.percentage)) {
+      setError(selectedLevel === 'Junior Trial' ? 'This property is not ready for orders. Ask the administrator to set its percentage first.' : 'This project level is not ready for orders. Ask the administrator to set its commission rate first.')
       return
     }
     setBusyProject(project.id); setError(''); setNotice('')
@@ -407,7 +412,8 @@ function ResidencesPage() {
                   const prices = levelProperties.map((project) => Number(project.price_amount)).filter((price) => Number.isFinite(price) && price > 0)
                   const startingPrice = prices.length ? Math.min(...prices) : null
                   const percentages = levelProperties.flatMap((project) => project.order_percentages ?? []).filter((value) => Number.isFinite(Number(value)))
-                  const commissionLabel = percentages.length ? `${Math.min(...percentages)}–${Math.max(...percentages)}%` : 'Set by admin'
+                  const configuredRate = projectLevelSettings.find((item) => item.level_name === level)?.commission_rate
+                  const commissionLabel = isTrial ? (percentages.length ? `${Math.min(...percentages)}–${Math.max(...percentages)}%` : 'Set by admin') : (configuredRate !== null && configuredRate !== undefined ? `${Number(configuredRate)}%` : 'Set by admin')
                   return <button key={level} type="button" disabled={!unlocked} onClick={() => { setSelectedLevel(level); setSelectedSet(1); setCurrentProjectIndex(0); void navigate({ to: '/residences/', search: { level } }) }} className="group relative flex min-h-[420px] flex-col overflow-hidden rounded-2xl border border-[#d8b66b] bg-white text-left shadow-lg shadow-[#071b38]/15 transition duration-300 hover:-translate-y-1 hover:shadow-2xl disabled:cursor-not-allowed disabled:hover:translate-y-0">
                     <div className="relative h-[170px] w-full overflow-hidden">
                       <img src={levelImage} alt="" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
@@ -459,7 +465,7 @@ function ResidencesPage() {
                         const image = project.cover_image_url || SAMPLE_IMAGES[cardIndex % SAMPLE_IMAGES.length]
                         return <article key={project?.id || index} className="group flex h-full flex-col overflow-hidden rounded-2xl border border-[#d8b66b] bg-white shadow-lg shadow-[#071b38]/10">
                           <div className="relative overflow-hidden"><img src={image} alt={project.name} loading="lazy" className="aspect-[16/5] w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]" /><span className="eyebrow absolute left-3 top-3 rounded-md border border-[#f1d28d] bg-[#071b38]/90 px-3 py-1.5 text-[0.48rem] text-[#f1d28d]">NO OF PROMOTION {cardIndex + 1}/20</span></div>
-                          <div className="flex flex-1 flex-col p-3 sm:p-4"><div className="mb-3"><div className="mb-2 flex items-center justify-between text-[0.65rem]"><span className="font-semibold uppercase tracking-wider text-ink-soft">{selectedLevel === 'Junior Trial' ? 'Trial progress' : 'Badge progress'}</span><strong className="text-[#9a793b]">{currentProgressPercent}%</strong></div><div className="h-2 overflow-hidden rounded-full bg-[#e9e3d6]"><div className="h-full rounded-full bg-[#b18b43] transition-all" style={{ width: `${currentProgressPercent}%` }} /></div><p className="mt-1 text-[0.6rem] text-ink-soft">{fundedPropertyIds.size} of 20 properties funded</p></div><h3 className="display text-lg text-[#071b38]">{project.name}</h3><p className="mt-1.5 flex items-center gap-1.5 text-[0.7rem] text-ink-soft"><MapPin className="h-3.5 w-3.5 shrink-0" />{project.location || 'Muscat, Oman'}</p>{!project.price_amount ? <p className="mt-3 text-sm text-ink-soft">{project.price_label || 'Price to be set by admin'}</p> : null}{project?.price_amount ? <p className="mt-1 text-sm font-medium">{selectedLevel === 'Junior Trial' ? 'Base price' : 'Project value'}: {displayMoney(Number(project.price_amount))}</p> : null}<p className="mt-2 line-clamp-2 text-xs text-ink-soft">{project.description || ''}</p>{project.price_amount && project.price_amount > 0 ? <div className="mt-2.5 grid gap-1.5 border-t border-border pt-2.5"><div className="flex items-center justify-between"><span className="eyebrow text-[0.5rem] text-ink-soft">Commission rate</span><strong className="text-sm">{project.order_percentages?.[0] ?? 0}%</strong></div>{selectedLevel === 'Junior Trial' ? <div className="flex items-center justify-between text-xs text-ink-soft"><span>Order amount</span><strong className="text-foreground">{displayMoney(Number(project.price_amount))}</strong></div> : null}<div className="flex items-center justify-between text-xs text-ink-soft"><span>Commission</span><strong className="text-foreground">{displayMoney(Number(project.price_amount) * Number(project.order_percentages?.[0] ?? 0) / 100)}</strong></div><div className="flex items-center justify-between border-t border-border pt-2 text-xs text-ink-soft"><span>{selectedLevel === 'Junior Trial' ? 'Trial Bonus balance' : 'Wallet balance'}</span><strong className="text-foreground">{displayMoney(selectedLevel === 'Junior Trial' ? trialBonusBalanceOmr : walletBalanceOmr)}</strong></div><button type="button" disabled={busyProject === project.id || !project.order_percentages?.length || requests.some((request) => request.user_id === currentUserId && request.property_id === project.id && !['rejected', 'cancelled'].includes(String(request.status).toLowerCase()))} onClick={() => void requestProject(project)} className="eyebrow w-full rounded-lg border border-[#d8b66b] bg-[#071b38] px-3 py-2.5 text-[0.58rem] font-semibold tracking-widest text-[#f1d28d] transition hover:bg-[#10294b] disabled:cursor-not-allowed disabled:opacity-40">{busyProject === project.id ? 'Sending…' : requests.some((request) => request.user_id === currentUserId && request.property_id === project.id && !['rejected', 'cancelled'].includes(String(request.status).toLowerCase())) ? 'Already ordered' : 'Order project'}</button></div> : <p className="mt-5 border border-dashed border-border p-3 text-xs text-ink-soft">Awaiting admin price and order settings</p>}</div>
+                          <div className="flex flex-1 flex-col p-3 sm:p-4"><div className="mb-3"><div className="mb-2 flex items-center justify-between text-[0.65rem]"><span className="font-semibold uppercase tracking-wider text-ink-soft">{selectedLevel === 'Junior Trial' ? 'Trial progress' : 'Badge progress'}</span><strong className="text-[#9a793b]">{currentProgressPercent}%</strong></div><div className="h-2 overflow-hidden rounded-full bg-[#e9e3d6]"><div className="h-full rounded-full bg-[#b18b43] transition-all" style={{ width: `${currentProgressPercent}%` }} /></div><p className="mt-1 text-[0.6rem] text-ink-soft">{fundedPropertyIds.size} of 20 properties funded</p></div><h3 className="display text-lg text-[#071b38]">{project.name}</h3><p className="mt-1.5 flex items-center gap-1.5 text-[0.7rem] text-ink-soft"><MapPin className="h-3.5 w-3.5 shrink-0" />{project.location || 'Muscat, Oman'}</p>{!project.price_amount ? <p className="mt-3 text-sm text-ink-soft">{project.price_label || 'Price to be set by admin'}</p> : null}{project?.price_amount ? <p className="mt-1 text-sm font-medium">{selectedLevel === 'Junior Trial' ? 'Base price' : 'Project value'}: {displayMoney(Number(project.price_amount))}</p> : null}<p className="mt-2 line-clamp-2 text-xs text-ink-soft">{project.description || ''}</p>{project.price_amount && project.price_amount > 0 ? <div className="mt-2.5 grid gap-1.5 border-t border-border pt-2.5"><div className="flex items-center justify-between"><span className="eyebrow text-[0.5rem] text-ink-soft">Commission rate</span><strong className="text-sm">{(selectedLevel === 'Junior Trial' ? Number(project.order_percentages?.[0] ?? 0) : Number(projectLevelSettings.find((item) => item.level_name === selectedLevel)?.commission_rate ?? 0))}%</strong></div>{selectedLevel === 'Junior Trial' ? <div className="flex items-center justify-between text-xs text-ink-soft"><span>Order amount</span><strong className="text-foreground">{displayMoney(Number(project.price_amount))}</strong></div> : null}<div className="flex items-center justify-between text-xs text-ink-soft"><span>Commission</span><strong className="text-foreground">{displayMoney(Number(project.price_amount) * (selectedLevel === 'Junior Trial' ? Number(project.order_percentages?.[0] ?? 0) : Number(projectLevelSettings.find((item) => item.level_name === selectedLevel)?.commission_rate ?? 0)) / 100)}</strong></div><div className="flex items-center justify-between border-t border-border pt-2 text-xs text-ink-soft"><span>{selectedLevel === 'Junior Trial' ? 'Trial Bonus balance' : 'Wallet balance'}</span><strong className="text-foreground">{displayMoney(selectedLevel === 'Junior Trial' ? trialBonusBalanceOmr : walletBalanceOmr)}</strong></div><button type="button" disabled={busyProject === project.id || (selectedLevel === 'Junior Trial' ? !project.order_percentages?.length : !Number.isFinite(Number(projectLevelSettings.find((item) => item.level_name === selectedLevel)?.commission_rate))) || requests.some((request) => request.user_id === currentUserId && request.property_id === project.id && !['rejected', 'cancelled'].includes(String(request.status).toLowerCase()))} onClick={() => void requestProject(project)} className="eyebrow w-full rounded-lg border border-[#d8b66b] bg-[#071b38] px-3 py-2.5 text-[0.58rem] font-semibold tracking-widest text-[#f1d28d] transition hover:bg-[#10294b] disabled:cursor-not-allowed disabled:opacity-40">{busyProject === project.id ? 'Sending…' : requests.some((request) => request.user_id === currentUserId && request.property_id === project.id && !['rejected', 'cancelled'].includes(String(request.status).toLowerCase())) ? 'Already ordered' : 'Order project'}</button></div> : <p className="mt-5 border border-dashed border-border p-3 text-xs text-ink-soft">Awaiting admin price and order settings</p>}</div>
                         </article>
                       }) : null}
                       {projectCards.length === 0 && currentProjectIndex < 20 ? <p className="border border-border bg-card p-6 text-sm text-ink-soft">No un-ordered properties are available in this progression. Contact the administrator.</p> : null}
