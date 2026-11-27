@@ -24,7 +24,6 @@ const adminItems = [
   ['promotions','Promotions'],
   ['fortune','Fortune Box'],
   ['finance','Cashout'],
-  ['investments','Investment Requests'],
   ['commissions','Commissions'],
   ['transactions','History'],
   ['settings','Website Content & Settings'],
