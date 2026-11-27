@@ -1401,7 +1401,7 @@ function AdminPage() {
                 </div>
                 {levelAccessCustomerId ? <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{['Junior Trial','Senior','Master','Expert'].map((levelName) => {
                   const access = (rows.customerLevelAccess ?? []).find((entry) => text(entry.user_id) === levelAccessCustomerId && text(entry.level_name) === levelName)
-                  const isUnlockedForCustomer = levelName === 'Junior Trial' ? true : Boolean(access?.is_unlocked)
+                  const isUnlockedForCustomer = Boolean(access?.is_unlocked)
                   const allLevelProjects = (rows.properties ?? [])
                     .filter((project) => text(project.project_level) === levelName && text(project.status) === 'published' && (levelName !== 'Junior Trial' || Number(project.set_number || 1) === 1))
                     .sort((a, b) => Number(a.sort_order ?? 0) - Number(b.sort_order ?? 0) || text(a.name).localeCompare(text(b.name)))
@@ -1412,7 +1412,7 @@ function AdminPage() {
                     : [1, 2, 3].flatMap((setNo) => allLevelProjects.filter((project) => Number(project.set_number || 1) === setNo).slice(0, 20))
                   const customerOrders = (rows.investmentRequests ?? []).filter((request) => text(request.user_id) === levelAccessCustomerId && text(request.plan_code) === 'project_order' && normalizeAdminStatus(request.status) === 'funded')
                   const completed = levelProjects.filter((project) => customerOrders.some((request) => text(request.property_id) === text(project.id))).length
-                  return <div key={levelName} className="border border-border p-4"><p className="text-sm font-medium">{levelName}</p><p className="mt-1 text-xs text-ink-soft">{completed} / {levelProjects.length} properties funded across this level</p><p className="mt-1 text-xs font-medium text-ink-soft">{levelName === 'Junior Trial' ? 'Junior Trial property progress · no badges' : [1,2,3].every((setNo) => levelProjects.filter((project) => Number(project.set_number || 1) === setNo).length === 20 && levelProjects.filter((project) => Number(project.set_number || 1) === setNo).every((project) => customerOrders.some((request) => text(request.property_id) === text(project.id)))) ? 'All three badges completed' : 'Progress toward badge completion'}</p><p className="mt-1 text-xs text-ink-soft">{levelName === 'Junior Trial' ? 'Automatically available to every customer' : isUnlockedForCustomer ? 'Level unlocked for this customer' : 'Level locked for this customer'}</p>{levelName !== 'Junior Trial' ? <><button type="button" disabled={busy} className={softButton + ' mt-3'} onClick={() => {
+                  return <div key={levelName} className="border border-border p-4"><p className="text-sm font-medium">{levelName}</p><p className="mt-1 text-xs text-ink-soft">{completed} / {levelProjects.length} properties funded across this level</p><p className="mt-1 text-xs font-medium text-ink-soft">{levelName === 'Junior Trial' ? 'Junior Trial property progress · no badges' : [1,2,3].every((setNo) => levelProjects.filter((project) => Number(project.set_number || 1) === setNo).length === 20 && levelProjects.filter((project) => Number(project.set_number || 1) === setNo).every((project) => customerOrders.some((request) => text(request.property_id) === text(project.id)))) ? 'All three badges completed' : 'Progress toward badge completion'}</p><p className="mt-1 text-xs text-ink-soft">{isUnlockedForCustomer ? 'Level unlocked for this customer' : 'Level locked for this customer'}</p><><button type="button" disabled={busy} className={softButton + ' mt-3'} onClick={() => {
                     const nextUnlocked = !isUnlockedForCustomer
                     const customerId = customerNumber(levelAccessCustomerId)
                     const action = nextUnlocked ? 'unlock' : 'lock'
@@ -1422,7 +1422,7 @@ function AdminPage() {
                       if (accessError) throw accessError
                       setRows((current) => ({ ...current, customerLevelAccess: [...(current.customerLevelAccess ?? []).filter((entry) => !(text(entry.user_id) === levelAccessCustomerId && text(entry.level_name) === levelName)), { user_id: levelAccessCustomerId, level_name: levelName, is_unlocked: nextUnlocked }] }))
                     }, nextUnlocked ? levelName + ' unlocked for this customer.' : levelName + ' locked for this customer.')
-                  }}>{isUnlockedForCustomer ? 'Lock level' : 'Unlock level'}</button></> : null}{levelName !== 'Junior Trial' ? <div className="mt-4 grid gap-2">{[1,2,3].map((setNumber) => {
+                  }}>{isUnlockedForCustomer ? 'Lock level' : 'Unlock level'}</button></>{levelName !== 'Junior Trial' ? <div className="mt-4 grid gap-2">{[1,2,3].map((setNumber) => {
                     const badgeAccess = (rows.customerProjectSetAccess ?? []).find((entry) => text(entry.user_id) === levelAccessCustomerId && text(entry.level_name) === levelName && Number(entry.set_number) === setNumber)
                     const badgeUnlocked = badgeAccess ? Boolean(badgeAccess.is_unlocked) : setNumber === 1
                     const badgeProjects = levelProjects.filter((project) => Number(project.set_number || 1) === setNumber).slice(0, 20)
