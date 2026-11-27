@@ -75,15 +75,15 @@ export function WorkspaceSidebar({ mode, active, onSelect, isOwner = false }: Pr
   const items = isAdmin ? adminItems : memberItems
   return <>
     <button type="button" aria-label="Open workspace navigation" onClick={() => setOpen(true)}
-      className="fixed left-4 top-4 z-[70] flex h-11 w-11 items-center justify-center border border-brass/50 bg-[#123c2d] text-xl text-[#d8b56d] shadow-lg lg:hidden">☰</button>
-    {open ? <button aria-label="Close navigation overlay" onClick={() => setOpen(false)} className="fixed inset-0 z-[60] bg-black/55 lg:hidden" /> : null}
-    <aside className={['fixed inset-y-0 left-0 z-[65] flex w-64 flex-col border-r shadow-sm transition-transform duration-200', 'border-white/10 bg-[#123c2d] text-white shadow-2xl', open ? 'translate-x-0 lg:translate-x-0' : '-translate-x-full lg:translate-x-0'].join(' ')}>
+      className="fixed left-4 top-4 z-[70] flex h-11 w-11 items-center justify-center rounded-md border border-[#d8b56d]/70 bg-[#123c2d] text-xl leading-none text-[#d8b56d] shadow-lg transition-colors hover:border-[#e7c77f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d8b56d]/70">☰</button>
+    {open ? <button aria-label="Close navigation overlay" onClick={() => setOpen(false)} className="fixed inset-0 z-[60] bg-black/55" /> : null}
+    <aside className={['fixed inset-y-0 left-0 z-[65] flex w-64 flex-col border-r shadow-sm transition-transform duration-200', 'border-white/10 bg-[#123c2d] text-white shadow-2xl', open ? 'translate-x-0' : '-translate-x-full'].join(' ')}>
       <div className={["flex min-h-24 items-center justify-between border-b px-4 py-3", "border-white/10"].join(" ")}>
         <Link to={isAdmin ? "/admin" : "/dashboard"} aria-label="Msheireb Properties home" className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1.5">
           <img src="/msheireb-logo-hd(1).png" alt="Msheireb Properties" className="block h-auto max-h-14 w-full max-w-[210px] object-contain object-center" width="1696" height="444" decoding="async" />
           {isAdmin ? <span className="text-center text-[8px] font-semibold tracking-[0.18em] text-[#d8b56d]">ADMINISTRATION</span> : null}
         </Link>
-        <button type="button" onClick={() => setOpen(false)} aria-label="Close navigation" className="text-xl text-white/60 lg:hidden">×</button>
+        <button type="button" onClick={() => setOpen(false)} aria-label="Close navigation" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-[#d8b56d]/55 text-xl leading-none text-[#d8b56d] transition-colors hover:border-[#e7c77f] hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d8b56d]/70">×</button>
       </div>
       <nav aria-label={isAdmin ? 'Admin navigation' : 'Customer navigation'} className="flex-1 space-y-1 overflow-y-auto px-3 py-5">
         {items.map((item) => {
