@@ -78,6 +78,7 @@ function AdminPage() {
   const [error, setError] = useState('')
   const [propertyDraft, setPropertyDraft] = useState({ name: '', slug: '', location: 'Muscat, Oman', description: '', price_label: 'Price on request', price_amount: '', order_percentages: [10, 25, 50, 75, 100] as number[], cover_image_url: '', project_level: 'Junior Trial', set_number: '1', sort_order: '0', status: 'draft' })
   const [orderPercentagesInput, setOrderPercentagesInput] = useState('10, 25, 50, 75, 100')
+  const [levelCommissionDrafts, setLevelCommissionDrafts] = useState<Record<string, string>>({})
   const [editingPropertyId, setEditingPropertyId] = useState('')
   const [propertySaveFeedback, setPropertySaveFeedback] = useState('')
   const [propertySearch, setPropertySearch] = useState('')
@@ -250,6 +251,7 @@ function AdminPage() {
         next[names[index]] = (result.data ?? []) as Row[]
       })
       setRows(next)
+      setLevelCommissionDrafts(Object.fromEntries((next.levelSettings ?? []).filter((item) => ['Senior', 'Master', 'Expert'].includes(text(item.level_name))).map((item) => [text(item.level_name), text(item.commission_rate)])))
       if (failedLoads.length) {
         setError(`Some admin data could not refresh: ${failedLoads.join(' | ')}`)
       }
@@ -811,6 +813,15 @@ function AdminPage() {
     try { await work(); await load(); setError(''); setNotice(success) }
     catch (cause) { setError(errorMessage(cause, 'The action could not be completed.')) }
     finally { setBusy(false) }
+  }
+
+  const saveLevelCommission = async (levelName: 'Senior' | 'Master' | 'Expert') => {
+    const rate = Number(levelCommissionDrafts[levelName])
+    if (!Number.isFinite(rate) || rate < 0 || rate > 100) { setError('Commission rate must be between 0 and 100%.'); return }
+    await run(async () => {
+      const { error: saveError } = await requireSupabase().from('project_level_settings').update({ commission_rate: rate, updated_at: new Date().toISOString(), updated_by: user?.id ?? null }).eq('level_name', levelName)
+      if (saveError) throw saveError
+    }, `${levelName} commission rate saved for all three badges.`)
   }
 
   const saveProperty = async (event: FormEvent<HTMLFormElement>) => {
@@ -1412,13 +1423,14 @@ function AdminPage() {
                 <h2 className="display text-xl">Customer-specific level access</h2>
                 <p className="mt-2 text-xs leading-5 text-ink-soft">Level access is controlled separately for each customer. Select a customer below in Customers, then unlock only the level they have completed. This does not unlock the level for other customers.</p>
               </div>
+              <section className="grid gap-4 border border-brass/40 bg-card p-5"><div><h2 className="display text-xl">Level commission rates</h2><p className="mt-1 text-xs leading-5 text-ink-soft">One rate applies to every property in that level, across Badge 1, Badge 2 and Badge 3. Junior Trial keeps its existing separate commission settings.</p></div><div className="grid gap-3 sm:grid-cols-3">{(['Senior', 'Master', 'Expert'] as const).map((levelName) => <form key={levelName} className="grid gap-2 border border-border p-3" onSubmit={(event) => { event.preventDefault(); void saveLevelCommission(levelName) }}><label className="grid gap-1 text-xs text-ink-soft">{levelName} commission (%)<input required type="number" min="0" max="100" step="0.0001" className={inputClass} value={levelCommissionDrafts[levelName] ?? ''} onChange={(event) => setLevelCommissionDrafts((current) => ({ ...current, [levelName]: event.target.value }))} placeholder="e.g. 0.15" /></label><p className="text-[10px] text-ink-soft">Same rate for all 3 badges</p><button type="submit" disabled={busy || levelCommissionDrafts[levelName] === ''} className={softButton}>Save {levelName} rate</button></form>)}</div></section>
               <section className="grid gap-6 xl:grid-cols-[minmax(18rem,0.8fr)_1.2fr]">
               <form id="property-editor" onSubmit={saveProperty} className="h-fit border border-border bg-card p-6"><h2 className="display text-xl">{editingPropertyId ? 'Edit property' : 'Add property'}</h2><div className="mt-5 grid gap-3">
                 <input className={inputClass} required placeholder="Property name" value={propertyDraft.name} onChange={(e) => setPropertyDraft({ ...propertyDraft, name: e.target.value, slug: propertyDraft.slug || e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-') })} />
                 <input className={inputClass} placeholder="Location" value={propertyDraft.location} onChange={(e) => setPropertyDraft({ ...propertyDraft, location: e.target.value })} />
                 <input className={inputClass} placeholder="Price label (e.g. From OMR 50,000)" value={propertyDraft.price_label} onChange={(e) => setPropertyDraft({ ...propertyDraft, price_label: e.target.value })} />
                 <label className="grid gap-1 text-xs text-ink-soft">Project value (OMR)<input className={inputClass} type="number" min="0.01" step="0.01" placeholder="Enter confirmed numeric price in OMR" value={propertyDraft.price_amount} onChange={(e) => setPropertyDraft({ ...propertyDraft, price_amount: e.target.value })} /></label>
-                <label className="grid gap-1 text-xs text-ink-soft">Commission percentage options (comma-separated, 0–100)<input className={inputClass} inputMode="numeric" placeholder="Example: 5, 15, 30, 60, 100" value={orderPercentagesInput} onChange={(e) => setOrderPercentagesInput(e.target.value)} /></label><p className="text-[0.68rem] text-ink-soft">The first configured percentage is used as the commission rate for each order. Enter whole-number percentages from 0% to 100%, separated by commas.</p>
+                {propertyDraft.project_level === 'Junior Trial' ? <><label className="grid gap-1 text-xs text-ink-soft">Commission percentage options (comma-separated, 0–100)<input className={inputClass} inputMode="numeric" placeholder="Example: 5, 15, 30, 60, 100" value={orderPercentagesInput} onChange={(e) => setOrderPercentagesInput(e.target.value)} /></label><p className="text-[0.68rem] text-ink-soft">Junior Trial commission remains configured separately for each property.</p></> : <p className="text-xs text-ink-soft">Commission is controlled by the {propertyDraft.project_level} level rate above and is shared by all three badges.</p>}
                 <input className={inputClass} placeholder="Cover image URL" value={propertyDraft.cover_image_url} onChange={(e) => setPropertyDraft({ ...propertyDraft, cover_image_url: e.target.value })} />
                  <select className={inputClass} aria-label="Project level" value={propertyDraft.project_level} onChange={(e) => setPropertyDraft({ ...propertyDraft, project_level: e.target.value, set_number: e.target.value === 'Junior Trial' ? '1' : propertyDraft.set_number })}><option>Junior Trial</option><option>Senior</option><option>Master</option><option>Expert</option></select>
                  {propertyDraft.project_level !== 'Junior Trial' ? <select className={inputClass} aria-label="Project badge set" value={propertyDraft.set_number} onChange={(e) => setPropertyDraft({ ...propertyDraft, set_number: e.target.value })}><option value="1">Badge 1</option><option value="2">Badge 2</option><option value="3">Badge 3</option></select> : <p className="text-xs text-ink-soft">Junior Trial contains 20 properties in one progression. No badge sets.</p>}
