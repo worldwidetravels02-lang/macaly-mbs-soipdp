@@ -43,7 +43,7 @@ function AccountPage() {
   const [busy,setBusy] = useState(false)
   const [notice,setNotice] = useState('')
   const [error,setError] = useState('')
-  const [amount,setAmount] = useState('500')
+  const [amount,setAmount] = useState('')
   const [bankId,setBankId] = useState('')
   const [withdrawalCode,setWithdrawalCode] = useState('')
   const [hasWithdrawalCode,setHasWithdrawalCode] = useState(false)
