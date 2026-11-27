@@ -293,9 +293,7 @@ function ResidencesPage() {
         .map((request) => request.property_id))
       setCurrentProjectIndex(Math.min(orderedPropertyIds.size, 20))
       setOrderedProjectName(project.name)
-      setNotice(selectedLevel === 'Junior Trial'
-        ? 'Your Junior Trial property order has been funded successfully. Opening the next property…'
-        : 'Your order request has been submitted. Opening the next property…')
+      setNotice('Your property order has been funded successfully. Opening the next property…')
       if (orderedPropertyIds.size < 20) setOrderSuccessPopup(true)
     } catch (cause) {
       const details = cause && typeof cause === 'object' ? cause as { message?: unknown; details?: unknown; hint?: unknown; code?: unknown } : null
@@ -346,7 +344,7 @@ function ResidencesPage() {
           <div aria-hidden="true" className="mx-auto mb-5 grid h-20 w-20 place-items-center rounded-full border-2 border-[#d8b66b] bg-gradient-to-br from-[#fff7df] to-[#e8d39a] text-5xl text-[#23834b]">✓</div>
           <p className="eyebrow text-xs font-bold tracking-[0.24em] text-[#9a793b]">PROPERTY ORDER</p>
           <h2 id="order-success-title" className="display mt-3 text-3xl text-[#071b38]">Order successful</h2>
-          <p className="mt-4 text-sm leading-6 text-[#555]">{selectedLevel === 'Junior Trial' ? <>Your Junior Trial order for <strong>{orderedProjectName}</strong> has been funded successfully.</> : <>Your order request for <strong>{orderedProjectName}</strong> has been submitted successfully.</>}</p>
+          <p className="mt-4 text-sm leading-6 text-[#555]">Your {selectedLevel} property order for <strong>{orderedProjectName}</strong> has been funded successfully.</p>
           <p className="mt-3 text-xs text-[#777]">Opening the next property…</p>
           <button type="button" onClick={() => setOrderSuccessPopup(false)} className="mt-6 w-full rounded-xl bg-[#071b38] px-6 py-4 text-sm font-semibold text-[#f1d28d]">Continue</button>
         </section>
