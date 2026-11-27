@@ -415,6 +415,14 @@ body vite-error-overlay {
 }
 
 
+/* Customer dashboard scenic background and translucent customer cards */
+.customer-dashboard .bg-card,
+.customer-dashboard .bg-white {
+  background-color: rgb(255 255 255 / 0.84) !important;
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+
 /* Customer dashboard typography */
 .customer-dashboard {
   font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
