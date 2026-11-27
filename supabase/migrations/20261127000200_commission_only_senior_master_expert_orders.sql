@@ -52,6 +52,82 @@ declare
                                                                               select coalesce(v_property.order_percentages[1], 0)::numeric(8,4)
                                                                                 into v_commission_percent;
                                                                             else
+                                                                              select commission_rate
+                                                                                into v_commission_percent
+                                                                              from public.project_level_settings
+                                                                              where level_name = v_property.project_level;
+                                                                              if not found or v_commission_percent is null then
+                                                                                raise exception 'The administrator has not configured a commission rate for this project level';
+                                                                              end if;
+                                                                            end if;
+
+                                                                                        if v_commission_percent < 0 or v_commission_percent > 100 then
+                                                                                            raise exception 'The configured project commission percentage is invalid';
+                                                                                              end if;
+
+                                                                                                v_amount := round(v_property.price_amount, 2);
+
+                                                                                                  if v_property.project_level <> 'Junior Trial' then
+                                                                                                      select coalesce(bool_or(is_unlocked), false) into v_level_unlocked
+                                                                                                          from public.customer_project_level_access
+                                                                                                              where user_id = v_user_id and level_name = v_property.project_level;
+
+                                                                                                                  if not coalesce(v_level_unlocked, false) then
+                                                                                                                        raise exception 'This project level has not been unlocked by the administrator';
+                                                                                                                            end if;
+
+                                                                                                                                select coalesce(bool_or(is_unlocked), v_property.set_number = 1) into v_set_unlocked
+                                                                                                                                    from public.customer_project_set_access
+                                                                                                                                        where user_id = v_user_id
+                                                                                                                                              and level_name = v_property.project_level
+                                                                                                                                                    and set_number = v_property.set_number;
+
+                                                                                                                                                        if not coalesce(v_set_unlocked, v_property.set_number = 1) then
+                                                                                                                                                              raise exception 'This badge has not been unlocked by the administrator';
+                                                                                                                                                                  end if;
+                                                                                                                                                                    end if;
+
+                                                                                                                                                                      if exists (
+                                                                                                                                                                          select 1 from public.investment_requests
+                                                                                                                                                                              where user_id = v_user_id and property_id = p_property_id
+                                                                                                                                                                                    and plan_code = 'project_order'
+                                                                                                                                                                                          and status not in ('rejected','cancelled')
+                                                                                                                                                                                            ) then
+                                                                                                                                                                                                raise exception 'You already submitted an order for this property';
+                                                                                                                                                                                                  end if;
+
+                                                                                                                                                                                                    select count(distinct ir.property_id)::integer
+                                                                                                                                                                                                        into v_set_order_count
+                                                                                                                                                                                                          from public.investment_requests ir
+                                                                                                                                                                                                            join public.properties p on p.id = ir.property_id
+                                                                                                                                                                                                              where ir.user_id = v_user_id
+                                                                                                                                                                                                                  and ir.plan_code = 'project_order'
+                                                                                                                                                                                                                      and ir.status in ('pending','approved','funded')
+                                                                                                                                                                                                                          and p.project_level = v_property.project_level
+                                                                                                                                                                                                                              and p.set_number = v_property.set_number;
+
+                                                                                                                                                                                                                                if v_set_order_count >= 20 then
+                                                                                                                                                                                                                                    raise exception 'This badge already has 20 submitted properties';
+                                                                                                                                                                                                                                      end if;
+
+                                                                                                                                                                                                                                        if v_property.project_level = 'Junior Trial' then
+                                                                                                                                                                                                                                            select coalesce(sum(case when direction = 'credit' then amount else -amount end), 0)
+                                                                                                                                                                                                                                                  into v_available
+                                                                                                                                                                                                                                                      from public.trial_bonus_transactions
+                                                                                                                                                                                                                                                          where user_id = v_user_id and currency = 'OMR';
+
+                                                                                                                                                                                                                                                              select coalesce(sum(ir.amount), 0) into v_pending_orders
+                                                                                                                                                                                                                                                                  from public.investment_requests ir
+                                                                                                                                                                                                                                                                      join public.properties p on p.id = ir.property_id
+                                                                                                                                                                                                                                                                          where ir.user_id = v_user_id
+                                                                                                                                                                                                                                                                                and ir.plan_code = 'project_order'
+                                                                                                                                                                                                                                                                                      and ir.currency = 'OMR'
+                                                                                                                                                                                                                                                                                            AND ir.status IN ('pending','approved') AND p.project_level = 'Junior Trial' AND NOT EXISTS (SELECT 1 FROM public.trial_bonus_transactions t WHERE t.user_id = ir.user_id AND t.reference_type = 'project_order' AND t.reference_id = ir.id AND t.direction = 'debit' AND t.currency = 'OMR');
+
+                                                                                                                                                                                                                                                                                                      if coalesce(v_available, 0) - v_pending_orders < v_amount then
+                                                                                                                                                                                                                                                                                                            raise exception 'Insufficient Trial Bonus balance for this OMR project order';
+                                                                                                                                                                                                                                                                                                                end if;
+else
   -- Senior, Master and Expert orders do not debit or reserve customer wallet funds.
 end if;
 
