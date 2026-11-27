@@ -3,7 +3,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useCallback, useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { ArrowRight, BrandMark } from '../components/site-chrome'
-import { Wallet, Clock3, TrendingUp, Building2, House, ClipboardList, ArrowDownToLine, Headset } from 'lucide-react'
+import { Wallet, TrendingUp, Building2, House, ClipboardList, ArrowDownToLine, Headset } from 'lucide-react'
 import { requireSupabase } from '../lib/supabase-client'
 import { canonicalUrl } from '../lib/canonical-url'
 import siteMetadata from '../metadata.json'
@@ -264,11 +264,11 @@ function DashboardPage() {
             <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Account overview">
               <Link to="/wallet" className="group flex h-full min-h-[132px] flex-col justify-between rounded-2xl border border-white/65 bg-white/80 p-5 shadow-[0_8px_24px_rgba(18,60,45,.10)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-[#c8ad68]">
                 <div className="flex items-center justify-between"><span className="text-xs font-semibold text-[#62766a]">Wallet balance</span><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e7f1e9]/90 text-[#0b5a3c]"><Wallet className="h-5 w-5" strokeWidth={1.8} /></span></div>
-                <p data-testid="dashboard-balance" className="mt-3 text-2xl font-bold tracking-tight text-[#123c2d]">{formatMoney(balance)}</p><p className="mt-1 text-xs font-semibold text-[#718477]">Available funds</p>
+                <p data-testid="dashboard-balance" className="mt-3 text-2xl font-bold tracking-tight text-[#123c2d]">{formatMoney(balance)}</p><p className="mt-1 text-xs font-semibold text-[#718477]">Available funds · {formatMoney(holdBalance)} pending withdrawals</p>
               </Link>
               <Link to="/wallet#commissions" className="group flex h-full min-h-[132px] flex-col justify-between rounded-2xl border border-white/65 bg-white/80 p-5 shadow-[0_8px_24px_rgba(18,60,45,.10)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-[#c8ad68]">
                 <div className="flex items-center justify-between"><span className="text-xs font-semibold text-[#62766a]">Today’s revenue</span><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e7f1e9]/90 text-[#0b5a3c]"><TrendingUp className="h-5 w-5" strokeWidth={1.8} /></span></div>
-                <p className="mt-3 text-2xl font-bold tracking-tight text-[#123c2d]">{formatMoney(todayCommission)}</p><p className="mt-1 text-xs font-semibold text-[#718477]">Credited commissions today</p>
+                <p className="mt-3 text-2xl font-bold tracking-tight text-[#123c2d]">{formatMoney(todayCommission)}</p><p className="mt-1 text-xs font-semibold text-[#718477]">Today’s credited · {formatMoney(totalCommission)} total commission</p>
               </Link>
               <Link to="/orders" className="group flex h-full min-h-[132px] flex-col justify-between rounded-2xl border border-white/65 bg-white/80 p-5 shadow-[0_8px_24px_rgba(18,60,45,.10)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-[#c8ad68]">
                 <div className="flex items-center justify-between"><span className="text-xs font-semibold text-[#62766a]">Total orders</span><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e7f1e9]/90 text-[#0b5a3c]"><Building2 className="h-5 w-5" strokeWidth={1.8} /></span></div>
