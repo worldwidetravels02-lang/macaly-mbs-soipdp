@@ -22,7 +22,6 @@ const SECTIONS: { id: Section; label: string }[] = [
   { id: 'promotions', label: 'Promotions' },
   { id: 'fortune', label: 'Fortune Box' },
   { id: 'finance', label: 'Cashout' },
-  { id: 'commissions', label: 'Commissions' },
   { id: 'transactions', label: 'History' },
   { id: 'settings', label: 'Website Content & Settings' },
   { id: 'team', label: 'Team & Access' },
