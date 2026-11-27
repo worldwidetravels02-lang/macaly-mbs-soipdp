@@ -124,7 +124,7 @@ function AccountPage() {
       for(const r of trialBonusEntries) mapped.push({id:r.id,type:'Trial bonus',description:r.description || 'Trial Bonus',amount:(r.direction==='debit'?-1:1)*Number(r.amount),currency:r.currency,status:'posted',created_at:r.created_at})
       for(const r of (topups.data ?? []) as any[]) mapped.push({id:r.id,type:'Cash in',description:'Deposit request',amount:Number(r.amount),currency:r.currency,status:r.status,created_at:r.created_at})
       for(const r of (withdrawals.data ?? []) as any[]) if(['pending','rejected','cancelled'].includes(norm(r.status))) mapped.push({id:r.id,type:'Cash out',description:'Withdrawal request',amount:0,currency:r.currency,status:r.status,created_at:r.created_at})
-      for(const r of (investments.data ?? []) as any[]) mapped.push({id:r.id,type:'Property',description:(r.plan_code || 'Project')+' · '+r.property_name,amount:Number(r.amount),currency:r.currency,status:norm(r.status)==='funded'?'Funded':r.status,created_at:r.created_at})
+      for(const r of (investments.data ?? []) as any[]) mapped.push({id:r.id,type:'Property',description:(r.plan_code || 'Project')+' · '+r.property_name,amount:Number(r.amount),currency:r.currency,status:norm(r.status)==='funded'?'Funded':norm(r.plan_code)==='project order' && norm(r.status)==='pending'?'Processing':r.status,created_at:r.created_at})
       setRecords(mapped.sort((a,b)=>Date.parse(b.created_at)-Date.parse(a.created_at)))
     } catch(e) {setError(e instanceof Error?e.message:'Could not load your account.')}
     finally {setLoading(false)}
