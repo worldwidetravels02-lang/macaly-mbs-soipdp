@@ -817,13 +817,13 @@ function AdminPage() {
     await run(async () => {
       const client = requireSupabase()
       const priceAmount = propertyDraft.price_amount.trim() ? Number(propertyDraft.price_amount) : null
-      const percentages = [...new Set(orderPercentagesInput.split(',').map((value) => Number(value.trim())).filter((value) => Number.isInteger(value) && value >= 1 && value <= 100))].sort((a, b) => a - b)
+      const percentages = [...new Set(orderPercentagesInput.split(',').map((value) => value.trim()).filter(Boolean).map(Number).filter((value) => Number.isInteger(value) && value >= 0 && value <= 100))].sort((a, b) => a - b)
       const generatedSlug = (propertyDraft.slug.trim() || propertyDraft.name.trim()).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
       const payload = { name: propertyDraft.name.trim(), slug: generatedSlug, location: propertyDraft.location.trim(), description: propertyDraft.description.trim(), price_label: propertyDraft.price_label.trim(), price_amount: priceAmount, order_percentages: percentages, cover_image_url: propertyDraft.cover_image_url.trim() || null, project_level: propertyDraft.project_level, set_number: propertyDraft.project_level === 'Junior Trial' ? 1 : Number(propertyDraft.set_number), sort_order: Number(propertyDraft.sort_order), status: propertyDraft.status, updated_at: new Date().toISOString() }
       if (!payload.name || !payload.slug) throw new Error('Enter a valid property name using letters or numbers.')
       if (payload.price_amount !== null && (!Number.isFinite(payload.price_amount) || payload.price_amount <= 0)) throw new Error('Enter a valid project price greater than zero.')
-      if (payload.price_amount !== null && payload.order_percentages.length === 0) throw new Error('Enter at least one whole-number percentage from 1 to 100.')
-      if (orderPercentagesInput.split(',').some((value) => value.trim() && (!Number.isInteger(Number(value.trim())) || Number(value.trim()) < 1 || Number(value.trim()) > 100))) throw new Error('Use whole-number percentages from 1 to 100, separated by commas.')
+      if (payload.price_amount !== null && payload.order_percentages.length === 0) throw new Error('Enter at least one whole-number percentage from 0 to 100.')
+      if (orderPercentagesInput.split(',').some((value) => value.trim() && (!Number.isInteger(Number(value.trim())) || Number(value.trim()) < 0 || Number(value.trim()) > 100))) throw new Error('Use whole-number percentages from 0 to 100, separated by commas.')
       if (payload.cover_image_url && !/^https:\/\//i.test(payload.cover_image_url)) throw new Error('Project image must use a secure HTTPS URL.')
       if (editingPropertyId) {
         const { data: updated, error: saveError } = await client.from('properties').update(payload).eq('id', editingPropertyId).select('id').maybeSingle()
@@ -1097,14 +1097,14 @@ function AdminPage() {
   }
 
   const fundProjectOrder = async (id: string) => {
-    if (!window.confirm('Fund this approved project order? The order amount will be deducted from the correct customer balance, and its commission will be credited to the main OMR wallet.')) return
+    if (!window.confirm('Complete funding for this approved project order? The customer balance will be handled according to the project level and badge, and any configured commission will be credited to the main OMR wallet.')) return
     setBusy(true)
     setError('')
     setNotice('')
     try {
       const { error: rpcError } = await requireSupabase().rpc('admin_fund_investment_request', { p_request_id: id })
       if (rpcError) throw rpcError
-      const message = 'Project order funded. The correct customer balance was debited and the commission was credited to the main wallet.'
+      const message = 'Project order funded. Any applicable commission was credited to the main OMR wallet.'
       setNotice(message)
       window.alert(message)
       await load()
@@ -1372,8 +1372,8 @@ function AdminPage() {
                 <input className={inputClass} required placeholder="Property name" value={propertyDraft.name} onChange={(e) => setPropertyDraft({ ...propertyDraft, name: e.target.value, slug: propertyDraft.slug || e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-') })} />
                 <input className={inputClass} placeholder="Location" value={propertyDraft.location} onChange={(e) => setPropertyDraft({ ...propertyDraft, location: e.target.value })} />
                 <input className={inputClass} placeholder="Price label (e.g. From OMR 50,000)" value={propertyDraft.price_label} onChange={(e) => setPropertyDraft({ ...propertyDraft, price_label: e.target.value })} />
-                <label className="grid gap-1 text-xs text-ink-soft">Project base price (OMR)<input className={inputClass} type="number" min="0.01" step="0.01" placeholder="Enter confirmed numeric price in OMR" value={propertyDraft.price_amount} onChange={(e) => setPropertyDraft({ ...propertyDraft, price_amount: e.target.value })} /></label>
-                <label className="grid gap-1 text-xs text-ink-soft">Commission percentage options (comma-separated, 1–100)<input className={inputClass} inputMode="numeric" placeholder="Example: 5, 15, 30, 60, 100" value={orderPercentagesInput} onChange={(e) => setOrderPercentagesInput(e.target.value)} /></label><p className="text-[0.68rem] text-ink-soft">The first configured percentage is used as the commission rate for each order. Enter whole-number percentages from 1% to 100%, separated by commas.</p>
+                <label className="grid gap-1 text-xs text-ink-soft">Project value (OMR)<input className={inputClass} type="number" min="0.01" step="0.01" placeholder="Enter confirmed numeric price in OMR" value={propertyDraft.price_amount} onChange={(e) => setPropertyDraft({ ...propertyDraft, price_amount: e.target.value })} /></label>
+                <label className="grid gap-1 text-xs text-ink-soft">Commission percentage options (comma-separated, 0–100)<input className={inputClass} inputMode="numeric" placeholder="Example: 5, 15, 30, 60, 100" value={orderPercentagesInput} onChange={(e) => setOrderPercentagesInput(e.target.value)} /></label><p className="text-[0.68rem] text-ink-soft">The first configured percentage is used as the commission rate for each order. Enter whole-number percentages from 0% to 100%, separated by commas.</p>
                 <input className={inputClass} placeholder="Cover image URL" value={propertyDraft.cover_image_url} onChange={(e) => setPropertyDraft({ ...propertyDraft, cover_image_url: e.target.value })} />
                  <select className={inputClass} aria-label="Project level" value={propertyDraft.project_level} onChange={(e) => setPropertyDraft({ ...propertyDraft, project_level: e.target.value, set_number: e.target.value === 'Junior Trial' ? '1' : propertyDraft.set_number })}><option>Junior Trial</option><option>Senior</option><option>Master</option><option>Expert</option></select>
                  {propertyDraft.project_level !== 'Junior Trial' ? <select className={inputClass} aria-label="Project badge set" value={propertyDraft.set_number} onChange={(e) => setPropertyDraft({ ...propertyDraft, set_number: e.target.value })}><option value="1">Badge 1</option><option value="2">Badge 2</option><option value="3">Badge 3</option></select> : <p className="text-xs text-ink-soft">Junior Trial contains 20 properties in one progression. No badge sets.</p>}
