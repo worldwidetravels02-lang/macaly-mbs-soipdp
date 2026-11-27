@@ -8,6 +8,8 @@ import { requireSupabase } from '../lib/supabase-client'
 import { canonicalUrl } from '../lib/canonical-url'
 import siteMetadata from '../metadata.json'
 
+const CUSTOMER_BACKGROUND = 'https://images.pexels.com/photos/30799019/pexels-photo-30799019.jpeg?auto=compress&cs=tinysrgb&w=2400'
+
 const meta = siteMetadata['/dashboard']
 const normalizeInvestmentStatus = (value: unknown) => String(value ?? '').trim().toLowerCase().replace(/[\s-]+/g, '_')
 type Currency = string
@@ -19,6 +21,7 @@ type WelcomeTrialBonus = { id: string; amount: number | string; currency: 'OMR';
 type MemberTask = { id: string; title: string; detail: string | null; target_level: number | null; status: string; created_at: string; reviewed_at?: string | null; review_note?: string | null }
 type MembershipPlan = { id: string; level: number; name: string; minimum_amount: number | string; profit_percent: number | string; commission_percent: number | string; active: boolean }
 type CustomerLevelAccess = { user_id: string; level_name: string; is_unlocked: boolean }
+type BadgeProgress = { level_name: string; set_number: number; is_unlocked: boolean; progress_percent: number }
 function formatMoney(amount: number | string) {
   const numeric = Number(amount)
   return new Intl.NumberFormat('en', { style: 'currency', currency: 'OMR', maximumFractionDigits: 2 }).format(Number.isFinite(numeric) ? numeric : 0)
@@ -58,6 +61,7 @@ function DashboardPage() {
   const [memberTasks, setMemberTasks] = useState<MemberTask[]>([])
   const [membershipPlans, setMembershipPlans] = useState<MembershipPlan[]>([])
   const [levelAccess, setLevelAccess] = useState<CustomerLevelAccess[]>([])
+  const [badgeProgress, setBadgeProgress] = useState<BadgeProgress[]>([])
   const [taskBusy, setTaskBusy] = useState<string | null>(null)
   const [taskMessage, setTaskMessage] = useState('')
   const [loading, setLoading] = useState(true)
@@ -88,7 +92,7 @@ function DashboardPage() {
           setWelcomeBonus(bonusRow as WelcomeTrialBonus | null)
         }
       }
-      const [profile, wallet, pendingWithdrawals, projects, requests, ledger, notices, commissionRows, memberProfile, taskRows, planRows, accessRows] = await Promise.all([
+      const [profile, wallet, pendingWithdrawals, projects, requests, ledger, notices, commissionRows, memberProfile, taskRows, planRows, accessRows, badgeRows] = await Promise.all([
         client.from('profiles').select('full_name').eq('id', current.id).maybeSingle(),
         client.from('wallet_balances').select('balance').eq('user_id', current.id).eq('currency', 'OMR').maybeSingle(),
         client.from('wallet_pending_withdrawals').select('pending_amount').eq('user_id', current.id).eq('currency', 'OMR').maybeSingle(),
@@ -101,8 +105,9 @@ function DashboardPage() {
         client.from('member_tasks').select('*').eq('user_id', current.id).order('created_at', { ascending: false }).limit(100),
         client.from('membership_plans').select('*').eq('active', true).order('level', { ascending: true }),
         client.from('customer_project_level_access').select('user_id,level_name,is_unlocked').eq('user_id', current.id),
+        client.from('customer_project_set_access').select('level_name,set_number,is_unlocked,progress_percent').eq('user_id', current.id).order('level_name').order('set_number'),
       ])
-      for (const result of [profile, wallet, pendingWithdrawals, projects, requests, ledger, notices, commissionRows, memberProfile, taskRows, planRows, accessRows]) if (result.error) throw result.error
+      for (const result of [profile, wallet, pendingWithdrawals, projects, requests, ledger, notices, commissionRows, memberProfile, taskRows, planRows, accessRows, badgeRows]) if (result.error) throw result.error
       setName(profile.data?.full_name?.trim() || current.user_metadata?.full_name || current.email?.split('@')[0] || 'Member')
       setBalance(Number(wallet.data?.balance ?? 0))
       setHoldBalance(Number(pendingWithdrawals.data?.pending_amount ?? 0))
@@ -114,6 +119,7 @@ function DashboardPage() {
       setMemberTasks((taskRows.data ?? []) as MemberTask[])
       setMembershipPlans((planRows.data ?? []) as MembershipPlan[])
       setLevelAccess((accessRows.data ?? []) as CustomerLevelAccess[])
+      setBadgeProgress((badgeRows.data ?? []) as BadgeProgress[])
       setUnread(notices.count ?? 0)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not load your dashboard.')
@@ -207,7 +213,7 @@ function DashboardPage() {
   const todayCommission = creditedCommissions.filter((row) => row.currency === 'OMR' && new Date(row.created_at).toLocaleDateString('en-CA') === todayKey).reduce((sum, row) => sum + Number(row.amount), 0)
 
   return (
-    <div className="customer-dashboard dashboard-typography min-h-screen bg-[#f3f6f0] text-[#123c2d]">
+    <div className="customer-dashboard dashboard-typography min-h-screen text-[#123c2d]" style={{ backgroundImage: `linear-gradient(rgba(8, 36, 25, 0.38), rgba(8, 36, 25, 0.48)), url("${CUSTOMER_BACKGROUND}")`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed' }}>
       <WorkspaceSidebar mode="member" />
 
       <header className="fixed inset-x-0 top-0 z-40 flex h-[72px] items-center justify-end border-b border-[#d4e2d7] bg-[#06452f]/98 px-4 pl-20 text-white shadow-lg backdrop-blur sm:px-6 sm:pl-20 lg:left-64 lg:px-7">
@@ -218,13 +224,13 @@ function DashboardPage() {
 
       <main id="main" className="pb-20 pt-24 lg:ml-64">
         <div className="mx-auto grid w-full max-w-[1500px] gap-5 px-5 sm:px-7">
-          <section className="relative overflow-hidden rounded-2xl border border-[#c8ad68]/50 bg-gradient-to-br from-[#06452f] via-[#0b5a3c] to-[#123c2d] px-7 py-8 shadow-xl sm:px-10 sm:py-10">
-            <div className="pointer-events-none absolute -right-12 -top-16 h-72 w-72 rounded-full border border-[#d8b56d]/20 bg-[#d8b56d]/5" /><div className="pointer-events-none absolute bottom-0 right-0 h-1 w-2/5 bg-gradient-to-l from-[#d8b56d] to-transparent" />
+          <section className="relative overflow-hidden rounded-2xl border border-[#d8b56d]/55 bg-white/82 px-7 py-8 shadow-xl backdrop-blur-xl sm:px-10 sm:py-10">
+            <div className="pointer-events-none absolute -right-12 -top-16 h-72 w-72 rounded-full border border-[#d8b56d]/35 bg-[#d8b56d]/10" /><div className="pointer-events-none absolute bottom-0 right-0 h-1 w-2/5 bg-gradient-to-l from-[#b9974e] to-transparent" />
             <div className="relative">
-              <p className="eyebrow mb-3 text-[0.58rem] tracking-[0.25em] text-[#d8b56d]">MSHEIREB PROPERTIES · PRIVATE MEMBER SPACE</p><h1 className="display text-3xl leading-tight text-white sm:text-4xl">Welcome back, {name.split(' ')[0]}.</h1><p className="mt-3 max-w-xl text-sm leading-6 text-white/65">Your property journey, wallet and investment activity — together in one place.</p>
+              <p className="eyebrow mb-3 text-[0.58rem] tracking-[0.25em] text-[#92743a]">MSHEIREB PROPERTIES · PRIVATE MEMBER SPACE</p><h1 className="display text-3xl leading-tight text-[#123c2d] sm:text-4xl">Welcome back, {name.split(' ')[0]}.</h1><p className="mt-3 max-w-xl text-sm leading-6 text-[#4c6256]">Your property journey, wallet and investment activity — together in one place.</p>
               <div className="mt-5 flex flex-wrap gap-2.5">
-                <Link to="/residences" className="inline-flex items-center gap-2 rounded-md bg-[#d8b56d] px-5 py-3 text-sm font-semibold text-[#123c2d] transition hover:bg-[#e6c984]">Explore projects <ArrowRight /></Link>
-                <Link to="/account" className="inline-flex items-center rounded-md border border-white/25 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:border-[#d8b56d]">View account</Link>
+                <Link to="/residences" className="inline-flex items-center gap-2 rounded-md bg-[#123c2d] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#0b5a3c]">Explore projects <ArrowRight /></Link>
+                <Link to="/account" className="inline-flex items-center rounded-md border border-[#123c2d]/25 bg-white/55 px-5 py-3 text-sm font-semibold text-[#123c2d] transition hover:border-[#b9974e]">View account</Link>
               </div>
             </div>
           </section>
@@ -256,22 +262,23 @@ function DashboardPage() {
 
           {user && !loading ? <>
             <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Account overview">
-              <Link to="/wallet" className="group flex h-full min-h-[132px] flex-col justify-between rounded-2xl border border-[#dce7dd] bg-white p-5 shadow-[0_8px_24px_rgba(18,60,45,.07)] transition hover:-translate-y-0.5 hover:border-[#c8ad68]">
-                <div className="flex items-center justify-between"><span className="text-xs font-semibold text-[#62766a]">Wallet balance</span><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e7f1e9] text-[#0b5a3c]"><Wallet className="h-5 w-5" strokeWidth={1.8} /></span></div>
+              <Link to="/wallet" className="group flex h-full min-h-[132px] flex-col justify-between rounded-2xl border border-white/65 bg-white/80 p-5 shadow-[0_8px_24px_rgba(18,60,45,.10)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-[#c8ad68]">
+                <div className="flex items-center justify-between"><span className="text-xs font-semibold text-[#62766a]">Wallet balance</span><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e7f1e9]/90 text-[#0b5a3c]"><Wallet className="h-5 w-5" strokeWidth={1.8} /></span></div>
                 <p data-testid="dashboard-balance" className="mt-3 text-2xl font-bold tracking-tight text-[#123c2d]">{formatMoney(balance)}</p><p className="mt-1 text-xs font-semibold text-[#718477]">Available funds</p>
               </Link>
-              <Link to="/wallet#withdrawals" className="group flex h-full min-h-[132px] flex-col justify-between rounded-2xl border border-[#dce7dd] bg-white p-5 shadow-[0_8px_24px_rgba(18,60,45,.07)] transition hover:-translate-y-0.5 hover:border-[#c8ad68]">
-                <div className="flex items-center justify-between"><span className="text-xs font-semibold text-[#62766a]">Pending withdrawals</span><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e7f1e9] text-[#0b5a3c]"><Clock3 className="h-5 w-5" strokeWidth={1.8} /></span></div>
-                <p className="mt-3 text-2xl font-bold tracking-tight text-[#123c2d]">{formatMoney(holdBalance)}</p><p className="mt-1 text-xs font-semibold text-[#718477]">Awaiting processing</p>
+              <Link to="/wallet#commissions" className="group flex h-full min-h-[132px] flex-col justify-between rounded-2xl border border-white/65 bg-white/80 p-5 shadow-[0_8px_24px_rgba(18,60,45,.10)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-[#c8ad68]">
+                <div className="flex items-center justify-between"><span className="text-xs font-semibold text-[#62766a]">Today’s revenue</span><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e7f1e9]/90 text-[#0b5a3c]"><TrendingUp className="h-5 w-5" strokeWidth={1.8} /></span></div>
+                <p className="mt-3 text-2xl font-bold tracking-tight text-[#123c2d]">{formatMoney(todayCommission)}</p><p className="mt-1 text-xs font-semibold text-[#718477]">Credited commissions today</p>
               </Link>
-              <Link to="/wallet#commissions" className="group flex h-full min-h-[132px] flex-col justify-between rounded-2xl border border-[#c8ad68] bg-gradient-to-br from-[#f7e8bd] to-[#e7cb83] p-5 shadow-[0_8px_24px_rgba(18,60,45,.08)] transition hover:-translate-y-0.5">
-                <div className="flex items-center justify-between"><span className="text-xs font-bold text-[#624b1e]">Total commission</span><span className="grid h-10 w-10 place-items-center rounded-xl bg-white/55 text-[#775b20]"><TrendingUp className="h-5 w-5" strokeWidth={1.8} /></span></div>
-                <p className="mt-3 text-2xl font-bold tracking-tight text-[#3e321b]">{formatMoney(totalCommission)}</p><p className="mt-1 text-xs font-semibold text-[#705a2b]">Credited commissions</p>
+              <Link to="/orders" className="group flex h-full min-h-[132px] flex-col justify-between rounded-2xl border border-white/65 bg-white/80 p-5 shadow-[0_8px_24px_rgba(18,60,45,.10)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-[#c8ad68]">
+                <div className="flex items-center justify-between"><span className="text-xs font-semibold text-[#62766a]">Total orders</span><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e7f1e9]/90 text-[#0b5a3c]"><Building2 className="h-5 w-5" strokeWidth={1.8} /></span></div>
+                <p className="mt-3 text-2xl font-bold tracking-tight text-[#123c2d]">{investmentRequests.filter((row) => row.plan_code === 'project_order').length}</p><p className="mt-1 text-xs font-semibold text-[#718477]">Property orders recorded</p>
               </Link>
-              <Link to="/wallet#commissions" className="group flex h-full min-h-[132px] flex-col justify-between rounded-2xl border border-[#dce7dd] bg-white p-5 shadow-[0_8px_24px_rgba(18,60,45,.07)] transition hover:-translate-y-0.5 hover:border-[#c8ad68]">
-                <div className="flex items-center justify-between"><span className="text-xs font-semibold text-[#62766a]">Investment requests</span><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e7f1e9] text-[#0b5a3c]"><Building2 className="h-5 w-5" strokeWidth={1.8} /></span></div>
-                <p className="mt-3 text-2xl font-bold tracking-tight text-[#123c2d]">{investmentRequests.length}</p><p className="mt-1 text-xs font-semibold text-[#718477]">{pendingProjects} awaiting action</p>
-              </Link>
+              <section className="min-h-[132px] rounded-2xl border border-[#c8ad68]/70 bg-white/85 p-5 shadow-[0_8px_24px_rgba(18,60,45,.10)] backdrop-blur-xl" aria-label="Badge progress">
+                <div className="flex items-center justify-between"><span className="text-xs font-semibold text-[#62766a]">Badge progress</span><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#f5e9c9] text-[#8b6c2e]">◇</span></div>
+                {badgeProgress.length ? <div className="mt-3 space-y-2">{badgeProgress.slice(0, 2).map((badge) => <div key={`${badge.level_name}-${badge.set_number}`}><div className="mb-1 flex items-center justify-between gap-2 text-[11px] font-semibold text-[#4f6658]"><span className="truncate">{badge.level_name} · Badge {badge.set_number}</span><span>{Math.max(0, Math.min(100, Number(badge.progress_percent) || 0))}%</span></div><div className="h-1.5 overflow-hidden rounded-full bg-[#dce7dd]"><div className="h-full rounded-full bg-[#b9974e]" style={{ width: `${Math.max(0, Math.min(100, Number(badge.progress_percent) || 0))}%` }} /></div></div>)}</div> : <p className="mt-3 text-xs font-medium leading-5 text-[#718477]">Your badge progress will appear here when badge access is set up.</p>}
+                <Link to="/residences" className="mt-2 inline-flex text-[11px] font-bold text-[#8b6c2e] hover:text-[#123c2d]">View projects <ArrowRight className="ml-1 h-3.5 w-3.5" /></Link>
+              </section>
             </section>
 
             <section className="grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(280px,.9fr)]">
